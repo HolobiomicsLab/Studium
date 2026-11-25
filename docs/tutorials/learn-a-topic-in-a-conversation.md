@@ -69,7 +69,9 @@ never as instructions to the assistant.
 
 ## 3. Let the assistant draft, and Studium check
 
-The assistant writes a draft from the passages and calls `create_lesson`. Studium refuses the draft
+Before writing, the assistant shows you a short sketch of the lesson: the goal, the concepts, and the
+title and kind of each step, never an answer. It goes on without waiting; say what you would change.
+It then writes the draft once, straight into its `create_lesson` call. Studium refuses the draft
 unless every quote matches its passage character for character (only no-break spaces, runs of
 spaces and typographic apostrophes are folded), no placeholder remains and the concept graph is
 sound; the repository linter then runs. A refusal lists `{path, message, hint}` for each problem and
@@ -77,8 +79,9 @@ the assistant fixes its draft, never the source. Studium keeps a refused draft, 
 back only the scenes the refusal names, which is quicker than writing the whole draft again.
 
 On success the lesson is written to your library as `<course_id>/lesson.json` under
-`~/.studium/library` (never into the folder `BUNDLES_ROOT` names), and the assistant shows you the
-outline: titles, scene types, concepts and the passages each scene cites, with no answer key. It also
+`~/.studium/library` (never into the folder `BUNDLES_ROOT` names), and the assistant shows you what
+differs from the sketch (the outline Studium returns holds titles, scene types, concepts and the
+passages each scene cites, with no answer key). It also
 reports Studium's warnings, each with a hint, for example a lesson longer than the minutes a day you
 gave. It also relays the authoring notice:
 
@@ -87,7 +90,7 @@ gave. It also relays the authoring notice:
 > compare your answer with the provided reference and rate your recall; that rating schedules your reviews
 > and never changes your mastery. […]
 
-Ask for changes now if the outline misses what you wanted. Replacing an existing lesson takes an
+Ask for changes now if the lesson misses what you wanted. Replacing an existing lesson takes an
 explicit `overwrite`, which only ever replaces a self-study lesson that no teacher validated.
 
 ## 4. Answer the first question

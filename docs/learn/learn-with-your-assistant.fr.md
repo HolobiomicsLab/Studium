@@ -61,9 +61,11 @@ une licence `NC`, `ND` ou inconnue restreint ce que vous pouvez faire du résult
 bibliothèque personnelle et n'est jamais publiée, mais l'usage de la source sous ses conditions vous revient.
 Une source cohérente donne souvent une meilleure leçon que plusieurs.
 
-## 3. Relire le plan
+## 3. Relire l'esquisse, puis la leçon
 
-L'assistant rédige la leçon et appelle `create_lesson`. Studium la vérifie avant d'écrire quoi que ce soit :
+Avant d'écrire la leçon, l'assistant vous montre une courte esquisse : l'objectif, les notions, et le titre et
+le type de chaque étape, jamais une réponse. Il continue sans attendre votre accord ; dites à tout moment ce que
+vous changeriez. Il écrit ensuite la leçon une seule fois, directement dans son appel à `create_lesson`. Studium la vérifie avant d'écrire quoi que ce soit :
 chaque citation doit correspondre à un passage au caractère près (seuls les espaces insécables, les suites
 d'espaces et les apostrophes typographiques sont tolérés), rien ne doit rester inachevé et l'ordre des notions
 doit tenir. Quand Studium refuse, rien n'est écrit : il garde le brouillon, et l'assistant corrige et renvoie
@@ -74,8 +76,9 @@ dure plus que vos minutes par jour ou qu'aucune question ne vérifie un prérequ
 La leçon est écrite dans votre bibliothèque, `~/.studium/library/<cours>/lesson.json`, quel que soit le
 dossier de leçons que le serveur lit par ailleurs.
 
-Vous voyez ensuite le plan : titres des scènes, types de scènes et notions, jamais une réponse. S'il ne
-correspond pas à ce que vous vouliez, dites-le ; l'assistant reprend le brouillon et reconstruit la leçon.
+Une fois la leçon écrite, l'assistant ne montre que ce qui diffère de l'esquisse, jamais une réponse. Si elle ne
+correspond pas à ce que vous vouliez, dites-le ; l'assistant reprend le brouillon et reconstruit la leçon. Si
+votre assistant tient une liste de tâches, il y coche les étapes : sources, esquisse, rédaction, vérification.
 
 ## 4. Jouer, dans le chat ou dans VS Code
 

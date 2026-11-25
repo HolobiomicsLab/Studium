@@ -87,9 +87,16 @@ Read the brief: it is the authority on the draft. Skim the passages too: they ar
 only text the lesson may quote; a stray passage (site menu, lone footnote) can stay
 uncited.
 
-## 4. Write the draft
+## 4. Show a sketch, then write the draft once
 
-Write a LessonDraft that validates against `draft_schema`. The brief's main rules:
+Before you write, show the learner a short sketch: the goal, the concept labels, and each
+step's title with its kind. Never a key, and titles name the topic, never the answer. Do not
+wait for approval: go on, and take their corrections when they come. Then write the
+LessonDraft once, straight into the `create_lesson` call: not in a message, not twice. If your
+host keeps a todo list, tick sources, sketch, writing and checking in the same turn as your
+next call, never in a turn of its own.
+
+The draft validates against `draft_schema`. The brief's main rules:
 
 - Write in the learner's language; quotes stay in the language of their passage. In a
   French lesson, address the learner as « tu » unless they asked otherwise.
@@ -114,7 +121,7 @@ Write a LessonDraft that validates against `draft_schema`. The brief's main rule
   on what the learner already knows, both marked `diagnostic: true`: they are played
   once and never come back as reviews. The meta_checkpoint can replace the intro.
 
-## 5. Create the lesson and show the outline
+## 5. Create the lesson and show what changed
 
 Call `create_lesson {source_set_id, draft, course_id?, overwrite?}`.
 
@@ -125,8 +132,9 @@ Call `create_lesson {source_set_id, draft, course_id?, overwrite?}`.
   whole corrected scene at that index. With `resend: "draft"` (an error on the concepts,
   goal, title or the order of the scenes), send the whole draft again. Errors can quote the
   draft's own keys: do not show them to the learner.
-- On `{ok: true, course_ref, outline, key_classes, findings, notice}`, show the
-  outline (titles, scene types, concepts). It holds no key; never add one. Report the
+- On `{ok: true, course_ref, outline, key_classes, findings, notice}`, show only what
+  differs from your sketch (the outline holds titles, scene types and concepts, no key; never
+  add one), and relay the `notice`. Report the
   `findings` (`{level, code, message, hint?}`) without hiding warnings, and follow
   their `hint`: `lwg_prereq_unassessable` names the concept that needs a quiz,
   `duration_over_daily_minutes` says the lesson is longer than the learner's minutes

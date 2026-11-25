@@ -114,6 +114,19 @@ describe("instructions and prompts (RT-8a, RFR-16, L-4)", () => {
     expect(lines.length).toBeLessThanOrEqual(13);
   });
 
+  // D3 and D4 (waiting review 2026-11-25): within the same line budget, the authoring line asks for a short
+  // keyless sketch before the draft, the draft written once in the create_lesson call, and after a refusal
+  // only the scenes it names, with draft_id.
+  it("tell the harness to sketch first, write the draft once and resend only the scenes a refusal names", () => {
+    const lines = SERVER_INSTRUCTIONS.split("\n");
+    const authoring = lines.find((line) => line.includes("prepare_sources, create_lesson"))!;
+    expect(authoring).toMatch(/short sketch/);
+    expect(authoring).toMatch(/never a key/);
+    expect(authoring).toMatch(/once, in the create_lesson call/);
+    expect(authoring).toMatch(/only the scenes it names, with draft_id/);
+    expect(lines.length).toBeLessThanOrEqual(13);
+  });
+
   it("call list_lessons only when the plan's next step is not to author, and pass the language", async () => {
     const { client } = await connect({ bundlesRoot: tmp() });
     const en = await promptText(client, "learn", { topic: "binary search", learner_id: "ren", language: "en" });

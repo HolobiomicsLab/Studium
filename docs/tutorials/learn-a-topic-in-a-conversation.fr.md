@@ -73,7 +73,9 @@ comme une donnée, jamais comme une consigne adressée à l'assistant.
 
 ## 3. L'assistant rédige, Studium vérifie
 
-L'assistant écrit un brouillon à partir des passages et appelle `create_lesson`. Studium refuse le
+Avant d'écrire, l'assistant vous montre une courte esquisse de la leçon : l'objectif, les notions, et le
+titre et le type de chaque étape, jamais une réponse. Il continue sans attendre ; dites ce que vous
+changeriez. Il écrit ensuite le brouillon une seule fois, directement dans son appel à `create_lesson`. Studium refuse le
 brouillon tant qu'une citation ne correspond pas à son passage au caractère près (seuls les espaces
 insécables, les suites d'espaces et les apostrophes typographiques sont tolérés), qu'un texte
 provisoire subsiste ou que le graphe des notions est incohérent ; le linter du dépôt passe ensuite.
@@ -82,8 +84,9 @@ jamais la source. Studium garde un brouillon refusé : l'assistant ne renvoie q
 refus nomme, ce qui va plus vite que de réécrire tout le brouillon.
 
 En cas de succès, la leçon est écrite dans votre bibliothèque sous `<course_id>/lesson.json`, dans
-`~/.studium/library` (jamais dans le dossier que nomme `BUNDLES_ROOT`). L'assistant vous montre le
-plan : titres, types de scène, notions et passages cités par chaque scène, sans aucune clé de réponse.
+`~/.studium/library` (jamais dans le dossier que nomme `BUNDLES_ROOT`). L'assistant vous montre ce qui
+diffère de l'esquisse (l'aperçu que renvoie Studium donne titres, types de scène, notions et passages
+cités par chaque scène, sans aucune clé de réponse).
 Il signale aussi les avertissements de Studium, chacun avec une piste, par exemple une leçon plus
 longue que vos minutes par jour, et relaie l'avis d'autorat :
 
@@ -92,7 +95,7 @@ longue que vos minutes par jour, et relaie l'avis d'autorat :
 > production ne sont pas évaluées : compare ta réponse à la référence affichée et note ton rappel ;
 > cette note règle tes révisions, jamais ta maîtrise. […]
 
-C'est le moment de demander des changements si le plan ne couvre pas ce que vous vouliez.
+C'est le moment de demander des changements si la leçon ne couvre pas ce que vous vouliez.
 Remplacer une leçon existante demande un `overwrite` explicite, qui ne remplace jamais qu'une leçon
 d'auto-apprentissage qu'aucun enseignant n'a validée.
 

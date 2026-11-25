@@ -146,6 +146,63 @@ describe("authoringGuide", () => {
     expect(step).toMatch(language === "fr" ? /jamais en faisant dire à une citation/ : /never by making a quote say/);
   });
 
+
+  // D3 (waiting review 2026-11-25, owner's decision 2): before writing, the assistant shows a short keyless
+  // sketch and goes on without waiting; it writes the draft once, in the create_lesson call; a todo list,
+  // if the host has one, is ticked with the next call; after create_lesson, only what differs from the
+  // sketch is shown. Each check is anchored on its step line: words such as « never a key » are elsewhere
+  // in the guide already. French says « esquisse », never the bare « plan » (the outline, the study plan).
+  const stepOf = (markdown: string, n: number) => markdown.split("\n").find((line) => line.startsWith(`${n}. `)) ?? "";
+
+  it.each(["fr", "en"] as const)("asks for a short keyless sketch before the draft, without waiting for approval (%s)", (language) => {
+    const step = stepOf(authoringGuide({ language }).markdown, 3);
+    const fr = language === "fr";
+    expect(step).toContain(fr ? "esquisse" : "sketch");
+    expect(step).toMatch(fr ? /l'objectif, les intitulés des concepts, et le titre de chaque étape avec son type/ : /the goal, the concept labels, and each step's title with its kind/);
+    expect(step).toContain(fr ? "jamais une clé" : "never a key");
+    expect(step).toContain(fr ? "des titres qui nomment le sujet, jamais la réponse" : "titles name the topic, never the answer");
+    expect(step).toMatch(fr ? /sans attendre son accord/ : /without waiting for approval/);
+    expect(step).not.toMatch(/\bplan\b/);
+  });
+
+  it.each(["fr", "en"] as const)("asks to write the draft once, in the create_lesson call (%s)", (language) => {
+    const step = stepOf(authoringGuide({ language }).markdown, 4);
+    expect(step).toContain(language === "fr" ? "une seule fois, dans l'appel à `create_lesson`" : "once, in the `create_lesson` call");
+    expect(step).toMatch(language === "fr" ? /pas dans un message, pas deux fois/ : /not in a message, not twice/);
+    expect(step).toContain("draft_id");
+  });
+
+  it.each(["fr", "en"] as const)("asks to tick a host's todo list with the next call, never in a turn of its own (%s)", (language) => {
+    const step = stepOf(authoringGuide({ language }).markdown, 5);
+    const fr = language === "fr";
+    expect(step).toContain(fr ? "liste de tâches" : "todo list");
+    expect(step).toContain(fr ? "sources, esquisse, rédaction et vérification" : "sources, sketch, writing and checking");
+    expect(step).toContain(fr ? "dans le même tour que votre appel suivant" : "in the same turn as your next call");
+    expect(step).toContain(fr ? "jamais dans un tour à part" : "never in a turn of its own");
+  });
+
+  it.each(["fr", "en"] as const)("shows after create_lesson only what differs from the sketch, and the notice (%s)", (language) => {
+    const step = stepOf(authoringGuide({ language }).markdown, 6);
+    expect(step).toContain(language === "fr" ? "seulement ce qui diffère de l'esquisse" : "only what differs from the sketch");
+    expect(step).toContain(language === "fr" ? "jamais une clé" : "never a key");
+    expect(step).toContain("`notice`");
+    expect(step).toContain("`start_lesson_session {bundle_ref: course_ref}`");
+  });
+
+  it("never says the bare « plan » in French: the sketch is an « esquisse »", () => {
+    expect(authoringGuide({ language: "fr" }).markdown).not.toMatch(/\bplan\b/);
+    expect(authoringGuide({ language: "fr", mode: "teacher" }).markdown).not.toMatch(/\bplan\b/);
+  });
+
+  // The waiting review's text (BN-2's tell_learner step, D3's sketch, todo and differences, D4's resend)
+  // shares one budget over the guide of release 0.6.4, pinned here: every build reads the whole guide. The
+  // plan gave BN-2 300 characters and D3 400; D4's resend sentence takes about 200 more.
+  const GUIDE_064_CHARS = { en: 4601, fr: 5054 } as const;
+  const WAITING_REVIEW_BUDGET = 900;
+  it.each(["fr", "en"] as const)("stays within the waiting review's budget over the 0.6.4 guide (%s)", (language) => {
+    expect(authoringGuide({ language }).markdown.length).toBeLessThanOrEqual(GUIDE_064_CHARS[language] + WAITING_REVIEW_BUDGET);
+  });
+
   it("writes its French example to the learner with « tu »", () => {
     const { example } = authoringGuide({ language: "fr" });
     expect(JSON.stringify(example.draft)).not.toMatch(/\b(vous|votre|vos|Relisez|Racontez)\b/i);

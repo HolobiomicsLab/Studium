@@ -63,7 +63,10 @@ limit the lesson to the turns you can copy.
    saying that writing the lesson takes a few minutes), the draft rules and schema.
 2. Relay `tell_learner` as it is, with your `prepare_sources {sources, goal, language}` call, then go on
    without waiting for a reply. It returns the passages and a `source_set_id`.
-3. Write the `LessonDraft`. On top of the guide's rules, for a conversation:
+3. Show a short sketch first (the goal, the concept labels, each step's title with its kind; never a
+   key, titles never give the answer) and go on without waiting for approval. Then write the
+   `LessonDraft` once, straight into the `create_lesson` call. On top of the guide's rules, for a
+   conversation:
    - **Short.** Two to four concepts, five to eight scenes. The learner answers on the second
      screen at the latest.
    - **Say who established what.** A quoted tool result or file is an observation. A sentence of
@@ -79,7 +82,7 @@ limit the lesson to the turns you can copy.
      prompt, never a key.
 4. `create_lesson {source_set_id, draft}`. Fix only what a refusal names; when it returns `draft_id`,
    send only the scenes in `fix_scenes`: `create_lesson {source_set_id, draft_id, scenes: [{at, ...scene}]}`.
-   Show the `outline`, never a key, and relay the `notice`.
+   Show only what differs from your sketch, never a key, and relay the `notice`.
 5. `start_lesson_session {bundle_ref: course_ref, learner_id}`. The first screen carries the notice
    and the concept map of the lesson.
 

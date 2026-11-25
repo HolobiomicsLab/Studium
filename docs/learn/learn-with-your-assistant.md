@@ -59,9 +59,11 @@ the result. The lesson stays in your personal library and
 is never published, but you remain responsible for using the source under its terms. One coherent source
 usually makes a better lesson than many.
 
-## 3. Look at the outline
+## 3. Look at the sketch, then the lesson
 
-The assistant writes the lesson and calls `create_lesson`. Studium checks it before writing anything: every
+Before it writes the lesson, the assistant shows you a short sketch: the goal, the concepts, and the title and
+kind of each step, never an answer. It goes on without waiting for your approval; say what you would change at
+any time. It then writes the lesson once, straight into its `create_lesson` call. Studium checks it before writing anything: every
 quotation must match a passage character for character (only no-break spaces, runs of whitespace and
 typographic apostrophes are folded), nothing may be left unfinished, and the order of ideas must hold together.
 When Studium refuses, nothing is written: it keeps the draft, and the assistant fixes and sends again only the scenes
@@ -72,8 +74,9 @@ your minutes a day or when a prerequisite has no question that checks it.
 The lesson is written to your library, `~/.studium/library/<course>/lesson.json`, whatever lessons folder the
 server also reads.
 
-You then see the outline: scene titles, scene types and concepts, never an answer. If it does not match what
-you wanted, say so; the assistant revises the draft and rebuilds the lesson.
+Once the lesson is written, the assistant shows only what differs from the sketch, never an answer. If it does
+not match what you wanted, say so; the assistant revises the draft and rebuilds the lesson. If your assistant
+keeps a to-do list, it ticks the stages there: sources, sketch, writing, checking.
 
 ## 4. Play it, in the chat or in VS Code
 
