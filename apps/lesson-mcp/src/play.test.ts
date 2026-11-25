@@ -51,7 +51,11 @@ describe('startPlay', () => {
     expect(listed.lessons).toEqual([]);
     const refs = listed.shipped_lessons.map((lesson:{bundle_ref:string}) => lesson.bundle_ref);
     expect(refs).toContain('discover-studium-fr/lesson.json');
-    expect((await call('open_lesson_panel', {bundle_ref:'discover-studium-fr/lesson.json', locale:'fr'})).status).toBe(200);
+    const opened = await call('open_lesson_panel', {bundle_ref:'discover-studium-fr/lesson.json', locale:'fr'});
+    expect(opened.status).toBe(200);
+    const panel = await opened.json() as {isError?:boolean; structuredContent?:{panel?:{scene?:{id?:string}; session_id?:string}}};
+    expect(panel.isError).not.toBe(true);
+    expect(panel.structuredContent?.panel?.scene?.id).toBe('s1-intro');
     expect((await call('open_lesson_panel', {bundle_ref:'discover-studium-xx/lesson.json'})).status).toBe(400);
   });
 
