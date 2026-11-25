@@ -86,6 +86,9 @@ let lessonStatusLine: string | null = null;
 let studyStatusRefreshing = false;
 /** BN-1 / BN-4: the library an assistant's server writes lessons to (<STUDIUM_HOME>/library), and what its watchers saw. */
 let libraryRoot: string | undefined;
+/** Review finding 3: STUDIUM_HOME, resolved once at activation; the Copilot server is given it, so the library it
+ * writes is the one watched here. */
+let studiumHomeDir: string | undefined;
 let libraryWatch: LibraryWatch | undefined;
 /** The watcher on the lessons folder (studium.bundlesRoot) when it is not the library: it refreshes the list only. */
 let lessonsFolderWatcher: vscode.Disposable | undefined;
@@ -183,7 +186,8 @@ export function activate(context: vscode.ExtensionContext) {
   // BN-1: the library where an assistant's server writes the lessons it builds, computed as the server computes it
   // (persistence.ts libraryRoot). Created now if missing: a watcher on a folder that does not exist yet misses the
   // first files written into it, which is the first build of a fresh install.
-  libraryRoot = join(studiumHome(process.env, homedir()), "library");
+  studiumHomeDir = studiumHome(process.env, homedir());
+  libraryRoot = join(studiumHomeDir, "library");
   try { mkdirSync(libraryRoot, { recursive: true }); } catch { /* an unwritable home: the server will say so when it writes */ }
   treeProvider = new StudiumCoursesTreeProvider(() => discoverForTree(context));
   const lessonsView = vscode.window.createTreeView("studiumLessons", { treeDataProvider: treeProvider });
@@ -224,6 +228,7 @@ export function activate(context: vscode.ExtensionContext) {
       locations: () => lessonServerLocations(context, resolveLessonBundlesRoot(context)),
       repoRoot: () => cfg<string>("repoRoot", resolve(context.extensionPath, "..", "..")),
       enabled: () => cfg<boolean>("registerMcpServer", true) !== false,
+      studiumHome: studiumHomeDir,
       log: (line) => mcpOutput.appendLine(line),
     });
   } catch (e: any) {
@@ -483,7 +488,7 @@ async function restoreLessonPanel(context: vscode.ExtensionContext, panel: vscod
 async function forgetMyData(context: vscode.ExtensionContext): Promise<void> {
   const locale = extensionLocale;
   const action = hostPhrase("forget_data_action", {}, locale);
-  const harnessData = join(studiumHome(process.env, homedir()), "data");
+  const harnessData = join(studiumHomeDir ?? studiumHome(process.env, homedir()), "data");
   const choice = await vscode.window.showWarningMessage(
     hostPhrase("forget_data_prompt", { harness_data: harnessData }, locale), { modal: true }, action);
   if (choice !== action) return;

@@ -33,8 +33,9 @@ export function mcpServerApi(vscodeLike: unknown): McpServerApi | null {
 /** The environment the editor gives the registered server, ON TOP OF the extension host's own (a null value
  *  removes an inherited variable). Same places as the lesson pane's server (lessonMcpEnv): BUNDLES_ROOT from the
  *  lessons folder setting, progress in the extension's storage, telemetry consent from the setting alone. No judge
- *  unless one is configured where VS Code was started (a non-blank LITELLM_BASE_URL, as for the pane). Nothing else
- *  is copied from `hostEnv`: a definition may be forwarded to a Copilot session, and an inherited key
+ *  unless one is configured where VS Code was started (a non-blank LITELLM_BASE_URL, as for the pane). Review finding 3:
+ *  the STUDIUM_HOME the extension resolved once, so the server's library is the folder the extension watches. Nothing
+ *  else is copied from `hostEnv`: a definition may be forwarded to a Copilot session, and an inherited key
  *  (LITELLM_API_KEY included) must not travel in it. Pure. */
 export function registeredServerEnv(opts: {
   launchEnv?: Record<string, string>;
@@ -42,6 +43,7 @@ export function registeredServerEnv(opts: {
   storageDir: string;
   telemetryConsent: boolean;
   hostEnv: Record<string, string | undefined>;
+  studiumHome?: string;
 }): Record<string, string | null> {
   const judge = opts.hostEnv["LITELLM_BASE_URL"]?.trim() ?? "";
   return {
@@ -49,6 +51,7 @@ export function registeredServerEnv(opts: {
     STUDIUM_DATA_DIR: opts.storageDir,
     STUDIUM_TELEMETRY_CONSENT: opts.telemetryConsent ? "granted" : null,
     LITELLM_BASE_URL: judge,
+    ...(opts.studiumHome !== undefined ? { STUDIUM_HOME: opts.studiumHome } : {}),
     ...opts.launchEnv,
   };
 }

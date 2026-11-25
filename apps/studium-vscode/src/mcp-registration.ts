@@ -18,6 +18,8 @@ export interface McpRegistrationDeps {
   repoRoot: () => string;
   /** The studium.registerMcpServer setting. */
   enabled: () => boolean;
+  /** Review finding 3: STUDIUM_HOME as the extension resolved it once (its library is the folder it watches). */
+  studiumHome: string;
   log: LogSink;
 }
 
@@ -70,7 +72,7 @@ export function registerStudiumMcpServer(context: vscode.ExtensionContext, deps:
         return [];
       }
       const where = deps.locations();
-      const env = registeredServerEnv({ launchEnv: launch.env, ...where, hostEnv: process.env });
+      const env = registeredServerEnv({ launchEnv: launch.env, ...where, hostEnv: process.env, studiumHome: deps.studiumHome });
       const version: string | undefined = context.extension?.packageJSON?.version;
       const definition = new api.Definition(MCP_SERVER_LABEL, launch.command, launch.args, env, version);
       definition.cwd = vscode.Uri.file(launch.cwd);

@@ -661,7 +661,11 @@ async function main() {
       && def.cwd?.fsPath === launch.cwd, `the definition starts the pane's lesson-mcp (got ${JSON.stringify({ label: def.label, command: def.command, args: def.args, cwd: def.cwd?.fsPath })})`);
     expect(def.env?.BUNDLES_ROOT === lib && def.env?.STUDIUM_DATA_DIR === storage && def.env?.LITELLM_BASE_URL === ""
       && def.env?.STUDIUM_TELEMETRY_CONSENT === null, `same lessons folder and data folder as the pane, no judge (got ${JSON.stringify(def.env)})`);
-    const allowed = new Set(["BUNDLES_ROOT", "STUDIUM_DATA_DIR", "STUDIUM_TELEMETRY_CONSENT", "LITELLM_BASE_URL", "ELECTRON_RUN_AS_NODE"]);
+    // Review finding 3: the STUDIUM_HOME the extension resolved once, whose library it watches.
+    expect(def.env?.STUDIUM_HOME === isolation.studiumHome, `the server writes its library where the extension watches (got ${def.env?.STUDIUM_HOME})`);
+    // Changed: STUDIUM_HOME is allowed too; the extension sets it, it is not copied from the editor's environment.
+    const allowed = new Set(["BUNDLES_ROOT", "STUDIUM_DATA_DIR", "STUDIUM_TELEMETRY_CONSENT", "LITELLM_BASE_URL", "ELECTRON_RUN_AS_NODE",
+      "STUDIUM_HOME"]);
     expect(Object.keys(def.env ?? {}).every((k) => allowed.has(k)), `nothing else is copied from the editor's environment (got ${Object.keys(def.env ?? {})})`);
 
     // Start it the way the editor does (the definition's env over the extension host's), and ask who it is.
@@ -719,7 +723,7 @@ async function main() {
     // Editors without the API (VS Code before 1.101, forks) or with one that throws: nothing breaks.
     const { registerStudiumMcpServer } = await import("./mcp-registration.js");
     const deps = { locations: () => ({ bundlesRoot: lib, storageDir: storage, telemetryConsent: false }), repoRoot: () => repoRoot,
-      enabled: () => true, log: (line: string) => { seen.outputLines.push(line); } };
+      enabled: () => true, studiumHome: isolation.studiumHome, log: (line: string) => { seen.outputLines.push(line); } };
     const savedLm = fakeVscode.lm;
     delete fakeVscode.lm;
     let outcome: unknown;

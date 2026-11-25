@@ -70,6 +70,13 @@ const repoRoot = resolve(fileURLToPath(new URL(".", import.meta.url)), "..", "..
   expect(blank["LITELLM_BASE_URL"] === "", "a blank LITELLM_BASE_URL counts as no judge");
 }
 {
+  // Review finding 3: the server writes its library under the STUDIUM_HOME the extension resolved once and watches;
+  // one inherited from the editor's environment does not travel.
+  const home = registeredServerEnv({ bundlesRoot: "/l", storageDir: "/s", telemetryConsent: false, hostEnv: { STUDIUM_HOME: "/elsewhere" },
+    studiumHome: "/h/.studium" });
+  expect(home["STUDIUM_HOME"] === "/h/.studium", `the server gets the extension's STUDIUM_HOME (got ${JSON.stringify(home)})`);
+}
+{
   // Where a server added by hand can be: the user profile's mcp.json (next to globalStorage), each workspace
   // folder's .vscode/mcp.json and .mcp.json, and Copilot's own mcp-config.json.
   const files = mcpConfigFiles({ globalStorageDir: "/u/User/globalStorage/holobiomicslab.studium-vscode", workspaceFolders: ["/w"],
