@@ -108,7 +108,8 @@ describe("no surface promises speed (lead, after review G)", () => {
     ];
     for (const locale of ["en", "fr"] as const) {
       for (const o of surfaces) {
-        const once = { ...o, first: "chat" as const, order: ["chat", ...o.order.filter((s) => s !== "chat")] };
+        const order: SurfaceOffer["order"] = ["chat", ...o.order.filter((s) => s !== "chat")];
+        const once: SurfaceOffer = { ...o, first: "chat", order };
         for (const text of [offerSentences(locale, o), offerSentences(locale, once), chatStartLine(locale, o) ?? ""]) {
           expect(text, `${locale} ${o.first}`).not.toMatch(/at once|aussitôt|immediate|immédiat/i);
         }

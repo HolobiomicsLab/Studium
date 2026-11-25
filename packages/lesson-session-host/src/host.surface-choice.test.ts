@@ -66,7 +66,8 @@ describe("the surface the learner last answered on comes first (B)", () => {
     const plan = await h.studyPlan("ana", { language: "en", client: CODEX });
     expect(plan.next_step).toMatchObject({ action: "continue", tool: "start_lesson_session", offer_first: "chat" });
     // Changed: the chat's sentence reads as the learner's choice, not as going on (review G, finding 3).
-    expect(plan.next_step.text).toMatch(/It plays here, in this chat, as you chose last time\. To answer each step at once, say “panel”/);
+    // Changed: the panel's sentence said "To answer each step at once"; no surface promises speed now (lead, after review G).
+    expect(plan.next_step.text).toMatch(/It plays here, in this chat, as you chose last time\. For your answers to go straight to Studium, say “panel”/);
     await h.forgetLearner("ana");
     expect((await h.lessonOffer(REF, "ana", CODEX))?.order).toEqual(["panel", "browser", "chat"]);
   });
@@ -175,7 +176,8 @@ describe("the VS Code extension's server (STUDIUM_OPEN_LINK)", () => {
     const step = (await h.studyPlan("ana", { language: "en" })).next_step;
     expect(step).toMatchObject({ offer_first: "chat", open_link: pane });
     // Changed: the chat's sentence reads as the learner's choice, not as going on (review G, finding 3).
-    expect(step.text).toMatch(/It plays here, in this chat, as you chose last time\. To answer each step at once, \[open it in the Studium pane\]/);
+    // Changed: the pane's sentence said "To answer each step at once"; no surface promises speed now (lead, after review G).
+    expect(step.text).toMatch(/It plays here, in this chat, as you chose last time\. To answer each step without going through this chat, \[open it in the Studium pane\]/);
     expect(asked).toEqual([]);
   });
 });
