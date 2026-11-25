@@ -39,6 +39,14 @@ expect(!/toutes les données|all Studium/i.test(fr.forget_data_prompt + en.forge
 expect(fr.forget_data_prompt.includes("{harness_data}") && en.forget_data_prompt.includes("{harness_data}"),
   "it names the folder where the assistants' Studium data lives");
 
+// Review of the waiting branch, finding 2: the Continue tooltip says whose progress it shows. Copilot with the server
+// this extension offers plays the pane's learner in the same storage, so it is in; a server added by hand is not.
+expect(en.continue_scope.includes("Copilot with the Studium server this extension offers") && !en.continue_scope.includes("Copilot's Studium tools"),
+  `continue_scope counts Copilot with the extension's server in (got ${en.continue_scope})`);
+expect(fr.continue_scope.includes("Copilot avec le serveur Studium que propose cette extension") && !fr.continue_scope.includes("outils Studium de Copilot"),
+  `and so does the French one (got ${fr.continue_scope})`);
+expect(en.continue_scope.includes("added by hand") && fr.continue_scope.includes("ajouté à la main"), "both name a server added by hand as apart");
+
 // UX-12 / L-5: the host catalogue follows the pane's French typography (no-break spaces before : ; ! ? and inside
 // « », so a status line never starts with a colon) and its register: the learner is « tu » everywhere, plurals are
 // written out (never « notion(s) »), English quotes are “ ” and French ones « ».
