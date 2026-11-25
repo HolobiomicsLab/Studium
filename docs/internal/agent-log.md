@@ -6,6 +6,18 @@ Journal des unités TDD par milestone. Mis à jour à chaque commit significatif
 
 ---
 
+## 2026-11-25 — Mistral Vibe : page de connexion, d'après un essai réel
+
+Retour d'un testeur de l'université (24–25 novembre) : un branchement avec Mistral serait plus rassurant
+pour un usage universitaire. Essai du jour, Vibe 3.1.3 et Mistral Large 4 sur `studium-mcp` 0.6.3 (npm),
+dossier `STUDIUM_HOME` isolé : 40 outils vus ; leçon de 8 étapes construite depuis des notes de cours de
+2 400 caractères, `create_lesson` accepté au premier appel, 6 min 02 s jusqu'à la première étape ; deux
+tours joués (23 s et 28 s en mode `vibe -p`), un quiz évalué avec la clé. Pages `docs/start/vibe.md` et
+`.fr.md`, exemple `docs/examples/vibe.toml`, lignes dans `harnesses` et `index`. Non essayés : Le Chat,
+l'API Mistral comme juge, le mode interactif, les panneaux. Aucun code changé.
+
+---
+
 ## 2026-11-12 — la version 0.6.3 : le `homepage` du paquet npm
 
 Mots du propriétaire : « Oui, prépare 0.6.3 », après la publication de la 0.6.2.

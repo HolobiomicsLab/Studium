@@ -4,6 +4,10 @@ All notable changes to Studium are recorded here. The format follows [Keep a Cha
 
 ## Unreleased
 
+### Added
+
+- Documentation: [Connect Mistral Vibe](docs/start/vibe.md), with an example configuration, from one run in which Vibe with Mistral Large 4 built and played a lesson through `studium-mcp` 0.6.3.
+
 ## 0.6.3 — 2026-11-12
 
 This release changes no behaviour of the server, of the extension or of the lessons. It makes the `studium-mcp` package on npm link the Studium site, as the 0.6.2 changelog said it would.
