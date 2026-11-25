@@ -11,12 +11,19 @@ export const SESSION_KEY = "studium-player-session";
  * `studium-mcp play`: the page then says, once that server is gone, to ask the assistant for a new address. */
 export const FROM_KEY = "studium-player-from";
 
-/** The address the server gave, taken out of the address bar at once: its token (`#token=…`), the lesson it opens
- * (`&lesson=…`, a bundle_ref) and who gave it (`&from=assistant`). The token and who gave it stay in this tab's
- * storage; the lesson is opened once. */
+/** The key of an address's fragment: `k` in the addresses an assistant shows (served-player.ts), `token` in the one
+ * `studium-mcp play` prints. An assistant's address names it neutrally because a careful model may withhold an address
+ * whose fragment says « token » as a secret (Vibe with Mistral Large 4, 2026-11-25; review G, item 5). */
+export function keyOf(fragment) {
+  return fragment.get("k") || fragment.get("token");
+}
+
+/** The address the server gave, taken out of the address bar at once: its key (`#k=…` or `#token=…`, keyOf), the
+ * lesson it opens (`&lesson=…`, a bundle_ref) and who gave it (`&from=assistant`). The key and who gave it stay in
+ * this tab's storage; the lesson is opened once. */
 export function takeAddress(win) {
   const fragment = new URLSearchParams(win.location.hash.slice(1));
-  const token = fragment.get("token");
+  const token = keyOf(fragment);
   let lesson = null;
   if (token) {
     win.sessionStorage.setItem(TOKEN_KEY, token);
@@ -28,7 +35,7 @@ export function takeAddress(win) {
   return { token: win.sessionStorage.getItem(TOKEN_KEY), lesson, fromAssistant: win.sessionStorage.getItem(FROM_KEY) === "assistant" };
 }
 
-/** The token of the address the server printed (`#token=…`), taken out of the address bar at once. */
+/** The key of the address the server gave (keyOf), taken out of the address bar at once. */
 export function takeToken(win) {
   return takeAddress(win).token;
 }
@@ -73,7 +80,7 @@ export async function startBrowserPlayer({ window: win, document: doc, connectMc
   // Another address pasted in this tab changes only the fragment, and a browser does not load the page again for that:
   // the page does, so that the new key and lesson are read (review of decision 4, finding 5).
   win.addEventListener("hashchange", () => {
-    if (new URLSearchParams(win.location.hash.slice(1)).get("token")) reload();
+    if (keyOf(new URLSearchParams(win.location.hash.slice(1)))) reload();
   });
   const locale = localeFromLanguage(win.navigator?.language);
   const words = browserPhrases(locale);

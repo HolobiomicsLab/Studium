@@ -24,15 +24,18 @@ describe('servedPlayer', () => {
     expect(player.port()).toBeNull();
     expect(lines).toEqual([]);
     const ana = await player.linkFor('ana', 'atomistique-l1/lesson.json');
-    expect(ana).toMatch(/^http:\/\/127\.0\.0\.1:\d+\/play#token=[0-9a-f]{64}&from=assistant&lesson=atomistique-l1%2Flesson\.json$/);
+    // Changed: the key is named k, not token (review G, item 5: a model withheld an address whose fragment said token,
+    // as a secret); the page takes both (bridge-browser.test.mjs), and studium-mcp play still prints #token= (play.test.ts).
+    expect(ana).toMatch(/^http:\/\/127\.0\.0\.1:\d+\/play#k=[0-9a-f]{64}&from=assistant&lesson=atomistique-l1%2Flesson\.json$/);
+    expect(ana).not.toMatch(/token/);
     const port = player.port();
     expect(port).toBe(Number(new URL(ana!).port));
     // Once per process: the same port, the same key for the same learner, another key for another learner.
     const again = await player.linkFor('ana', 'other/lesson.json');
     expect(new URL(again!).port).toBe(String(port));
-    expect(again!.match(/token=([0-9a-f]+)/)![1]).toBe(ana!.match(/token=([0-9a-f]+)/)![1]);
+    expect(again!.match(/#k=([0-9a-f]+)/)![1]).toBe(ana!.match(/#k=([0-9a-f]+)/)![1]);
     const bob = await player.linkFor('bob', 'atomistique-l1/lesson.json');
-    expect(bob!.match(/token=([0-9a-f]+)/)![1]).not.toBe(ana!.match(/token=([0-9a-f]+)/)![1]);
+    expect(bob!.match(/#k=([0-9a-f]+)/)![1]).not.toBe(ana!.match(/#k=([0-9a-f]+)/)![1]);
     // One line on stderr, with the origin and never a key.
     expect(lines).toHaveLength(1);
     expect(lines[0]).toContain(`http://127.0.0.1:${port}`);

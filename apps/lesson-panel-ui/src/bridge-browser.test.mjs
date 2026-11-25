@@ -285,7 +285,23 @@ test("nothing is listed again while a lesson opens or plays, and a late list doe
 // D4 (waiting review 2026-11-25, owner decision 4): the address the server an assistant runs gives opens its lesson at
 // once (the server resumes it at the learner's step), and once that server is gone the page says the assistant
 // session ended and that asking the assistant again gives a new address.
-const ASSISTANT = `#token=${TOKEN}&from=assistant&lesson=${encodeURIComponent("photosynthese/lesson.json")}`;
+// Changed: an assistant's address carries its key as `k` (review G, item 5: Vibe with Mistral Large 4 withheld an address
+// whose fragment said `token`, as a secret); `#token=` stays accepted, as studium-mcp play prints it.
+const ASSISTANT = `#k=${TOKEN}&from=assistant&lesson=${encodeURIComponent("photosynthese/lesson.json")}`;
+
+// Review G, item 5: both keys open the same page, keep the key in this tab and leave the address bar.
+test("an address opens with its key named k (an assistant's) or token (studium-mcp play's)", async () => {
+  for (const key of ["k", "token"]) {
+    const p = page({ hash: `#${key}=${TOKEN}&from=assistant&lesson=${encodeURIComponent("photosynthese/lesson.json")}` });
+    await p.start();
+    assert.equal(p.dom.window.location.href, `${ORIGIN}/play`, key);
+    assert.equal(p.dom.window.sessionStorage.getItem(TOKEN_KEY), TOKEN, key);
+    assert.equal(p.dom.window.sessionStorage.getItem(FROM_KEY), "assistant", key);
+    assert.equal(p.calls[0].headers.authorization, `Bearer ${TOKEN}`, key);
+    assert.deepEqual(p.calls.map(call => call.url.split("/").pop()), ["open_lesson_panel"], key);
+    p.dom.window.close();
+  }
+});
 
 test("an address with a lesson opens that lesson at once, without the list, and leaves the address bar", async () => {
   const p = page({ hash: ASSISTANT, stored: { [SESSION_KEY]: "session-0" } });
@@ -367,6 +383,10 @@ test("a second address pasted in the same tab loads the page again; a fragment w
     p.dom.window.location.hash = `#token=${"u".repeat(64)}&from=assistant&lesson=${encodeURIComponent("capsule-demo/lesson.json")}`;
     await wait();
     assert.equal(reloads, 1, `after a page opened with "${first}"`);
+    // Review G, item 5: an assistant's address names its key k.
+    p.dom.window.location.hash = `#k=${"v".repeat(64)}&from=assistant&lesson=${encodeURIComponent("capsule-demo/lesson.json")}`;
+    await wait();
+    assert.equal(reloads, 2, `a k= address after a page opened with "${first}"`);
     p.dom.window.close();
   }
 });

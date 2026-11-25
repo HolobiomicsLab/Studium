@@ -115,7 +115,8 @@ describe("the stdio server without the VS Code extension offers its browser play
     const created = await server.createLesson(LEARNER);
     expect(created).toMatchObject({ isError: false, body: { ok: true, course_ref: LESSON } });
     const link = String(created.body["open_link"]);
-    const [, port, key] = link.match(/^http:\/\/127\.0\.0\.1:(\d+)\/play#token=([0-9a-f]{64})&from=assistant&lesson=photosynthese%2Flesson\.json$/) ?? [];
+    // Changed: the key is named k, not token (review G, item 5).
+    const [, port, key] = link.match(/^http:\/\/127\.0\.0\.1:(\d+)\/play#k=([0-9a-f]{64})&from=assistant&lesson=photosynthese%2Flesson\.json$/) ?? [];
     expect(port, link).toBeDefined();
     expect(created.body).not.toHaveProperty("lesson_path");
     const shown = String(created.body["display_markdown"]);
@@ -159,7 +160,7 @@ describe("the stdio server without the VS Code extension offers its browser play
     const other = (await server.call("get_study_plan", { learner_id: "bob", language: "fr" })).body;
     expect(other["in_progress"]).toEqual([]);
     expect(other["next_step"]).toMatchObject({ action: "start", arguments: { bundle_ref: LESSON } });
-    const otherKey = String(other["next_step"]["open_link"]).match(/token=([0-9a-f]{64})/)![1]!;
+    const otherKey = String(other["next_step"]["open_link"]).match(/#k=([0-9a-f]{64})/)![1]!;
     expect(otherKey).not.toBe(key);
     expect(new URL(String(other["next_step"]["open_link"])).port).toBe(port);
     const refused = await player(origin, otherKey)("get_panel_view", { session_id: panel.session_id });
@@ -177,7 +178,8 @@ describe("the stdio server without the VS Code extension offers its browser play
     const server = await startServer();
     const created = await server.createLesson();
     const link = String(created.body["open_link"]);
-    const [, port, key] = link.match(/^http:\/\/127\.0\.0\.1:(\d+)\/play#token=([0-9a-f]{64})&from=assistant&lesson=/) ?? [];
+    // Changed: the key is named k, not token (review G, item 5).
+    const [, port, key] = link.match(/^http:\/\/127\.0\.0\.1:(\d+)\/play#k=([0-9a-f]{64})&from=assistant&lesson=/) ?? [];
     expect(port, link).toBeDefined();
     const asLearner = player(`http://127.0.0.1:${port}`, key);
     const opened = await asLearner("open_lesson_panel", { bundle_ref: LESSON, locale: "fr" });

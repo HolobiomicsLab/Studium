@@ -50,7 +50,7 @@ When an assistant runs Studium without the Studium VS Code extension (OpenCode, 
 configured by hand, among others), its Studium server offers this player too, with no command to type. The
 first time it offers a lesson (one it has just built, or the one the study plan says to start or continue),
 it starts the player on 127.0.0.1, on a free port, and the assistant shows an address such as
-`http://127.0.0.1:53817/play#token=…&from=assistant&lesson=…`. Open it in your browser: the lesson opens at
+`http://127.0.0.1:53817/play#k=…&from=assistant&lesson=…`. Open it in your browser: the lesson opens at
 your current step. Or say "here" to play it in the chat. Studium never opens the browser itself.
 
 - **One learner per address.** The address plays the learner the assistant named in that call (its

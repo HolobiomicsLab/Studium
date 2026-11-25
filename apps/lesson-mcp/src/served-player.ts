@@ -86,7 +86,10 @@ export function servedPlayer(options: ServedPlayerOptions): ServedPlayer {
       const served = await start();
       if (!served) return null;
       const lesson = bundleRef === undefined ? '' : `&lesson=${encodeURIComponent(bundleRef)}`;
-      return `${served.origin}/play#token=${keys.keyFor(learnerId)}&from=assistant${lesson}`;
+      // The key is named k, not token: a careful model may withhold an address whose fragment says « token », as a secret
+      // (Vibe with Mistral Large 4, 2026-11-25; review G, item 5). The page takes both (bridge-browser.js keyOf);
+      // studium-mcp play still prints #token= (play.ts).
+      return `${served.origin}/play#k=${keys.keyFor(learnerId)}&from=assistant${lesson}`;
     },
     port: () => running?.port ?? null,
     async close() {

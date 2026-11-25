@@ -52,7 +52,7 @@ Quand un assistant fait tourner Studium sans l'extension Studium de VS Code (Ope
 configuré à la main, entre autres), son serveur Studium propose aussi ce lecteur, sans commande à taper. La
 première fois qu'il propose une leçon (une leçon qu'il vient de construire, ou celle que le plan d'étude dit
 de commencer ou de reprendre), il lance le lecteur sur 127.0.0.1, sur un port libre, et l'assistant affiche
-une adresse comme `http://127.0.0.1:53817/play#token=…&from=assistant&lesson=…`. Ouvrez-la dans votre
+une adresse comme `http://127.0.0.1:53817/play#k=…&from=assistant&lesson=…`. Ouvrez-la dans votre
 navigateur : la leçon s'ouvre à votre étape. Ou dites « ici » pour la suivre dans la conversation. Studium
 n'ouvre jamais le navigateur de lui-même.
 

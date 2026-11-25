@@ -90,7 +90,8 @@ async function answerInChat(call: Awaited<ReturnType<typeof connect>>, learner: 
 /** One step answered in the browser player, with the address the plan gave `learner`. */
 async function answerInBrowser(link: string) {
   const { origin } = new URL(link);
-  const key = link.match(/token=([0-9a-f]{64})/)![1]!;
+  // Changed: the served player names its key k (review G, item 5).
+  const key = link.match(/#k=([0-9a-f]{64})/)![1]!;
   const page = async (tool: string, args: Json) => {
     const reply = await fetch(`${origin}/play/api/tools/${tool}`, {
       method: "POST", body: JSON.stringify({ arguments: args }), headers: { "content-type": "application/json", origin, authorization: `Bearer ${key}` },
@@ -112,7 +113,8 @@ describe("A: the panel the client draws first, the browser second, the chat on â
     const created = await call("create_lesson", { source_set_id: prepared.source_set_id, draft, learner_id: "ana" });
     expect(created).toMatchObject({ ok: true, offer_first: "panel", open_panel: { bundle_ref: created.course_ref, learner_id: "ana" } });
     const link = String(created.open_link);
-    expect(link).toMatch(/^http:\/\/127\.0\.0\.1:\d+\/play#token=/);
+    // Changed: the served player names its key k (review G, item 5).
+    expect(link).toMatch(/^http:\/\/127\.0\.0\.1:\d+\/play#k=/);
     const shown = String(created.display_markdown);
     expect(shown).toMatch(/is ready/);
     expect(shown.indexOf("Studium panel")).toBeLessThan(shown.indexOf(`<${link}>`));
@@ -237,7 +239,8 @@ describe("C: one line at the end of the first step of a lesson started in the ch
     const started = await call("start_lesson_session", { bundle_ref: REF, learner_id: "ana" });
     const shown = String(started.presentation.display_markdown);
     // Changed: the browser's line said "For immediate answers"; it promises no speed now (review G, finding 2).
-    expect(shown).toMatch(/\n\n_To answer each step without going through this chat, follow it in your web browser: <http:\/\/127\.0\.0\.1:\d+\/play#token=[0-9a-f]{64}&from=assistant&lesson=photo%2Flesson\.json>_$/);
+    // Changed: the served player names its key k (review G, item 5).
+    expect(shown).toMatch(/\n\n_To answer each step without going through this chat, follow it in your web browser: <http:\/\/127\.0\.0\.1:\d+\/play#k=[0-9a-f]{64}&from=assistant&lesson=photo%2Flesson\.json>_$/);
     const answered = await call("submit_response", { session_id: started.session_id, input: { kind: "reply", text: rightReply(started.presentation.scene) } });
     expect(JSON.stringify(answered)).not.toMatch(/follow it in your web browser/);
     // The learner answered in the chat: their choice. The lesson resumed in the chat carries no line.
