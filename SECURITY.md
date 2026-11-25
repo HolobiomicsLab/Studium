@@ -26,7 +26,7 @@ Studium is a research prototype in its 0.x versions. Fixes go to the `dev` branc
 | A bundle's reproduction command | Not trusted until the learner agrees | The VS Code extension shows the command, its packages and its folder and asks before running it. The consent is tied to a SHA-256 fingerprint of the bundle file and of those fields: any change asks again |
 | Markdown, SVG and figures in a lesson | Not trusted | The pane renders Markdown with raw HTML escaped, then through an allowlist sanitizer; SVG loses scripts, styles, embedded objects and images; relative images are replaced by a placeholder |
 | A learner-supplied pattern in a reproduction | Not trusted | Evaluated with a time limit |
-| Sources given to `prepare_sources` | Data | Capped at 20 sources and 200 000 characters; quotes must match a passage character for character |
+| Sources given to `prepare_sources` | Data | Capped at 20 sources and 200 000 characters; quotes must match a passage character for character. A source named by `path` is read by the server with your rights, outside the file permissions of the harness, so it is read only if it is a regular UTF-8 text file with a text extension (`.txt`, `.md`, ...), at most 800 000 bytes, outside `/dev`, `/proc`, `/sys`, the Studium library and data folder, and places that usually hold secrets (`.ssh`, `.gnupg`, `.aws`, `.env`, `secrets`, keychains, key files), links resolved. The server never fetches from the network |
 | The AI harness and its tools | Outside Studium | Studium does not control what the assistant does with its own tools; the harness's permissions and approvals apply |
 
 ## The VS Code pane

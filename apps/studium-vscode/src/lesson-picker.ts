@@ -47,9 +47,10 @@ export interface LessonPickItem {
   ref: string;
 }
 
-/** A complete picker choice: either a course or the action that chooses another bundles root. */
+/** A complete picker choice: a course, the demo lesson shipped with Studium, or the action that chooses another
+ * bundles root. */
 export interface LessonPickerChoice {
-  action: "course" | "folder";
+  action: "course" | "demo" | "folder";
   label: string;
   description: string;
   detail: string;
@@ -142,14 +143,22 @@ export function toLessonPickItems(courses: readonly LessonCourse[], locale: Loca
   }));
 }
 
-/** Add the always-available folder action to the pure course choices. */
+/** Add the always-available folder action to the pure course choices, after the demo lesson shipped with Studium
+ * when the extension carries it (`demo`), labelled as such and kept apart from the folder's courses. */
 export function toLessonPickerChoices(
   courses: readonly LessonCourse[],
   bundlesRoot: string,
   locale: Locale = "fr",
+  opts: { demo?: boolean } = {},
 ): LessonPickerChoice[] {
   const courseChoices = toLessonPickItems(courses, locale).map((item) => ({ ...item, action: "course" as const }));
-  return [...courseChoices, {
+  const demo: LessonPickerChoice[] = opts.demo ? [{
+    action: "demo",
+    label: hostPhrase("demo_pick_label", {}, locale),
+    description: hostPhrase("demo_pick_description", {}, locale),
+    detail: hostPhrase("demo_pick_detail", {}, locale),
+  }] : [];
+  return [...courseChoices, ...demo, {
     label: phrase("picker_folder", {}, locale),
     description: phrase("picker_folder_description", {}, locale),
     detail: bundlesRoot,

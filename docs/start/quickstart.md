@@ -9,6 +9,24 @@ connect an assistant with Node only and no checkout, see
 [Add the server to your assistant](installation.md#add-the-server-to-your-assistant). Each step links to
 the page with the details.
 
+## Without a terminal
+
+To see how Studium works, install the Studium extension from the Extensions view and run **Studium: Try
+the demo lesson** (or **Try the demo lesson** in its empty **Lessons** view): « Discover Studium », about ten
+minutes, ships with the extension; an AI agent drafted it from Studium's documentation and no teacher has
+checked it yet. To play a lesson a teacher gave you, or the demo lessons of the repository, you need only VS
+Code too: run **Studium: Pick a course**, choose **Choose another course
+folder…** and select the folder of lessons; the demo lessons are the `fixtures` folder of the
+[repository archive](https://github.com/HolobiomicsLab/studium/archive/refs/heads/main.zip). No Node, terminal or AI account is involved. Details:
+[VS Code](vscode.md#get-your-first-lesson); for a teaching room, [Classroom workstations](classroom-workstations.md).
+Without VS Code, [Play in your browser](browser.md) (experimental) opens a lesson in a web browser; it needs
+Node and one command.
+To build a lesson from your own sources without a terminal, use Copilot in VS Code 1.101 or later: the
+extension offers its own Studium server to Copilot's agent mode, so you install neither Node nor anything
+else, and you ask Copilot Chat "I want to learn … with Studium". You need a Copilot plan. This route has not
+been tried in a real Copilot session; see [Connect Copilot](copilot.md). The rest of this page builds a
+lesson with any assistant, from a checkout, which needs a terminal.
+
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="../assets/diagrams/self-learner-journey-dark.svg">
   <img src="../assets/diagrams/self-learner-journey-light.svg" alt="Self-learner journey: a request in an AI assistant, references and their licences, exact passages, an agent-drafted lesson, an outline review, play with the authoring notice visible, then reviews when concepts fall due.">

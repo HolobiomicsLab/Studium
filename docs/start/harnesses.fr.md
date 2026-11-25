@@ -46,6 +46,7 @@ Fusionnez-les dans le fichier de votre client, sans écraser les autres serveurs
 | Copilot dans VS Code | `.vscode/mcp.json` | [Connecter Copilot dans VS Code](copilot.fr.md) |
 | OpenCode | `opencode.jsonc` à la racine du projet | [Connecter OpenCode](opencode.fr.md) |
 | Cursor | `.cursor/mcp.json` ou `~/.cursor/mcp.json` | [Connecter Cursor](cursor.fr.md) |
+| Mistral Vibe | `~/.vibe/config.toml`, ou `vibe mcp add` | [Connecter Mistral Vibe](vibe.fr.md) |
 | Claude Desktop | `claude_desktop_config.json` | [ci-dessous](#claude-desktop) |
 | Un script ou un client sur mesure | aucune configuration MCP | [API HTTP](../reference/http-api.fr.md) et [canal fichiers](../reference/agentic-session-protocol.fr.md) |
 

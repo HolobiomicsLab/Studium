@@ -2,7 +2,7 @@
 // solidarities, with typographic apostrophes and no-break spaces as a real source has them.
 import type { SourceInput } from "./source-set.js";
 
-export const FRENCH_SOURCE: SourceInput = {
+export const FRENCH_SOURCE = {
   title: "Deux formes de solidarité",
   url: "https://example.org/solidarite",
   license: "CC-BY-4.0",
@@ -18,7 +18,7 @@ export const FRENCH_SOURCE: SourceInput = {
       "il punit ce qui offense la conscience commune. Là où domine la solidarité organique, le droit devient " +
       "restitutif : il remet les choses en l’état et règle les rapports entre fonctions différentes.",
   ].join("\n\n"),
-};
+} satisfies SourceInput;
 
 /** The ids prepareSources gives the three passages of FRENCH_SOURCE. */
 export const P1 = "p:deux-formes-de-solidarite:1";

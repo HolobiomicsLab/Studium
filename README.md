@@ -20,9 +20,29 @@ Studium has two parts. Knowing which does what saves the first ten minutes:
 | Part | What it does | What it does not do |
 |---|---|---|
 | **Your AI assistant**, connected to the Studium server | builds a lesson from the sources you name, asks you its questions in the conversation, brings the ideas back over the following days | answer for you |
-| **The VS Code extension** | shows a lesson in a pane, with its figures, equations and reviews | build a lesson: on a new machine its **Lessons** view stays empty until an assistant has built one |
+| **The VS Code extension** | shows a lesson in a pane, with its figures, equations and reviews | build a lesson: on a new machine its **Lessons** view offers only the demo lesson shipped with it until an assistant has built one |
 
-So a new lesson always starts in an assistant.
+So a new lesson always starts in an assistant. A lesson someone already made plays in VS Code alone.
+
+### Play a lesson without a terminal
+
+A lesson a teacher gave you, or one of the demo lessons, plays in VS Code with nothing else: no Node, no
+terminal and no AI account.
+
+1. In VS Code, open the Extensions view, search for **Studium** and install the extension published by
+   HolobiomicsLab.
+2. To see how Studium works first, select the **Studium** icon in the activity bar, then **Try the demo
+   lesson**: « Discover Studium » (about ten minutes, English or French) ships with the extension. An AI agent
+   drafted it from Studium's documentation and no teacher has checked it yet, as its first screen says.
+3. For other lessons, have a folder of lessons: the one your teacher gave you, or the demo lessons, which are the `fixtures`
+   folder of the [repository archive](https://github.com/HolobiomicsLab/studium/archive/refs/heads/main.zip) (about 30 MB; unzip it first).
+4. Select the **Studium** icon in the activity bar, then **Pick a course**, **Choose another course
+   folder…**, and select that folder.
+5. Choose a course. It opens in a pane, at its first step.
+
+Building a new lesson from your own sources needs an assistant, connected as below: that part needs Node
+and one command in a terminal. For a teaching room where an IT team installs Studium for a class, see
+[Classroom workstations](docs/start/classroom-workstations.md).
 
 ### 1. Connect your assistant
 
@@ -32,7 +52,7 @@ You need Node 20 or later (`node --version`). Run the line for your assistant on
 |---|---|
 | Claude Code | `claude mcp add --scope user studium -e LITELLM_BASE_URL= -- npx -y studium-mcp` |
 | Codex | `codex mcp add studium --env LITELLM_BASE_URL= -- npx -y studium-mcp` |
-| Copilot in VS Code, agent mode | `code --add-mcp '{"name":"studium","command":"npx","args":["-y","studium-mcp"],"env":{"LITELLM_BASE_URL":""}}'` |
+| Copilot in VS Code, agent mode | nothing, if the Studium extension is installed (VS Code 1.101 or later): it offers its own server to Copilot, without Node; see [Connect Copilot](docs/start/copilot.md). Without the extension: `code --add-mcp '{"name":"studium","command":"npx","args":["-y","studium-mcp"],"env":{"LITELLM_BASE_URL":""}}'` |
 
 Cursor, OpenCode and Claude Desktop, and the Claude Code plugin that also brings the skills, are on the
 [Installation](docs/start/installation.md) page. `LITELLM_BASE_URL=` (empty) keeps Studium from calling
@@ -145,7 +165,7 @@ Restart the assistant and ask: "I want to learn photosynthesis with Studium". Th
 
 ## Status and limits
 
-Studium is a research prototype, version 0.6.3. The adaptive runtime, the authoring tools, the provenance records and the evaluation harness are implemented and tested, but Studium has not been evaluated for learning outcomes. A teacher must review and approve a lesson before students use it. A lesson built by an AI assistant from your sources is labelled as agent-drafted and not teacher-validated. Without a configured judge model, open answers are compared with the reference rather than scored. The HTTP adapter exposes the 25 lesson operations plus `rate_recall`; the other study tools and all authoring and teacher tools are MCP-only. The release workflow can publish to the VS Code Marketplace, Open VSX and npm once their tokens are configured; until then, a release is a GitHub draft with the VSIX and the server file.
+Studium is a research prototype, version 0.6.4. The adaptive runtime, the authoring tools, the provenance records and the evaluation harness are implemented and tested, but Studium has not been evaluated for learning outcomes. A teacher must review and approve a lesson before students use it. A lesson built by an AI assistant from your sources is labelled as agent-drafted and not teacher-validated. Without a configured judge model, open answers are compared with the reference rather than scored. The HTTP adapter exposes the 25 lesson operations plus `rate_recall`; the other study tools and all authoring and teacher tools are MCP-only. The release workflow can publish to the VS Code Marketplace, Open VSX and npm once their tokens are configured; until then, a release is a GitHub draft with the VSIX and the server file.
 
 - [Capabilities, surfaces and maturity](docs/concepts/capabilities.md#surfaces-and-maturity): what each surface does and how far it is supported.
 - [Architecture and repository map](docs/develop/architecture.md): the diagram, every app, package and service.

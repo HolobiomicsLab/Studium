@@ -90,6 +90,15 @@ describe("instructions and prompts (RT-8a, RFR-16, L-4)", () => {
     }
   });
 
+  // INT-STUDIUM-064, change 1: within the same line budget, the authoring line says to name a local
+  // file by path rather than copy its text, and to pass the text of what was fetched from the web.
+  it("tell the harness to name a local source file by path", () => {
+    const authoring = SERVER_INSTRUCTIONS.split("\n").find((line) => line.includes("prepare_sources, create_lesson"))!;
+    expect(authoring).toMatch(/path/);
+    expect(authoring).toMatch(/text/);
+    expect(authoring).toMatch(/web/);
+  });
+
   it("call list_lessons only when the plan's next step is not to author, and pass the language", async () => {
     const { client } = await connect({ bundlesRoot: tmp() });
     const en = await promptText(client, "learn", { topic: "binary search", learner_id: "ren", language: "en" });

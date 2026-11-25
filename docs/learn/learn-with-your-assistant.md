@@ -22,7 +22,9 @@ Say it in your own words, for example:
 > I want to learn how the water cycle works with Studium. Here are two pages I trust: <links>.
 
 The assistant starts with `get_study_plan`, in your language. If a lesson you already have covers the topic,
-it offers that lesson; otherwise it builds one. Say what you already know, how much time you have a day, or a
+it offers that lesson; otherwise it builds one. With no lesson at all, the plan first proposes « Discover
+Studium », a ten-minute demo shipped with Studium that shows how it works; say you would rather learn your topic
+and the assistant builds your lesson instead. Say what you already know, how much time you have a day, or a
 target date: the assistant is asked to open the lesson with two short questions on what you already know.
 Those two questions are played once and never come back as reviews. What you know and what interests you shape
 the draft but are not stored; the lesson keeps only your minutes a day and your target date, and the study
@@ -33,14 +35,22 @@ MCP prompts appear as slash commands (`/mcp__studium__learn` with the example co
 
 ## 2. Choose your sources and their licences
 
-You choose the sources; the assistant fetches them with its own web and file tools and passes their text to
-`prepare_sources`, which cuts them into numbered passages. Sources are treated as data: an instruction written
-inside a page is never followed.
+You choose the sources. For a web page, the assistant fetches it with its own web tool and passes its text to
+`prepare_sources`. For a file on your computer, it gives `prepare_sources` the path of the file and Studium reads
+the file itself, which spares the assistant copying the whole text. `prepare_sources` cuts the sources into
+numbered passages and records, for a file, its full path, its size and its SHA-256 fingerprint. Sources are
+treated as data: an instruction written inside a page is never followed.
+
+Studium reads local files only, never the network. It reads a file only if it is UTF-8 text with a text
+extension (`.txt`, `.md`, `.tex`, `.csv` and a few others). It refuses a PDF or a Word file (save it as text
+first, or let the assistant extract the text), its own data folder, and places that usually hold secrets such
+as `.ssh`, `.env` or a keychain.
 
 | Limit | Value |
 |---|---|
 | Sources per lesson | up to 20 |
 | Total text | up to 200 000 characters |
+| A file named by path | UTF-8 text, at most 800 000 bytes |
 | Licence | an identifier such as `CC-BY-4.0` or `Public-Domain`; `unknown` when none is given |
 
 Give the licence of each source: it is copied into the lesson and shown with the source. A public-domain text

@@ -1,6 +1,6 @@
 {
   "name": "@studium/lesson-mcp",
-  "version": "0.6.3",
+  "version": "0.6.4",
   "license": "Apache-2.0",
   "homepage": "https://ediam.cnrs.fr/studium/",
   "private": true,
@@ -22,6 +22,7 @@
     "start": "pnpm --filter @studium/lesson-panel-ui build && tsx src/index.ts",
     "api": "pnpm --filter @studium/lesson-panel-ui build && tsx src/http-entry.ts",
     "api:call": "tsx src/http-client.ts",
+    "play": "pnpm --filter @studium/lesson-panel-ui build && tsx src/index.ts play",
     "bundle": "pnpm --filter @studium/lesson-panel-ui build && esbuild ../studium-vscode/src/lesson-mcp-entry.ts --loader:.html=text --bundle --platform=node --format=cjs --banner:js='#!/usr/bin/env node' --outfile=dist/studium-mcp.cjs --define:__STUDIUM_BUILD__='{\"origin\":\"bundled\",\"built_at\":\"'\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"'\",\"git_sha\":\"'\"$(git describe --always --dirty --abbrev=7)\"'\"}'",
     "prepack": "pnpm run bundle"
   },

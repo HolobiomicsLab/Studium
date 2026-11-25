@@ -17,6 +17,7 @@ today, read the [architecture page](../develop/architecture.md) and the [referen
 | [Learner-as-author plan](specs/learner-as-author-plan.md) | learner-written items (LAItem), backend first |
 | [Community bundles in the live runtime](specs/community-bundles-live-runtime-A3.md) | approved learner contributions played as lessons |
 | [PeerStudio D1](specs/peerstudio-d1.md) | multi-learner substrate (peer rooms) |
+| [Browser player, local first](specs/2026-11-25-browser-player.md) | play a lesson in a web browser, served on 127.0.0.1 by the lesson API (English) |
 
 ## Architecture decision records
 

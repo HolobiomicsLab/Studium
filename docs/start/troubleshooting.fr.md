@@ -52,6 +52,7 @@ privé.
 |---|---|
 | F5 ne trouve pas de configuration de lancement | ouvrez le dossier `apps/studium-vscode`, qui contient la configuration Extension Host |
 | Le VSIX installé ne trouve aucune leçon | les leçons ne sont pas dans le VSIX : placez-les dans `~/.studium/library`, ou définissez `studium.bundlesRoot` et `studium.bundleRef`, ou utilisez **Studium : Choisir un cours** |
+| Choisir un cours avertit « n'a pas pu être enregistré » (`Unable to write into ... Settings`) | la leçon s'ouvre quand même ; seul le choix n'est pas retenu. Ouvrez le fichier de réglages que le message nomme, corrigez ses erreurs ou enregistrez ses modifications, ou rendez-le modifiable ; jusqu'à la version 0.6.3, ce message empêchait la leçon de s'ouvrir quand aucun dossier n'était ouvert : mettez l'extension à jour |
 | Un lien `vscode://` n'ouvre rien | le chemin doit être absolu, sans `..`, encodé pour une URL, vers un fichier `.json` existant |
 | Équations ou graphiques dégradés | lancez `pnpm --filter studium-vscode vendor`, reconstruisez, et gardez `studium.assets` à `vendor` |
 | Pas de décompte de révisions dans la barre d'état | rien n'est dû, ou vous n'avez pas encore d'historique ; utilisez le bouton de rafraîchissement de la vue Leçons |

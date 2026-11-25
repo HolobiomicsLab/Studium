@@ -133,6 +133,27 @@ pnpm --silent --filter @studium/lesson-mcp api:call get_experiment_journal conte
 
 Voir [Rapport de l'apprenant](../learn/learner-report.fr.md) pour le contenu du rapport.
 
+### Lecteur dans le navigateur (expérimental)
+
+`studium-mcp play` démarre cette API avec le [lecteur dans le navigateur](../start/browser.fr.md), sur 127.0.0.1
+et un port libre, avec un jeton qu'il génère ; `pnpm --filter @studium/lesson-mcp api` ne sert pas de lecteur. Les
+routes `/v1` ne changent pas et refusent toujours toute requête qui porte un en-tête `Origin`. Le lecteur ajoute :
+
+| Route | Méthode | Contrôles | Rôle |
+|---|---|---|---|
+| `/` | GET | boucle locale, Host | redirige vers `/play` |
+| `/play` | GET | boucle locale, Host | la page ; sans jeton, avec une `Content-Security-Policy` qui n'autorise que son propre script, par empreinte |
+| `/play/api/tools/<nom>` | POST | boucle locale, Host, `Origin`, jeton porteur, corps JSON | lance `list_lessons`, `open_lesson_panel`, `get_panel_view` ou `panel_action` et renvoie le résultat de l'outil MCP |
+
+Host doit être `127.0.0.1`, `localhost` ou `[::1]` avec le port d'écoute ; `Origin` doit être `http://` suivi de ce
+Host, et `Sec-Fetch-Site`, s'il est envoyé, `same-origin`. Aucune route ne répond avec des en-têtes CORS. Chaque
+appel utilise l'apprenant par défaut du serveur, quel que soit le `learner_id` nommé ; `open_lesson_panel`
+n'ouvre qu'une leçon que `list_lessons` liste et la joue comme un panneau natif ; `ask` est refusé
+(`400 action_unavailable`) : la page n'a pas d'assistant. Les erreurs sont `{error, code}` : `401 unauthorized`,
+`403 local_only`, `host_rejected` ou `origin_rejected`, `400 invalid_bundle`, `404 not_found`,
+`415 media_type`. La conception et ses limites sont dans la
+[note de conception](../design-records/specs/2026-11-25-browser-player.md) (en anglais).
+
 ## lesson-server
 
 Un serveur Fastify pour le tableau de bord enseignant. Les réponses sont `{success, ok, ...}` en cas

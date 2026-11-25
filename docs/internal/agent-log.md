@@ -6,6 +6,185 @@ Journal des unités TDD par milestone. Mis à jour à chaque commit significatif
 
 ---
 
+## 2026-11-25 — OpenCode 1.x, son interface web et Mistral ; version 0.6.4
+
+Mots du propriétaire : « a nice idea would be to use opencode GUI », « we have a mistral APIkey to use […] Mistral
+for ML4 », puis l'autorisation de fusionner les PR 87 et 88 et de préparer la 0.6.4. Essai : OpenCode 1.19.6 par
+`npx`, données isolées, `mistral/mistral-large-4` par l'API Mistral, serveur de `dev` (`639fe8f`). Bibliothèque
+vide : la leçon de démonstration est proposée, première étape en 23 s ; leçon de 9 étapes construite depuis un
+fichier désigné par son chemin en 3 min 04 s. La forme de configuration qui marche en 1.x est `mcp.studium` ; la
+page gardait seulement la forme v2 (`mcp.servers`), non exécutée ce jour-là. `opencode serve` répond sur
+127.0.0.1 ; aucune leçon jouée dans l'interface web. Pages `docs/start/opencode` (EN/FR). Version 0.6.4 par
+`tools/release/version.mjs`. Rien n'est publié : `dev` vers `main` et le tag restent au propriétaire.
+
+---
+
+## 2026-11-25 — l'extension propose son serveur à Copilot (INT-STUDIUM-064, décision 2)
+
+Branche `feat/2026-11-25-copilot-mcp-registration`, depuis `integration/2026-11-25-tester-feedback`
+(`d995d57`). Rien n'est poussé. But : construire une leçon avec Copilot dans VS Code sans Node ni commande.
+
+- API vérifiée dans `@types/vscode` : `vscode.lm.registerMcpServerDefinitionProvider` et
+  `McpStdioServerDefinition` sont absents de 1.100.0 et présents dans 1.101.0 (VS Code 1.101, 12 juin 2025) ;
+  `contributes.mcpServerDefinitionProviders` déclare l'id. `engines.vscode` reste `^1.95.0` : l'appel est
+  détecté à l'exécution (absent, ou une API proposée qui lève), donc rien n'est exclu.
+- Code : `mcp-provider.ts` (pur : détection, environnement, repérage d'un serveur ajouté à la main dans du
+  JSONC), `mcp-registration.ts` (branchement), `extension.ts` (appel dans `activate`, emplacements communs
+  avec le panneau). L'environnement de la définition ne porte que `BUNDLES_ROOT`, `STUDIUM_DATA_DIR`,
+  `STUDIUM_TELEMETRY_CONSENT`, `LITELLM_BASE_URL` et `ELECTRON_RUN_AS_NODE` : aucune clé héritée n'y voyage.
+- Tests d'abord (aucune assertion existante modifiée) : `mcp-connect.driver` (+24), `extension-host.driver`
+  (+22 : fournisseur enregistré, définition lancée pour de vrai et `get_server_info` relu, réglage, entrées à
+  la main dans quatre fichiers, API absente ou qui lève), `contributes.driver` (un bloc de 5 assertions). Ils échouaient
+  (module absent), ils passent. Le stockage du faux contexte suit maintenant la disposition de VS Code
+  (`<User>/globalStorage/<id>`) pour que `<User>/mcp.json` existe dans le test.
+- Vérifié hors test : le binaire « Code Helper (Plugin) » de VS Code 1.139 installé sur la machine, avec
+  `ELECTRON_RUN_AS_NODE=1` et un PATH sans Node, a lancé `dist/lesson-mcp.cjs` : 40 outils, `origin=bundled`,
+  `model_backend=none`, `prepare_sources` a écrit dans `<STUDIUM_HOME>/library/_sources`.
+- Non essayé : une vraie session VS Code avec Copilot (affichage dans **MCP: List Servers**, confiance,
+  démarrage, transmission aux sessions Copilot), Cursor, VSCodium.
+
+---
+
+---
+
+## 2026-11-25 — `prepare_sources` lit un fichier local désigné par son chemin
+
+Retour d'un testeur (INT-STUDIUM-064, changement classé 1) : le temps de construction d'une leçon est
+surtout celui du modèle qui écrit, et la recopie du texte source dans l'appel `prepare_sources` en est
+la plus grosse part (une construction mesurée avec Vibe et Mistral Large 4 : 6 min 02 s pour une source
+de 2 400 caractères). Le propriétaire a accepté que Studium lise un fichier local ; la règle « Studium ne
+va rien chercher » devient : fichiers locaux oui, réseau non.
+
+Tests d'abord, vus rouges puis verts : `source-file.test.ts` (15 cas : mêmes passages que le texte,
+chemin réel, taille et sha256 des octets lus, titre par défaut, chemin relatif et `~/`, lien suivi, BOM ;
+refus sans politique, texte et chemin ensemble ou aucun, fichier absent, dossier, périphérique, PDF,
+docx/zip, binaire, non-UTF-8, extension non textuelle, HTML, taille, dossier de données de Studium, lieux
+de secrets, y compris à travers un lien), deux cas dans `authoring-tools.test.ts` (leçon complète depuis
+un chemin, refus relayés), un dans `server.test.ts` (le serveur stdio refuse sa bibliothèque et son
+dossier de données), un dans `guide.test.ts` (fr et en) et un dans `harness-contract.test.ts`. Aucun
+test existant modifié ; `test-fixtures.ts` déclare `FRENCH_SOURCE` par `satisfies` (le type
+`SourceInput` a désormais `text` et `title` facultatifs).
+
+Code : `source-file.ts` (nouvelle politique de lecture), `source-set.ts` (`path`, champ `file` du
+jeu, enregistré seulement pour un fichier : les jeux d'avant gardent leur id), `authoring-tools.ts`
+(schéma, `files` dans la réponse), `server.ts` (politique : base = dossier de démarrage du serveur,
+refus de la bibliothèque et du dossier de données ; une ligne d'instructions réécrite, toujours 13
+lignes), guide `2026-11-25.1`. L'API HTTP et le canal fichier n'exposent pas les outils d'auteur :
+inchangés. L'extension VS Code embarque le même serveur (`dist/lesson-mcp.cjs`) et en hérite.
+
+Documentation EN/FR : skill self-learner, apprendre avec son assistant, deux tutoriels, rédiger une
+leçon, SECURITY, confidentialité, référence des outils régénérée. Non vérifié : un vrai assistant
+(Vibe, Claude, Copilot) appelant `path` ; Windows (chemins, racines système) ; le gain de temps réel.
+
+
+---
+
+## 2026-11-25 — un lecteur dans le navigateur, local d'abord
+
+Origine : le même retour de testeur (« l'usage demande l'habitude des environnements de développement ») ;
+décision ouverte 5 de INT-STUDIUM-064, approuvée pour une première tranche le 25 nov. Branche
+`feat/2026-11-25-browser-player`, depuis `integration/2026-11-25-tester-feedback` (`d995d57`). Rien n'est poussé.
+
+- Conception : `docs/design-records/specs/2026-11-25-browser-player.md` (architecture, variantes écartées,
+  modèle de sécurité, ce qu'exigerait une version hébergée).
+- Code : `apps/lesson-mcp/src/player.ts` sert `/play` (la page) et `/play/api/tools/<nom>` (quatre outils)
+  depuis l'API locale, par un client MCP en mémoire vers les outils de panneau ; `bridge-browser.js` donne au
+  pont MCP Apps un objet de forme App qui passe par `fetch` ; `studium-mcp play` (`play.ts`) génère le
+  jeton, écoute sur 127.0.0.1 et ouvre le navigateur. Contrôles : boucle locale, Host avec le port (rebinding
+  DNS), Origin et Sec-Fetch-Site, jeton porteur, aucun en-tête CORS, CSP par empreinte du script.
+- Tests d'abord : `player.test.ts` (8), `play.test.ts` (8), `bridge-browser.test.mjs` (7, jsdom, dont une
+  comparaison octet pour octet du DOM avec le rendu du panneau VS Code pour la même vue).
+- Essai réel : Chrome sans fenêtre (Playwright 1.65, Chrome du système, aucun navigateur téléchargé) sur le
+  serveur empaqueté : liste, cinq étapes de `atomistique-l1` (quiz avec indice noté par la clé, audit de
+  résumé non certifié avec note de rappel), thèmes clair et sombre, rechargement. Il a révélé deux défauts,
+  corrigés : le barreau « explication » de l'aide était un bouton mort (pas d'assistant), et la demande de
+  favicon donnait un 401 dans la console. Reprise après redémarrage vérifiée avec un stockage durable.
+- Documentation : `docs/start/browser` (EN/FR), liens depuis le portail, le démarrage rapide, les postes
+  de salle de TP et la référence de l'API HTTP.
+
+---
+
+## 2026-11-25 — une leçon de démonstration livrée avec Studium : « Découvrir Studium »
+
+Demande du propriétaire (25 nov.) : une leçon de démonstration pour apprendre les concepts et le mécanisme de
+Studium et son interface. Une installation neuve n'a aucune leçon (ni le VSIX ni le paquet npm n'en portent) :
+la première expérience était la construction d'une leçon (6 min avec Vibe). Branche
+`feat/2026-11-25-discover-studium-lesson`, depuis `integration/2026-11-25-tester-feedback` (`d995d57`). Rien
+n'est poussé.
+
+- La leçon, EN et FR (un bundle par langue, comme le dépôt) : 12 scènes, ~11 min, 5 notions (`studium.relay`,
+  `studium.graph`, `studium.provenance` ← graph, `studium.reviews` ← provenance, `studium.local`). Construite par
+  la voie d'un assistant, `prepare_sources` sur sept pages de `docs/` (CC BY 4.0) puis `create_lesson`
+  (`apps/lesson-mcp/scripts/build-shipped-lessons.ts`) : acceptée au premier appel, lint 0 ERROR. Auto-apprentissage,
+  `drafted_by: agent`, validée par personne, aucun `approval.json` (règle 003). `approve` refuse une leçon
+  d'auto-apprentissage : la marche à suivre pour le propriétaire est dans `apps/lesson-mcp/shipped-lessons-src/README.md`.
+- Hôte (test d'abord) : une troisième racine, `shippedRoot`, cherchée en dernier, jamais écrite ; `list_lessons`
+  la liste à part (`shipped_lessons`) ; `get_study_plan` la propose à qui n'a aucune leçon à soi, avant de
+  rédiger, jamais ensuite ; l'avis dit « Demo lesson shipped with Studium, drafted by an AI agent from Studium's
+  documentation » au lieu de « from your sources ». Corrigé en passant : une notion partagée par deux leçons
+  prend le titre de la leçon où l'apprenant l'a étudiée.
+- Serveur : `shipped-lessons/` à côté du script (VSIX `dist/`, npm, lien `bin`), ou les sources ;
+  `STUDIUM_SHIPPED_LESSONS`. Extension : commande « Essayer la leçon de démonstration », bouton de la vue vide,
+  choix du sélecteur, lien du parcours ; aucun réglage écrit. Paquets : VSIX +13,5 Ko compressés, npm +12,9 Ko.
+- Vérifié : la leçon jouée de bout en bout par le serveur MCP (EN et FR, indice, note de rappel, date de
+  révision ; détour s4 faux → s12 → s5), par le pilote `extension-host` (commande et sélecteur), et par le serveur
+  embarqué du VSIX et le paquet npm préparé lancés seuls.
+
+---
+
+## 2026-11-25 — choisir un cours sans dossier ouvert ouvre la leçon
+
+Rapport d'un testeur (VS Code fraîchement installé, une leçon construite par un assistant dans
+`~/.studium/library`) : au choix de la leçon, l'extension s'arrête sur « Unable to write to... » et
+n'ouvre rien. Cause : `saveLessonSelection` écrivait `studium.bundlesRoot` et `studium.bundleRef`
+avec `ConfigurationTarget.Workspace`, ce que VS Code refuse quand aucun dossier n'est ouvert, et
+`saveAndOpenLesson` abandonnait l'ouverture sur cette erreur.
+
+Test d'abord (`apps/studium-vscode/src/extension-host.driver.ts`, un bloc ajouté, aucune assertion
+changée) : le faux `vscode` refuse désormais, comme VS Code, une écriture Workspace sans dossier, et
+note la cible de chaque écriture. Le bloc a échoué (7 assertions) avec le message exact du testeur,
+puis passe. Correction : la cible est Workspace quand un dossier ou un espace de travail est ouvert,
+Global (réglages utilisateur) sinon ; une écriture qui échoue quand même devient un avertissement et
+la leçon s'ouvre depuis le dossier choisi (`openLesson` reçoit `bundlesRoot`, comme « Ouvrir cette
+leçon »). Le texte de `extension_save_course_failed` le dit (FR et EN). Rien n'est poussé.
+
+---
+
+## 2026-11-25 — un chemin sans terminal, et les postes de salle de TP
+
+Origine : le retour d'un responsable des outils pédagogiques d'une université, qui a testé Studium :
+l'installation (Node dans un terminal, l'extension, la liaison à un assistant) est hors de portée de beaucoup
+d'enseignants et d'étudiants ; il suggère des postes préconfigurés en salle de TP. Branche
+`docs/2026-11-25-non-developer-onboarding`, depuis `dev` (`84184e1`). Rien n'est poussé.
+
+- Constat vérifié dans le code : l'extension du Marketplace embarque `dist/lesson-mcp.cjs` et le lance avec
+  le moteur de VS Code (`ELECTRON_RUN_AS_NODE`) ; une leçon déjà faite se joue donc sans Node ni terminal ni
+  compte d'IA. Le VSIX ne contient aucune leçon (`unzip -l`) et l'extension ne déclare pas le serveur à
+  Copilot : construire une leçon demande toujours Node et une commande.
+- Défaut corrigé (test d'abord, `extension-host.driver.ts`) : « Choisir un cours » écrivait dans les
+  réglages de l'espace de travail, que VS Code refuse quand aucun dossier n'est ouvert ; le choix va
+  maintenant dans les réglages utilisateur dans ce cas. Le faux `vscode` du pilote refuse désormais cette
+  écriture comme le vrai ; le nouveau bloc échouait (3 assertions), il passe (84).
+- Documentation : le chemin sans terminal en tête du README, du démarrage rapide et de la page du Marketplace ;
+  nouvelle page `docs/start/classroom-workstations` (EN/FR), marquée non essayée en salle ; textes de la vue
+  vide et du parcours de prise en main.
+- Vérifié hors VS Code : le serveur embarqué, construit ici, joue `atomistique-l1` copié hors du clone, et
+  depuis une copie en lecture seule avec la progression écrite seulement dans son dossier de données.
+
+---
+
+## 2026-11-25 — Mistral Vibe : page de connexion, d'après un essai réel
+
+Retour d'un testeur de l'université (24–25 novembre) : un branchement avec Mistral serait plus rassurant
+pour un usage universitaire. Essai du jour, Vibe 3.1.3 et Mistral Large 4 sur `studium-mcp` 0.6.3 (npm),
+dossier `STUDIUM_HOME` isolé : 40 outils vus ; leçon de 8 étapes construite depuis des notes de cours de
+2 400 caractères, `create_lesson` accepté au premier appel, 6 min 02 s jusqu'à la première étape ; deux
+tours joués (23 s et 28 s en mode `vibe -p`), un quiz évalué avec la clé. Pages `docs/start/vibe.md` et
+`.fr.md`, exemple `docs/examples/vibe.toml`, lignes dans `harnesses` et `index`. Non essayés : Le Chat,
+l'API Mistral comme juge, le mode interactif, les panneaux. Aucun code changé.
+
+---
+
 ## 2026-11-12 — la version 0.6.3 : le `homepage` du paquet npm
 
 Mots du propriétaire : « Oui, prépare 0.6.3 », après la publication de la 0.6.2.

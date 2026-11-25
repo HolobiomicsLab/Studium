@@ -30,7 +30,10 @@ d'outil.
 
 ### Avec un abonnement Copilot
 
-1. Ajoutez le serveur à Copilot dans VS Code :
+1. Donnez le serveur Studium à Copilot dans VS Code. Avec l'extension Studium dans VS Code 1.101 ou plus
+   récent, il n'y a rien à faire : l'extension propose son propre serveur à Copilot, et Node
+   n'est pas nécessaire (non essayé dans une vraie session Copilot ; voir [Connecter Copilot](copilot.fr.md)).
+   Sans l'extension, ajoutez-le avec Node et une commande :
 
    ```bash
    code --add-mcp '{"name":"studium","command":"npx","args":["-y","studium-mcp"],"env":{"LITELLM_BASE_URL":""}}'
@@ -61,7 +64,9 @@ Sans juge, rien n'est perdu : sur une réponse rédigée, Studium montre la ré
 sont évaluées par le modèle, et le verdict le dit.
 
 Réglez le juge dans l'environnement que votre assistant donne au serveur Studium, là où les commandes de
-cette documentation laissent `LITELLM_BASE_URL=` vide :
+cette documentation laissent `LITELLM_BASE_URL=` vide. Pour le serveur que l'extension Studium propose à
+Copilot, et pour son panneau de leçon, définissez-le dans l'environnement d'où VS Code est lancé ;
+l'extension transmet l'adresse, jamais la clé, que le serveur hérite de ce même environnement :
 
 | Variable | Valeur |
 |---|---|

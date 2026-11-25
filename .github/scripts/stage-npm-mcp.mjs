@@ -6,7 +6,7 @@
 //
 // The workspace package @studium/lesson-mcp stays private: its dependencies are workspace links that
 // npm cannot resolve. What a user installs is the bundle, so the manifest is written here.
-import { chmodSync, copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { chmodSync, copyFileSync, cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 
 const [version, outArg] = process.argv.slice(2);
@@ -31,6 +31,16 @@ const server = join(out, "studium-mcp.cjs");
 writeFileSync(server, code.startsWith("#!") ? code : `#!/usr/bin/env node\n${code}`);
 chmodSync(server, 0o755);
 
+// The lessons shipped with Studium (the « Discover Studium » demo): the server reads them from shipped-lessons/
+// beside itself (apps/lesson-mcp/src/index.ts shippedLessonsRoot) and offers them to a learner with none.
+const shipped = join(root, "apps/lesson-mcp/shipped-lessons");
+if (!existsSync(shipped)) {
+  console.error(`missing ${shipped}: the demo lesson the server offers to a fresh install`);
+  process.exit(1);
+}
+rmSync(join(out, "shipped-lessons"), { recursive: true, force: true });
+cpSync(shipped, join(out, "shipped-lessons"), { recursive: true });
+
 copyFileSync(join(root, "LICENSE"), join(out, "LICENSE"));
 copyFileSync(join(root, "NOTICE"), join(out, "NOTICE"));
 // The README written for npm users (how to add the server to an assistant, absolute links), not the
@@ -53,7 +63,7 @@ const manifest = {
   bugs: { url: "https://github.com/HolobiomicsLab/Studium/issues" },
   keywords: ["mcp", "model-context-protocol", "learning", "education", "spaced-repetition", "codex", "claude-code"],
   bin: { "studium-mcp": "studium-mcp.cjs" },
-  files: ["studium-mcp.cjs", "LICENSE", "NOTICE", "README.md"],
+  files: ["studium-mcp.cjs", "shipped-lessons", "LICENSE", "NOTICE", "README.md"],
   engines: source.engines,
 };
 writeFileSync(join(out, "package.json"), `${JSON.stringify(manifest, null, 2)}\n`);

@@ -16,7 +16,7 @@ import { join, resolve } from "node:path";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { SelfRatingExpiredError } from "@studium/lesson-session";
 import {
-  SessionHost, NowMsSchema, publicPresentation, operatorContext, type SelfRating, type PromptSurface,
+  SessionHost, NowMsSchema, publicPresentation, operatorContext, type SelfRating, type PromptSurface, type SourceFilePolicy,
 } from "@studium/lesson-session-host";
 import {
   CONVERSATION, lessonOperations, TOOL_NAMES as LESSON_TOOL_NAMES, type Operation, type SurfaceRank, type ToolResult,
@@ -48,7 +48,7 @@ export const REPLY_CALL = "submit_response {session_id, input: {kind: \"reply\",
 /** What a harness reads once, at connection (MCP `instructions`). */
 export const SERVER_INSTRUCTIONS = [
   "Studium teaches through the learner's own answers: you relay, the learner answers.",
-  "- Start with get_study_plan: its next_step names the call to make and its arguments (start_review_session, start_lesson_session, or the authoring tools).",
+  "- Start with get_study_plan: its next_step names the call to make and its arguments (start_review_session, start_lesson_session, or the authoring tools). To a learner with no lesson yet it proposes the demo lesson shipped with Studium (about 10 minutes, on how Studium works): offer it before building a lesson, unless they came with a topic of their own.",
   "- Pass one stable learner_id per person on every call; without one, persistence.learner_id_default (get_server_info) applies.",
   "- Pass the learner's language (fr or en) to get_study_plan, list_lessons and start_review_session.",
   "- Show display_markdown as it is and add nothing of your own unless the learner asks (they wait on every word): on a presentation; after an answer, verdict.display_markdown first, then the transition's.",
@@ -56,7 +56,7 @@ export const SERVER_INSTRUCTIONS = [
   `- Wait for the learner's answer and send their words with ${REPLY_CALL}; never answer, choose or rate for them.`,
   "- When a transition carries self_rating, ask the learner to rate their recall and call rate_recall: it schedules reviews, never mastery.",
   "- start_review_session plays every review due, across lessons; list_lessons shows what can be started.",
-  "- To learn from new sources: get_authoring_guide, prepare_sources, create_lesson, then start_lesson_session.",
+  "- To learn from new sources: get_authoring_guide, prepare_sources, create_lesson, then start_lesson_session. In prepare_sources, name a file on this computer by its path (Studium reads it: do not copy its text) and pass the text of what you fetched from the web.",
   "- When the learner asks where they are, show the map (get_workflow_graph). Offer once, at a pause, never between a question and its answer: at the end, the map as a page on the learner's yes (export_concept_map); in a working conversation, a short lesson from it when the person wants to understand it (prepare_sources, kind \"conversation\"). When the learner says they already know a concept of the map, or doubt one they got, relay it with submit_response {kind: \"contest\", concept_id, claim}, the id as the map names it; never contest for them.",
   "- Never call forget_session unless the learner asks to erase their data: it deletes their progress for good.",
   "- When Studium itself fails, contradicts its documentation or cannot do what the person asks, say so plainly and help them on; then offer once, at a pause, to report it or propose a change (get_server_info.feedback gives the addresses and what a report holds). The person posts it, or asks you to once they have read the final text; a lesson's content goes to its teacher or author.",
@@ -117,7 +117,8 @@ export function studyOperations(
       "List the lessons this server can start, from BUNDLES_ROOT and the learner's library, read afresh (a lesson " +
       "written a moment ago is listed): bundle_ref (pass it to start_lesson_session), title, language, concepts, who " +
       "wrote it (authoring.mode, drafted_by), and with learner_id the learner's status (new | in_progress | completed). " +
-      "`query` keeps the lessons whose title, ref, discipline or concepts contain every word of it. display_markdown " +
+      "`query` keeps the lessons whose title, ref, discipline or concepts contain every word of it. The lessons shipped " +
+      "with Studium (the « Discover Studium » demo) come apart, in shipped_lessons (source \"shipped\"). display_markdown " +
       "is the list in `language`, ready to show.",
       { query: z.string().max(200).optional(), learner_id: z.string().min(1).max(200).optional(), language: languageArg },
       async ({ query, learner_id, language }) => host.listLessons({
@@ -130,7 +131,8 @@ export function studyOperations(
       "the next lesson, and next_step {action: review|continue|start|author|wait, tool, arguments, text} naming the " +
       "call to make with its arguments (language included where the tool takes one). With the minutes a day the " +
       "learner gave, minutes_per_day and next_step.estimated_minutes size the step. display_markdown is the plan in " +
-      "`language`, ready to show. Dates (due_date, next_review_date) are days in get_server_info.time_zone.",
+      "`language`, ready to show. A learner with no lesson of their own gets the demo lesson shipped with Studium as the " +
+      "step to start (before authoring). Dates (due_date, next_review_date) are days in get_server_info.time_zone.",
       { learner_id: learnerIdArg, now_ms: nowMsArg, language: languageArg },
       async ({ learner_id, now_ms, language }) => host.studyPlan(learner_id, {
         ...(now_ms === undefined ? {} : { nowMs: now_ms }), ...(language === undefined ? {} : { language }),
@@ -206,6 +208,15 @@ function authoringRoot(host: SessionHost): string {
       "<STUDIUM_HOME>/library (persistence.library_root), never into BUNDLES_ROOT; start the server with the C6 defaults");
   }
   return library;
+}
+
+/** How prepare_sources reads a source the assistant names by path (INT-STUDIUM-064): a relative path from
+ * the folder the server was started in, `~/` from the user's home, and never a file of the library or the
+ * data folder (lessons with their keys, the learner's progress and pseudonym secret). Local files only:
+ * the server fetches nothing from the network. */
+function sourceFilePolicy(host: SessionHost): SourceFilePolicy {
+  const refusedRoots = [host.libraryRoot, host.persistence().data_dir].filter((root): root is string => !!root);
+  return { base: process.cwd(), refusedRoots };
 }
 
 type PromptLocale = "en" | "fr";
@@ -306,6 +317,7 @@ export function buildMcpServer(host: SessionHost): McpServer {
     // (learn-and-review.e2e.test.ts proves it through this server).
     onLessonWritten: () => {},
     judge: () => host.judge,
+    sourceFiles: () => sourceFilePolicy(host),
   }));
   registered.push(...registerTeacherTools(server, {
     bundlesRoot: host.bundlesRoot, libraryRoot: host.libraryRoot, dataDir: host.persistence().data_dir,
