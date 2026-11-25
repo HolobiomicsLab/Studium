@@ -222,6 +222,7 @@ const hasCmd = (id: string) => commandIds.includes(id);
   expect(pkg.engines?.vscode === "^1.95.0", `engines.vscode is unchanged (^1.95.0): the MCP registration is feature-detected (got ${pkg.engines?.vscode})`);
   const types = String(pkg.devDependencies?.["@types/vscode"] ?? "");
   expect(/^\^1\.(9\d)\./.test(types), `@types/vscode stays at or below engines.vscode, which vsce requires (got ${types})`);
+}
 
 // 12) 2026-11-25: the demo lesson shipped with Studium is reachable with zero setup: a declared command with its
 //     title in both languages, a button in the empty Lessons view, a link in the first walkthrough step, and the
