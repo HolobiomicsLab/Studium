@@ -749,6 +749,11 @@ export interface SessionHostOptions {
   /** C6: the learner's personal library, searched after `bundlesRoot` on every lookup and listed by
    * listLessons — a lesson written there after the host started is playable at once. */
   libraryRoot?: string;
+  /** The lessons shipped with Studium itself (the « Discover Studium » demo), searched after the library
+   * and never written to. A lesson of the bundles root or the library with the same ref or bundle_id
+   * wins; list_lessons lists shipped lessons apart (shipped_lessons) and the study plan offers one only
+   * to a learner who has no lesson of their own. Absent ⇒ none. */
+  shippedRoot?: string;
   /** C6: where durable learner state lives. Absent ⇒ STUDIUM_DATA_DIR (deps.ts); null ⇒ in memory. */
   dataDir?: string | null;
   /** C6: the learner_id used when a caller names none (STUDIUM_LEARNER_ID). Absent ⇒ "anonymous". */
@@ -867,7 +872,8 @@ export interface ListedLesson {
   title: string;
   language: string;
   discipline: string;
-  /** Where it was found: the configured bundles root, or the learner's library. */
+  /** Where it was found: the configured bundles root, the learner's library, or the lessons shipped
+   * with Studium. */
   source: CatalogLesson["root"];
   authoring: CatalogLesson["authoring"];
   validated: boolean;
@@ -878,7 +884,10 @@ export interface ListedLesson {
 }
 
 export interface LessonListing {
+  /** The lessons of the bundles root and the learner's library. */
   lessons: ListedLesson[];
+  /** The lessons shipped with Studium (source "shipped"), listed apart from the learner's. */
+  shipped_lessons: ListedLesson[];
   courses: Array<{ course_ref: string; course_id: string; title: string; lessons: Array<{ lesson_id: string; bundle_ref: string }> }>;
   /** Files named like a lesson that do not load. */
   skipped: number;
@@ -988,6 +997,8 @@ export class SessionHost {
   get bundlesRoot(): string { return this.opts.bundlesRoot; }
   /** C6, L-12: the learner's library — where authored lessons and their sources go — or null. */
   get libraryRoot(): string | null { return this.opts.libraryRoot ?? null; }
+  /** The lessons shipped with Studium, or null. Read only. */
+  get shippedRoot(): string | null { return this.opts.shippedRoot ?? null; }
   /** RFR-13: the IANA time zone every date of this host is a day in (get_server_info reports it). */
   get timeZone(): string { return this.zone; }
   /** C6: the learner_id used when a caller names none. */
@@ -1002,17 +1013,27 @@ export class SessionHost {
     });
   }
 
-  /** The roots a bundle_ref is looked up in, in order: the bundles root, then the library. */
+  /** The roots a bundle_ref is looked up in, in order: the bundles root, the library, then the lessons
+   * shipped with Studium (each once). */
   private roots(): string[] {
-    const library = this.opts.libraryRoot;
-    return library && resolve(library) !== resolve(this.opts.bundlesRoot) ? [this.opts.bundlesRoot, library] : [this.opts.bundlesRoot];
+    return this.lessonRoots().map((root) => root.dir);
   }
 
-  /** The lesson roots listed, the bundles root being the library itself when they coincide. */
+  /** The lesson roots listed, the bundles root being the library itself when they coincide, and the
+   * shipped root last (left out when it is one of the others: those lessons are then the learner's). */
   private lessonRoots(): LessonRoot[] {
     const library = this.opts.libraryRoot;
-    if (library && resolve(library) === resolve(this.opts.bundlesRoot)) return [{ kind: "library", dir: library }];
-    return [{ kind: "bundles", dir: this.opts.bundlesRoot }, ...(library ? [{ kind: "library" as const, dir: library }] : [])];
+    const roots: LessonRoot[] = library && resolve(library) === resolve(this.opts.bundlesRoot)
+      ? [{ kind: "library", dir: library }]
+      : [{ kind: "bundles", dir: this.opts.bundlesRoot }, ...(library ? [{ kind: "library" as const, dir: library }] : [])];
+    const shipped = this.opts.shippedRoot;
+    if (shipped && !roots.some((root) => resolve(root.dir) === resolve(shipped))) roots.push({ kind: "shipped", dir: shipped });
+    return roots;
+  }
+
+  /** Whether `dir`, a root a lesson was loaded from, is the shipped lessons root. */
+  private isShippedRoot(dir: string): boolean {
+    return this.lessonRoots().some((root) => root.kind === "shipped" && resolve(root.dir) === resolve(dir));
   }
 
   /** Every lesson and course on disk now: read fresh, so a lesson written after start is listed. */
@@ -1091,7 +1112,9 @@ export class SessionHost {
       const open = sharedIdentity(learnerId) ? undefined : this.openLessonOf(profilePseudonym, bundle);
       if (open) return this.alreadyOpen(open[0], open[1], { presentationLanguage: normalizedPresentationLanguage, promptSurface });
       // C5: the approval record (next to lesson.json, or inside the .zip), bound to the very bytes just loaded.
-      const authoring = authoringOf(bundle, { judge: this.opts.live, approval: resolved.approval });
+      const authoring = authoringOf(bundle, {
+        judge: this.opts.live, approval: resolved.approval, ...(this.isShippedRoot(resolved.root) ? { shipped: true } : {}),
+      });
       // #3 DURABLE mode: scope the File* stores under a per-learner dir keyed by the RGPD-safe pseudonym
       // (never the raw learnerId). We derive the pseudonym with the SAME provider+secret+bundle_id the
       // session uses in start() (session.ts), guaranteeing the host dir pseudonym === session pseudonym.
@@ -1434,7 +1457,8 @@ export class SessionHost {
       this.profileStore.load(pseudonym), this.studyStore.load(pseudonym), this.catalog(),
     ]);
     const record = stored ?? emptyStudyRecord();
-    const newestLesson = [...catalog.lessons].sort((a, b) => b.modified_at - a.modified_at)[0];
+    // The shipped lessons say nothing of the learner's language.
+    const newestLesson = [...catalog.lessons].filter((l) => l.root !== "shipped").sort((a, b) => b.modified_at - a.modified_at)[0];
     const memory = profile?.concept_memory ?? {};
     const mastery = masteryFromProfile(profile);
     const measured = measuredOf(profile?.concept_states);
@@ -1495,23 +1519,29 @@ export class SessionHost {
         };
       };
     }
-    const listed: ListedLesson[] = lessons.map((l) => ({
+    const all: ListedLesson[] = lessons.map((l) => ({
       bundle_ref: l.bundle_ref, title: l.title, language: l.language, discipline: l.discipline, source: l.root,
       authoring: l.authoring, validated: l.validated, concepts: l.concepts.map((c) => c.title), scene_count: l.scene_count,
       ...(progress ? { status: progress(l) } : {}),
     }));
-    const newestLesson = [...catalog.lessons].sort((a, b) => b.modified_at - a.modified_at)[0];
+    const listed = all.filter((l) => l.source !== "shipped");
+    const shipped = all.filter((l) => l.source === "shipped");
+    const newestLesson = [...catalog.lessons].filter((l) => l.root !== "shipped").sort((a, b) => b.modified_at - a.modified_at)[0];
     const locale = language ?? displayLocale(learnerLanguage ?? newestLesson?.language ?? DEFAULT_LOCALE);
+    // The chat shows the shipped lessons in the list's language when there is one; the JSON keeps them all.
+    const inLocale = shipped.filter((l) => displayLocale(l.language) === locale);
+    const lineOf = (l: ListedLesson) => ({
+      title: l.title, scene_count: l.scene_count, drafted_by: l.authoring.drafted_by, mode: l.authoring.mode, ...(l.status ? { status: l.status } : {}),
+    });
     return {
       lessons: listed,
+      shipped_lessons: shipped,
       courses: catalog.courses.map(({ course_ref, course }) => ({
         course_ref, course_id: course.course_id, title: course.title,
         lessons: course.lessons.map((cl) => ({ lesson_id: cl.lesson_id, bundle_ref: cl.bundle_ref })),
       })),
       skipped: catalog.skipped,
-      display_markdown: lessonListMarkdown(listed.map((l) => ({
-        title: l.title, scene_count: l.scene_count, drafted_by: l.authoring.drafted_by, mode: l.authoring.mode, ...(l.status ? { status: l.status } : {}),
-      })), locale, opts.query),
+      display_markdown: lessonListMarkdown(listed.map(lineOf), locale, opts.query, (inLocale.length ? inLocale : shipped).map(lineOf)),
     };
   }
 
