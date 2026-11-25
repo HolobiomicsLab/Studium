@@ -8,6 +8,7 @@ import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { connectLessonMcp, liveLessonMcpCount, withLessonMcpPaused, connectOrClose, describeServerLaunch, resolveServerLaunch, resolveTsx, parseToolResult, forwardStderr, resolveLogSink, serverBuildWarning, serverInfoLine, setLessonMcpLog, lessonMcpEnv, type LogSink, type ServerInfo } from "./mcp-connect.js";
 import { isolateFromHome } from "./driver-isolation.js";
+import { findHandAddedStudium, mcpConfigFiles, mcpServerApi, registeredServerEnv, studiumServerIn } from "./mcp-provider.js";
 
 // I-10: no driver may write into the developer's home, even one that starts no server.
 const isolation = isolateFromHome("mcp-connect");
@@ -32,6 +33,76 @@ const repoRoot = resolve(fileURLToPath(new URL(".", import.meta.url)), "..", "..
   catch (error: any) { message = String(error.message); }
   expect(message === "spawn failed", "connectOrClose preserves the connection error");
   expect(closes === 1, `connectOrClose cleans up a failed client once (got ${closes})`);
+}
+
+
+// INT-STUDIUM-064 (2): the server the extension offers to Copilot. Pure parts first; the wiring is in
+// extension-host.driver.ts.
+{
+  // Feature detection: VS Code before 1.101, Cursor, VSCodium and other forks may lack the API, or expose a
+  // proposed one that throws when touched. None of them may break activation.
+  expect(mcpServerApi({}) === null, "no lm namespace: no MCP API");
+  expect(mcpServerApi({ lm: {} }) === null, "lm without registerMcpServerDefinitionProvider: no MCP API");
+  expect(mcpServerApi({ lm: { registerMcpServerDefinitionProvider() { return { dispose() {} }; } } }) === null,
+    "a register function without McpStdioServerDefinition: no MCP API");
+  const throwing = { get lm(): unknown { throw new Error("CANNOT use API proposal: mcpConfigurationProvider"); } };
+  expect(mcpServerApi(throwing) === null, "an API that throws when touched counts as absent");
+  class Def { constructor(..._a: unknown[]) {} }
+  const api = mcpServerApi({ lm: { registerMcpServerDefinitionProvider() { return { dispose() {} }; } }, McpStdioServerDefinition: Def });
+  expect(api !== null && typeof api.register === "function" && api.Definition === Def, "both present: the API is used");
+}
+{
+  // The environment the editor gives the registered server: the pane's locations, no judge unless one is
+  // configured, and NOTHING else copied from the editor's environment (a definition may be forwarded to a
+  // Copilot session; an inherited key must not travel in it).
+  const hostEnv = { PATH: "/bin", SOME_API_KEY: "secret", LITELLM_API_KEY: "k" };
+  const plain = registeredServerEnv({ launchEnv: { ELECTRON_RUN_AS_NODE: "1" }, bundlesRoot: "/lessons", storageDir: "/storage",
+    telemetryConsent: false, hostEnv });
+  expect(JSON.stringify(plain) === JSON.stringify({ BUNDLES_ROOT: "/lessons", STUDIUM_DATA_DIR: "/storage",
+    STUDIUM_TELEMETRY_CONSENT: null, LITELLM_BASE_URL: "", ELECTRON_RUN_AS_NODE: "1" }),
+    `the registered server gets the pane's locations, consent removed, no judge, run as node (got ${JSON.stringify(plain)})`);
+  const judged = registeredServerEnv({ bundlesRoot: "/l", storageDir: "/s", telemetryConsent: true,
+    hostEnv: { LITELLM_BASE_URL: "http://localhost:4000", LITELLM_API_KEY: "k" } });
+  expect(judged["LITELLM_BASE_URL"] === "http://localhost:4000" && judged["STUDIUM_TELEMETRY_CONSENT"] === "granted",
+    `a judge configured where VS Code started is kept, and consent follows the setting (got ${JSON.stringify(judged)})`);
+  expect(!("LITELLM_API_KEY" in judged) && !("ELECTRON_RUN_AS_NODE" in judged), "the key is never copied into the definition");
+  const blank = registeredServerEnv({ bundlesRoot: "/l", storageDir: "/s", telemetryConsent: false, hostEnv: { LITELLM_BASE_URL: "  " } });
+  expect(blank["LITELLM_BASE_URL"] === "", "a blank LITELLM_BASE_URL counts as no judge");
+}
+{
+  // Where a server added by hand can be: the user profile's mcp.json (next to globalStorage), each workspace
+  // folder's .vscode/mcp.json and .mcp.json, and Copilot's own mcp-config.json.
+  const files = mcpConfigFiles({ globalStorageDir: "/u/User/globalStorage/holobiomicslab.studium-vscode", workspaceFolders: ["/w"],
+    env: {}, homedir: "/h" });
+  for (const f of ["/u/User/mcp.json", "/w/.vscode/mcp.json", "/w/.mcp.json", "/h/.copilot/mcp-config.json"]) {
+    expect(files.includes(f), `${f} is looked at for a hand-added server (got ${JSON.stringify(files)})`);
+  }
+  expect(mcpConfigFiles({ globalStorageDir: "/g/a/b", workspaceFolders: [], env: { COPILOT_HOME: "/c" }, homedir: "/h" })
+    .includes("/c/mcp-config.json"), "COPILOT_HOME moves Copilot's file");
+
+  const npx = JSON.stringify({ servers: { studium: { command: "npx", args: ["-y", "studium-mcp"] } } });
+  expect(studiumServerIn(npx) === "studium", "a server named studium is found");
+  expect(studiumServerIn(JSON.stringify({ mcpServers: { learn: { command: "npx", args: ["-y", "studium-mcp@0.6.3"] } } })) === "learn",
+    "a server under another name that runs studium-mcp is found (.mcp.json, mcpServers)");
+  expect(studiumServerIn(JSON.stringify({ servers: { dev: { command: "node", args: ["/x/apps/studium-vscode/dist/lesson-mcp.cjs"] } } })) === "dev",
+    "a server that runs a checkout's lesson-mcp.cjs is found");
+  const jsonc = `{
+    // "studium": { "command": "npx", "args": ["-y", "studium-mcp"] },
+    /* studium-mcp, commented out */
+    "servers": { "web": { "type": "http", "url": "https://example.org/mcp", }, },
+  }`;
+  expect(studiumServerIn(jsonc) === null, "a commented-out entry, a URL with // and trailing commas: nothing found");
+  expect(studiumServerIn(JSON.stringify({ servers: { Studium: { type: "http", url: "https://example.org/mcp" } } })) === "Studium",
+    "the name is compared without case");
+  expect(studiumServerIn('{ "servers": { "studium": { "command": "npx" ') === "studium", "a half-written file is still read by its text");
+  expect(studiumServerIn("") === null && studiumServerIn(JSON.stringify({ servers: { other: { command: "node", args: ["a.js"] } } })) === null,
+    "an empty file or another server: nothing found");
+
+  const found = findHandAddedStudium([{ path: "/a/mcp.json", text: undefined }, { path: "/b/.mcp.json", text: npx }], undefined);
+  expect(found?.where === "/b/.mcp.json" && found.name === "studium", `the file that holds it is named (got ${JSON.stringify(found)})`);
+  expect(findHandAddedStudium([], { studium: { command: "npx", args: ["-y", "studium-mcp"] } })?.where === "settings (mcp.servers)",
+    "an entry in the older mcp.servers setting is found");
+  expect(findHandAddedStudium([{ path: "/a", text: "{}" }], undefined) === null, "nothing added by hand: null");
 }
 
 // 1) in the real monorepo it finds an existing tsx binary (not the PATH fallback).

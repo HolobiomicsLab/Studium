@@ -16,6 +16,7 @@
   "configuration.assets.enum.0": "Hors ligne : KaTeX/Vega embarqués dans media/vendor (réseau isolé).",
   "configuration.assets.enum.1": "Depuis le CDN jsdelivr.",
   "configuration.learnerId.description": "Identifiant de l'apprenant (sel du pseudonyme RGPD).",
+  "configuration.registerMcpServer.description": "Proposer à Copilot Chat en mode agent le serveur Studium intégré à cette extension : un assistant peut alors construire et jouer des leçons sans Node ni commande au terminal. Demande VS Code 1.101 ou plus récent ; sans effet dans un éditeur qui n'a pas cette API. Si vous avez déjà ajouté vous-même un serveur Studium, l'extension n'en ajoute pas un second.",
   "configuration.telemetryConsent.description": "Consentir à la télémétrie de classe pseudonymisée (STUDIUM_TELEMETRY_CONSENT).",
   "configuration.showGraph.description": "Ouvrir un panneau compagnon du graphe d'apprentissage (Learning Workflow Graph), redessiné à chaque tour (typed-graph-lens).",
   "configuration.graphView.description": "Portée du graphe : « student » (ego-graphe autour de la frontière courante) ou « teacher » (le graphe entier).",

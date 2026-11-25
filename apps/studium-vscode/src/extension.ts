@@ -17,6 +17,7 @@ import {
 } from "./mcp-connect.js";
 import { LessonPanelLifecycle, type ActionResult } from "./panel-lifecycle.js";
 import { registerStudiumChat } from "./chat.js";
+import { registerStudiumMcpServer } from "./mcp-registration.js";
 import { toCytoscape, buildStylesheet, egoFilter, type GraphView } from "@studium/typed-graph-lens";
 import { registerStudiumNotebook } from "./notebook.js";
 import { ClientMsSchema, PanelActionSchema, type PanelView, type PanelBackend } from "@studium/lesson-panel";
@@ -174,6 +175,18 @@ export function activate(context: vscode.ExtensionContext) {
   );
   registerStudiumNotebook(context);
   registerStudiumChat(context);
+  // INT-STUDIUM-064: Copilot's agent mode gets this extension's own server (no Node, no command). Feature-detected:
+  // an editor without the API, or one that throws, leaves one line in the output channel and nothing else.
+  try {
+    registerStudiumMcpServer(context, {
+      locations: () => lessonServerLocations(context, resolveLessonBundlesRoot(context)),
+      repoRoot: () => cfg<string>("repoRoot", resolve(context.extensionPath, "..", "..")),
+      enabled: () => cfg<boolean>("registerMcpServer", true) !== false,
+      log: (line) => mcpOutput.appendLine(line),
+    });
+  } catch (e: any) {
+    mcpOutput.appendLine(`[studium] the built-in Studium server was not offered to Copilot: ${e?.message ?? e}`);
+  }
   setUpStudyStatus(context);
 }
 export function deactivate() {}
@@ -183,13 +196,17 @@ function learnerDataDir(context: vscode.ExtensionContext): string {
   return context.globalStorageUri.fsPath;
 }
 
-/** Environment for a lesson-mcp subprocess: bundles root, learner data in VS Code storage, consent from the setting. */
-function lessonServerEnv(context: vscode.ExtensionContext, bundlesRoot: string): Record<string, string> {
+/** Where every lesson-mcp this extension starts keeps things: the lessons folder, learner data in VS Code storage
+ * (created here), consent from the setting. Shared by the pane's server and the one offered to Copilot. */
+function lessonServerLocations(context: vscode.ExtensionContext, bundlesRoot: string) {
   const storageDir = learnerDataDir(context);
   try { mkdirSync(storageDir, { recursive: true }); } catch { /* the server will report an unwritable dir itself */ }
-  return lessonMcpEnv({
-    baseEnv: process.env, bundlesRoot, storageDir, telemetryConsent: cfg<boolean>("telemetryConsent", false),
-  });
+  return { bundlesRoot, storageDir, telemetryConsent: cfg<boolean>("telemetryConsent", false) };
+}
+
+/** Environment for a lesson-mcp subprocess: bundles root, learner data in VS Code storage, consent from the setting. */
+function lessonServerEnv(context: vscode.ExtensionContext, bundlesRoot: string): Record<string, string> {
+  return lessonMcpEnv({ baseEnv: process.env, ...lessonServerLocations(context, bundlesRoot) });
 }
 
 /** The status-bar item "Studium · n à réviser" and the Reviews node, fed by get_next_reinforcement (VSC-6). */
