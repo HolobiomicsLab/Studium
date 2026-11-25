@@ -1,8 +1,9 @@
 // packages/lesson-session-host/src/authoring-draft/source-set.ts
 //
-// prepare_sources (contract C1): the texts a harness fetched for the learner become a stored
-// source set — passages with stable ids `p:<source>:<n>`, a sha256 of each text, its title, URL and
-// licence — in `<library>/_sources/<source_set_id>.json`. create_lesson later checks every quote of a
+// prepare_sources (contract C1): the texts a harness fetched for the learner, or the local files it
+// names (source-file.ts reads them), become a stored source set — passages with stable ids
+// `p:<source>:<n>`, a sha256 of each text, its title, URL and licence, and for a file its real path, size
+// and sha256 — in `<library>/_sources/<source_set_id>.json`. create_lesson later checks every quote of a
 // draft against these passages, so the set is what the lesson may cite and nothing else.
 import { createHash, randomBytes } from "node:crypto";
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
@@ -11,6 +12,9 @@ import { z } from "zod";
 import type { BundleIssue } from "@studium/lesson-bundle-schema";
 import { chunkText, DEFAULT_MAX_CHARS, DEFAULT_MIN_CHARS } from "./passages.js";
 import { asciiSlug } from "./slug.js";
+import { fileTitle, readSourceFile, type SourceFilePolicy, type SourceFileRecord } from "./source-file.js";
+
+export type { SourceFilePolicy, SourceFileRecord } from "./source-file.js";
 
 export const SOURCE_SET_SCHEMA = "studium-source-set/1";
 /** The library folder holding source sets. A course id cannot start with "_", so no course collides. */
@@ -42,10 +46,12 @@ export class AuthoringInputError extends Error {
 export const SOURCE_KINDS = ["document", "conversation"] as const;
 export type SourceKind = (typeof SOURCE_KINDS)[number];
 
-/** One text the harness fetched, as prepare_sources receives it. */
+/** One source as prepare_sources receives it: the text the harness fetched, or the path of a local file
+ * Studium reads (exactly one of the two). A file's title defaults to its name. */
 export interface SourceInput {
-  title: string;
-  text: string;
+  title?: string | undefined;
+  text?: string | undefined;
+  path?: string | undefined;
   url?: string | undefined;
   license?: string | undefined;
   /** Absent means a document. */
@@ -58,6 +64,8 @@ const SourceRecordSchema = z.object({
   sha256: z.string(), chars: z.number().int(), passages: z.number().int(),
   // Recorded only for a conversation, so the sets prepared before the field keep their id.
   kind: z.literal("conversation").optional(),
+  // Recorded only for a source read from a file (path), for the same reason.
+  file: z.object({ path: z.string(), bytes: z.number().int(), sha256: z.string() }).optional(),
 });
 const SourceSetSchema = z.object({
   schema: z.literal(SOURCE_SET_SCHEMA),
@@ -79,6 +87,18 @@ export interface PrepareOptions {
   language?: string | undefined;
   minChars?: number | undefined;
   maxChars?: number | undefined;
+  /** How a source given by path is read; without it, a path is refused (only text is taken). */
+  files?: SourceFilePolicy | undefined;
+}
+
+/** A source once its text is known: given, or read from its file. */
+interface ResolvedSource {
+  title: string;
+  text: string;
+  url?: string | undefined;
+  license?: string | undefined;
+  kind?: SourceKind | undefined;
+  file?: SourceFileRecord | undefined;
 }
 
 /**
@@ -88,7 +108,7 @@ export interface PrepareOptions {
  * from which no passage of `minChars` survives.
  */
 export async function prepareSources(libraryRoot: string, sources: SourceInput[], options: PrepareOptions): Promise<SourceSet> {
-  const set = buildSourceSet(sources, options);
+  const set = buildSourceSet(await resolveSources(sources, options.files), options);
   const dir = join(libraryRoot, SOURCES_DIR);
   await mkdir(dir, { recursive: true });
   const path = join(dir, `${set.source_set_id}.json`);
@@ -134,7 +154,42 @@ function parseJson(raw: string): unknown {
   }
 }
 
-function buildSourceSet(sources: SourceInput[], options: PrepareOptions): SourceSet {
+/** The text of every source: given as text, or read from its file under `policy`. Every source that
+ * cannot be read is named; nothing is read twice. */
+async function resolveSources(sources: SourceInput[], policy: SourceFilePolicy | undefined): Promise<ResolvedSource[]> {
+  const issues: BundleIssue[] = [];
+  const resolved: ResolvedSource[] = [];
+  const either = "pass path for a local file, text for what you fetched yourself";
+  for (const [index, source] of sources.entries()) {
+    const common = { url: source.url, license: source.license, kind: source.kind };
+    if (source.text !== undefined && source.path !== undefined) {
+      issues.push({ path: `sources.${index}`, message: "gives both text and path", hint: `${either}; not both` });
+    } else if (source.path !== undefined) {
+      if (!policy) {
+        issues.push({ path: `sources.${index}.path`, message: "this server does not read files", hint: "read the file with your own tools and pass its text" });
+        continue;
+      }
+      const read = await readSourceFile(source.path, policy, MAX_SOURCE_CHARS);
+      if (!read.ok) {
+        issues.push({ path: `sources.${index}.path`, message: read.message, hint: read.hint });
+        continue;
+      }
+      const title = source.title?.trim() ? source.title : fileTitle(read.file.path);
+      resolved.push({ ...common, title, text: read.text, file: read.file });
+    } else if (source.text !== undefined) {
+      resolved.push({ ...common, title: source.title ?? "", text: source.text });
+    } else {
+      issues.push({ path: `sources.${index}`, message: "gives neither text nor path", hint: either });
+    }
+  }
+  if (issues.length > 0) throw new AuthoringInputError(issues);
+  return resolved;
+}
+
+/** Where an issue about the text of a source points: its text, or the path it was read from. */
+const textField = (source: ResolvedSource, index: number): string => `sources.${index}.${source.file ? "path" : "text"}`;
+
+function buildSourceSet(sources: ResolvedSource[], options: PrepareOptions): SourceSet {
   const minChars = options.minChars ?? DEFAULT_MIN_CHARS;
   const maxChars = options.maxChars ?? DEFAULT_MAX_CHARS;
   checkInput(sources, options, minChars, maxChars);
@@ -149,8 +204,9 @@ function buildSourceSet(sources: SourceInput[], options: PrepareOptions): Source
     const chunked = chunkText(source.text, minChars, maxChars);
     if (chunked.passages.length === 0) {
       issues.push({
-        path: `sources.${index}.text`, message: `no passage of at least ${minChars} characters`,
-        hint: "pass the full text of the source (the harness fetches it), not a title or a summary",
+        path: textField(source, index), message: `no passage of at least ${minChars} characters`,
+        hint: source.file ? "the file holds too little text: name the full document"
+          : "pass the full text of the source (the harness fetches it), not a title or a summary",
       });
       return;
     }
@@ -161,6 +217,7 @@ function buildSourceSet(sources: SourceInput[], options: PrepareOptions): Source
       license: source.license?.trim() || DEFAULT_LICENSE, sha256: sha256(source.text), chars: source.text.length,
       passages: chunked.passages.length,
       ...(source.kind === "conversation" ? { kind: "conversation" as const } : {}),
+      ...(source.file ? { file: source.file } : {}),
     });
   });
   if (issues.length > 0) throw new AuthoringInputError(issues);
@@ -173,7 +230,7 @@ function buildSourceSet(sources: SourceInput[], options: PrepareOptions): Source
   return { schema: SOURCE_SET_SCHEMA, source_set_id: sourceSetId, ...recorded, passages, dropped_short: droppedShort };
 }
 
-function checkInput(sources: SourceInput[], options: PrepareOptions, minChars: number, maxChars: number): void {
+function checkInput(sources: ResolvedSource[], options: PrepareOptions, minChars: number, maxChars: number): void {
   const issues: BundleIssue[] = [];
   if (sources.length === 0 || sources.length > MAX_SOURCES) {
     issues.push({ path: "sources", message: `needs 1 to ${MAX_SOURCES} sources, has ${sources.length}`, hint: "prefer one coherent source over many" });
@@ -183,10 +240,10 @@ function checkInput(sources: SourceInput[], options: PrepareOptions, minChars: n
       issues.push({ path: `sources.${index}.title`, message: `needs 1 to ${MAX_TITLE_CHARS} characters`, hint: "give the source's own title" });
     }
     if (source.text.length > MAX_SOURCE_CHARS) {
-      issues.push({ path: `sources.${index}.text`, message: `has ${source.text.length} characters, at most ${MAX_SOURCE_CHARS}`, hint: "pass the chapter or section the lesson is about" });
+      issues.push({ path: textField(source, index), message: `has ${source.text.length} characters, at most ${MAX_SOURCE_CHARS}`, hint: "pass the chapter or section the lesson is about" });
     }
     if (looksLikeHtml(source.text)) {
-      issues.push({ path: `sources.${index}.text`, message: "is an HTML page, not text", hint: "pass the text of the page, not its HTML" });
+      issues.push({ path: textField(source, index), message: "is an HTML page, not text", hint: "pass the text of the page, not its HTML" });
     }
     if (source.url !== undefined && !isHttpUrl(source.url)) {
       issues.push({ path: `sources.${index}.url`, message: "must be an http(s) URL", hint: "give the page the text was fetched from, or leave url out" });
