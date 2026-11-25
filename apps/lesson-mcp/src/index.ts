@@ -35,17 +35,24 @@ export function shippedLessonsRoot(opts: {
 /** The host the stdio server runs. The C6 defaults apply here, at the entry point only (decision
  * D4): lessons in ~/.studium/library, durable progress in ~/.studium/data; BUNDLES_ROOT,
  * STUDIUM_DATA_DIR, STUDIUM_HOME, STUDIUM_LEARNER_ID and STUDIUM_EPHEMERAL=1 override them
- * (persistence.ts). */
+ * (persistence.ts). STUDIUM_OPEN_LINK says the VS Code extension serves it (D1, D2). */
 export function hostFromEnvironment(
   env: Readonly<Record<string, string | undefined>> = process.env, home: string = homedir(),
   opts: { shippedRoot?: string | null } = {},
 ): { host: SessionHost; config: PersistenceConfig; live: boolean } {
   const config = resolvePersistence(env, home);
   const live = env["LITELLM_BASE_URL"] !== undefined && env["LITELLM_BASE_URL"] !== "";
+  // D1/D2 (waiting review 2026-11-25): the Studium VS Code extension starts the server it offers to Copilot with
+  // STUDIUM_OPEN_LINK (how to open a lesson in its pane) and the pane's STUDIUM_LEARNER_ID: that learner is then the
+  // only one, and the lessons are offered in the pane first.
+  const openLink = env["STUDIUM_OPEN_LINK"]?.trim() || undefined;
+  const editorNamesLearner = openLink !== undefined && !!env["STUDIUM_LEARNER_ID"]?.trim();
   const host = new SessionHost({
     bundlesRoot: config.bundlesRoot, libraryRoot: config.libraryRoot, dataDir: config.dataDir,
     defaultLearnerId: config.learnerIdDefault, live,
     ...(opts.shippedRoot ? { shippedRoot: opts.shippedRoot } : {}),
+    ...(openLink ? { openLink } : {}),
+    ...(editorNamesLearner ? { editorNamesLearner } : {}),
   });
   return { host, config, live };
 }
@@ -76,6 +83,9 @@ Environment
   STUDIUM_DATA_DIR    where progress and reviews are kept (default <STUDIUM_HOME>/data)
   STUDIUM_EPHEMERAL   1 keeps everything in memory: nothing is written
   STUDIUM_LEARNER_ID  the learner id used when a call names none (default anonymous)
+  STUDIUM_OPEN_LINK   set by the Studium VS Code extension: the start of a link that opens a lesson
+                      in its pane; lessons are then offered there first, and with STUDIUM_LEARNER_ID
+                      that learner is the only one (a learner_id passed is ignored)
   STUDIUM_SHIPPED_LESSONS  the lessons shipped with Studium (default: shipped-lessons/ beside
                       the server); off for none
   LITELLM_BASE_URL    a judge model endpoint; empty (the default) calls no model

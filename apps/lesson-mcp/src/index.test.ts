@@ -46,7 +46,8 @@ describe("cliAnswer", () => {
     expect(help).toMatch(/started by an AI assistant over stdio/);
     expect(help).toContain("claude mcp add --scope user studium -- npx -y studium-mcp");
     expect(help).toContain("codex mcp add studium -- npx -y studium-mcp");
-    for (const variable of ["STUDIUM_HOME", "BUNDLES_ROOT", "STUDIUM_DATA_DIR", "STUDIUM_EPHEMERAL", "STUDIUM_LEARNER_ID", "LITELLM_BASE_URL"]) {
+    // D1/D2 (waiting review 2026-11-25): STUDIUM_OPEN_LINK, set by the VS Code extension, is listed too.
+    for (const variable of ["STUDIUM_HOME", "BUNDLES_ROOT", "STUDIUM_DATA_DIR", "STUDIUM_EPHEMERAL", "STUDIUM_LEARNER_ID", "LITELLM_BASE_URL", "STUDIUM_OPEN_LINK"]) {
       expect(help).toContain(variable);
     }
     expect(help).toContain("https://github.com/HolobiomicsLab/studium");
