@@ -1,7 +1,7 @@
 {
   "schema_version": "1.4",
   "bundle_id": "self-study-discover-studium-en",
-  "source_plan_id": "ss-4da895f0832d4dc4",
+  "source_plan_id": "ss-f1ff4a5d6230e7bd",
   "metadata": {
     "title": "Discover Studium",
     "target": "Newcomers to Studium",
@@ -73,7 +73,7 @@
         "enrichment_metadata": {
           "enricher_version": "studium-authoring-draft/1",
           "perspicacite_mode_used": "passages",
-          "timestamp": "2026-11-25T14:49:34.632Z",
+          "timestamp": "2026-11-25T15:00:20.358Z",
           "degraded": false
         }
       },
@@ -104,7 +104,7 @@
         "enrichment_metadata": {
           "enricher_version": "studium-authoring-draft/1",
           "perspicacite_mode_used": "passages",
-          "timestamp": "2026-11-25T14:49:34.632Z",
+          "timestamp": "2026-11-25T15:00:20.358Z",
           "degraded": false
         }
       },
@@ -166,7 +166,7 @@
         "enrichment_metadata": {
           "enricher_version": "studium-authoring-draft/1",
           "perspicacite_mode_used": "passages",
-          "timestamp": "2026-11-25T14:49:34.632Z",
+          "timestamp": "2026-11-25T15:00:20.358Z",
           "degraded": false
         }
       },
@@ -206,7 +206,7 @@
         "enrichment_metadata": {
           "enricher_version": "studium-authoring-draft/1",
           "perspicacite_mode_used": "passages",
-          "timestamp": "2026-11-25T14:49:34.632Z",
+          "timestamp": "2026-11-25T15:00:20.358Z",
           "degraded": false
         }
       },
@@ -278,7 +278,7 @@
         "enrichment_metadata": {
           "enricher_version": "studium-authoring-draft/1",
           "perspicacite_mode_used": "passages",
-          "timestamp": "2026-11-25T14:49:34.632Z",
+          "timestamp": "2026-11-25T15:00:20.358Z",
           "degraded": false
         }
       },
@@ -309,7 +309,7 @@
             "perspicacite_doc_id": "p:studium-documentation-honesty-and-proven:15",
             "title": "Studium documentation — Honesty and provenance",
             "authors": [],
-            "excerpt": "AI-drafted lesson from your sources, not checked by a teacher",
+            "excerpt": "Demo lesson shipped with Studium, drafted by an AI agent from Studium's documentation, not checked by a teacher",
             "relevance_score": 1,
             "prov_derived_from": "https://github.com/HolobiomicsLab/studium/blob/main/docs/concepts/honesty-and-provenance.md",
             "license": "CC-BY-4.0"
@@ -318,7 +318,7 @@
         "enrichment_metadata": {
           "enricher_version": "studium-authoring-draft/1",
           "perspicacite_mode_used": "passages",
-          "timestamp": "2026-11-25T14:49:34.632Z",
+          "timestamp": "2026-11-25T15:00:20.358Z",
           "degraded": false
         }
       },
@@ -380,7 +380,7 @@
         "enrichment_metadata": {
           "enricher_version": "studium-authoring-draft/1",
           "perspicacite_mode_used": "passages",
-          "timestamp": "2026-11-25T14:49:34.632Z",
+          "timestamp": "2026-11-25T15:00:20.358Z",
           "degraded": false
         }
       },
@@ -455,7 +455,7 @@
         "enrichment_metadata": {
           "enricher_version": "studium-authoring-draft/1",
           "perspicacite_mode_used": "passages",
-          "timestamp": "2026-11-25T14:49:34.632Z",
+          "timestamp": "2026-11-25T15:00:20.358Z",
           "degraded": false
         }
       },
@@ -486,7 +486,7 @@
         "enrichment_metadata": {
           "enricher_version": "studium-authoring-draft/1",
           "perspicacite_mode_used": "passages",
-          "timestamp": "2026-11-25T14:49:34.632Z",
+          "timestamp": "2026-11-25T15:00:20.358Z",
           "degraded": false
         }
       },
@@ -548,7 +548,7 @@
         "enrichment_metadata": {
           "enricher_version": "studium-authoring-draft/1",
           "perspicacite_mode_used": "passages",
-          "timestamp": "2026-11-25T14:49:34.632Z",
+          "timestamp": "2026-11-25T15:00:20.358Z",
           "degraded": false
         }
       },
@@ -579,7 +579,7 @@
         "enrichment_metadata": {
           "enricher_version": "studium-authoring-draft/1",
           "perspicacite_mode_used": "passages",
-          "timestamp": "2026-11-25T14:49:34.632Z",
+          "timestamp": "2026-11-25T15:00:20.358Z",
           "degraded": false
         }
       },
@@ -632,7 +632,7 @@
         "enrichment_metadata": {
           "enricher_version": "studium-authoring-draft/1",
           "perspicacite_mode_used": "passages",
-          "timestamp": "2026-11-25T14:49:34.632Z",
+          "timestamp": "2026-11-25T15:00:20.358Z",
           "degraded": false
         }
       },
@@ -676,7 +676,7 @@
     }
   ],
   "validated_by": "SELF-STUDY — not teacher-validated",
-  "validated_at": "2026-11-25T14:49:34.632Z",
+  "validated_at": "2026-11-25T15:00:20.358Z",
   "learning_workflow_graph": {
     "schema_version": "1.0",
     "course_id": "self-study-discover-studium-en",

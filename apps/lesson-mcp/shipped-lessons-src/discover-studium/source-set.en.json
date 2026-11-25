@@ -1,6 +1,6 @@
 {
   "schema": "studium-source-set/1",
-  "source_set_id": "ss-4da895f0832d4dc4",
+  "source_set_id": "ss-f1ff4a5d6230e7bd",
   "goal": "Understand how Studium works and find my way around its interface by using it",
   "language": "en",
   "min_chars": 200,
@@ -20,8 +20,8 @@
       "title": "Studium documentation — Honesty and provenance",
       "url": "https://github.com/HolobiomicsLab/studium/blob/main/docs/concepts/honesty-and-provenance.md",
       "license": "CC-BY-4.0",
-      "sha256": "126181bb456594f7c6f34c990dfefabfa7e2e365bb72a18944825cef22b58d29",
-      "chars": 10075,
+      "sha256": "235ba962e154d2efb29d5f8680e76b6fc3e290877fe99f11fc26e39d25882818",
+      "chars": 10373,
       "passages": 25
     },
     {
@@ -29,8 +29,8 @@
       "title": "Studium documentation — Learn a topic with your assistant",
       "url": "https://github.com/HolobiomicsLab/studium/blob/main/docs/learn/learn-with-your-assistant.md",
       "license": "CC-BY-4.0",
-      "sha256": "cbfaa210a6455a50aad7e536a29f68add0a3067821e1710954e87a634b7da0de",
-      "chars": 10931,
+      "sha256": "0ac3c46357137a9e911bf8f7f135e7e76ed7126926ce2e465680bdfe16623dbf",
+      "chars": 11148,
       "passages": 24
     },
     {
@@ -38,8 +38,8 @@
       "title": "Studium documentation — Review over time",
       "url": "https://github.com/HolobiomicsLab/studium/blob/main/docs/learn/review-over-time.md",
       "license": "CC-BY-4.0",
-      "sha256": "bf6c6e1f893ef6cc0b0585a89b3b18e3bad3d45107509efa38ae4748db68f81c",
-      "chars": 7027,
+      "sha256": "447cdae8b7626a166ecabf9279b8f40b32d90bac991c94007ee95991d5a44e8c",
+      "chars": 7142,
       "passages": 17
     },
     {
@@ -219,7 +219,7 @@
     {
       "id": "p:studium-documentation-honesty-and-proven:15",
       "source_id": "studium-documentation-honesty-and-proven",
-      "text": "| Drafted by | First sentence | |---|---| | learner | \"Self-authored lesson: quiz and spot-the-flaw keys were written by the learner (open book).\" | | agent | \"AI-drafted lesson from your sources, not checked by a teacher: each item cites its passage; tell the assistant about a key that looks wrong.\" |"
+      "text": "| Drafted by | First sentence | |---|---| | learner | \"Self-authored lesson: quiz and spot-the-flaw keys were written by the learner (open book).\" | | agent | \"AI-drafted lesson from your sources, not checked by a teacher: each item cites its passage; tell the assistant about a key that looks wrong.\" | | agent, in the demo lesson shipped with Studium | \"Demo lesson shipped with Studium, drafted by an AI agent from Studium's documentation, not checked by a teacher: each item cites its passage; tell the assistant about a key that looks wrong.\" Its `authoring` block also carries `shipped: true`. |"
     },
     {
       "id": "p:studium-documentation-honesty-and-proven:16",
@@ -284,7 +284,7 @@
     {
       "id": "p:studium-documentation-learn-a-topic-with:3",
       "source_id": "studium-documentation-learn-a-topic-with",
-      "text": "## 1. Ask\n\nSay it in your own words, for example:\n\n> I want to learn how the water cycle works with Studium. Here are two pages I trust: <links>.\n\nThe assistant starts with `get_study_plan`, in your language. If a lesson you already have covers the topic, it offers that lesson; otherwise it builds one. Say what you already know, how much time you have a day, or a target date: the assistant is asked to open the lesson with two short questions on what you already know. Those two questions are played once and never come back as reviews. What you know and what interests you shape the draft but are not stored; the lesson keeps only your minutes a day and your target date, and the study plan uses the minutes to size each step."
+      "text": "## 1. Ask\n\nSay it in your own words, for example:\n\n> I want to learn how the water cycle works with Studium. Here are two pages I trust: <links>.\n\nThe assistant starts with `get_study_plan`, in your language. If a lesson you already have covers the topic, it offers that lesson; otherwise it builds one. With no lesson at all, the plan first proposes « Discover Studium », a ten-minute demo shipped with Studium that shows how it works; say you would rather learn your topic and the assistant builds your lesson instead. Say what you already know, how much time you have a day, or a target date: the assistant is asked to open the lesson with two short questions on what you already know. Those two questions are played once and never come back as reviews. What you know and what interests you shape the draft but are not stored; the lesson keeps only your minutes a day and your target date, and the study plan uses the minutes to size each step."
     },
     {
       "id": "p:studium-documentation-learn-a-topic-with:4",
@@ -409,7 +409,7 @@
     {
       "id": "p:studium-documentation-review-over-time:4",
       "source_id": "studium-documentation-review-over-time",
-      "text": "The step to take follows a fixed order: play the reviews due, otherwise continue a lesson in progress, otherwise start the next lesson, otherwise build a lesson from your sources (when you have none), otherwise wait, with the date of the next review. A concept that no lesson can replay as a question stays listed, marked \"no review question covers it yet\", but is never proposed as the next step. Dates are calendar days in the time zone of the machine that runs Studium."
+      "text": "The step to take follows a fixed order: play the reviews due, otherwise continue a lesson in progress, otherwise start the next lesson, otherwise, when you have no lesson of your own, the demo lesson shipped with Studium (« Discover Studium », once), otherwise build a lesson from your sources (when you have none), otherwise wait, with the date of the next review. A concept that no lesson can replay as a question stays listed, marked \"no review question covers it yet\", but is never proposed as the next step. Dates are calendar days in the time zone of the machine that runs Studium."
     },
     {
       "id": "p:studium-documentation-review-over-time:5",
