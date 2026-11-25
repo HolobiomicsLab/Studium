@@ -53,7 +53,8 @@ Choose one owner for the session: the pane and a chat assistant run separate ser
 with separate progress. Never mix their session ids or promise synchronisation. The one
 exception is Copilot with the server the Studium VS Code extension registers: it plays the
 pane's learner (`persistence.learner_id_from_editor` is true), so a lesson opened in one
-goes on where the other left it, and a result that carries `open_link` offers the pane first.
+goes on where the other left it, and a result that carries `open_link` offers the pane first,
+unless the learner last answered in the chat (`offer_first: "chat"`).
 
 ## Begin the activity
 

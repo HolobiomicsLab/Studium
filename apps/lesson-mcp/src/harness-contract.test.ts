@@ -144,7 +144,11 @@ describe("instructions and prompts (RT-8a, RFR-16, L-4)", () => {
   it("tell every harness to show display_markdown with open_link first, and to start in the chat on “here” only", () => {
     const lines = SERVER_INSTRUCTIONS.split("\n");
     const authoring = lines.find((line) => line.includes("prepare_sources, create_lesson"))!;
-    expect(authoring).toMatch(/When a result or a next_step carries open_link, show its display_markdown as it is \(the link first\)/);
+    // Changed (follow-up to decision 4, owner 2026-11-25): offer_first says what comes first — the client's panel (the
+    // assistant calls open_lesson_panel), the chat after answers there, or a link — so the rule reads offer_first (was
+    // « carries open_link, show its display_markdown as it is (the link first) »); a link first keeps its words.
+    expect(authoring).toMatch(/When a result or a next_step carries offer_first, show its display_markdown as it is and do what it offers first/);
+    expect(authoring).toMatch(/otherwise its open_link \(the link first\)/);
     expect(authoring).toMatch(/call start_lesson_session only if the learner says “here”/);
     expect(lines.length).toBeLessThanOrEqual(13);
   });

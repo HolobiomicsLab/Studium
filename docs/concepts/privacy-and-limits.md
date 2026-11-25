@@ -23,7 +23,7 @@ Inside the data folder, each learner has a folder named by a pseudonym, never by
 | File | Content |
 |---|---|
 | `<pseudonym>/profile.json` | cross-lesson profile, including review memory |
-| `<pseudonym>/study.json` | where the learner studied |
+| `<pseudonym>/study.json` | where the learner studied, and where they last answered a step (`answered_on`: the browser, the VS Code pane, a panel, the Claude Code pane or the chat), so that the next lesson is offered there first |
 | `<pseudonym>/status.json` | where the session being played stands (lesson title, step, minutes left), for an assistant's status line; removed when the session closes |
 | `<pseudonym>/<lesson>/state-<lesson>.json` | lesson state and mastery |
 | `<pseudonym>/<lesson>/events.jsonl` | the session's event log |

@@ -78,6 +78,12 @@ learner id OpenCode passed. Your answers there are checked by Studium on your co
 the model, as long as no judge model is configured. `STUDIUM_BROWSER_PLAYER=off` in `environment` turns
 this off. Not yet tried with OpenCode itself: only scripts have checked it.
 
+OpenCode 1.19.6 announces no MCP Apps at connection, so the browser comes first. In a run of 25 November
+2026, the model started a lesson in the chat at once, as asked, and relayed its first step without the
+offer: a lesson started in the chat now ends its first step with one line that gives the address. When you
+answered in the chat last time, the offer says the lesson goes on in the chat and gives the address once
+([Where a lesson is offered first](harness-panels.md#where-a-lesson-is-offered-first)).
+
 ## Limits
 
 - One run supports the 1.x configuration and the Mistral model: OpenCode 1.19.6 on macOS, 25 November 2026,

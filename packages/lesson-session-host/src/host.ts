@@ -67,6 +67,7 @@ import {
 } from "./review-session.js";
 import { persistenceInfo, DEFAULT_LEARNER_ID, type PersistenceInfo } from "./persistence.js";
 import { paneLink, type PaneLink } from "./open-link.js";
+import { surfaceOrder, type AnswerSurface, type OfferClient, type OfferedSurface, type SurfaceOffer } from "./surface-offer.js";
 import { replyToInput, checkDisplayedChoice, ResponseInputError } from "./reply-mapping.js";
 import { expectedKind } from "./operator-context.js";
 import {
@@ -870,8 +871,9 @@ export interface SessionStartOptions {
 export interface PromptSurface { rank: 1 | 2; formsAvailable: boolean }
 /** The per-call option of the calls that serve a screen. */
 export interface ServeOptions { promptSurface?: PromptSurface }
-/** What respond takes beside the input: the surface, and the scene the learner answered (D2). */
-export interface RespondOptions extends ServeOptions { expectedSceneId?: string }
+/** What respond takes beside the input: the surface, the scene the learner answered (D2), and where the answer was
+ * given (follow-up to decision 4, B: the next offer of a lesson puts that surface first; absent: nothing recorded). */
+export interface RespondOptions extends ServeOptions { expectedSceneId?: string; answeredOn?: AnswerSurface }
 
 /** C4: what a self-rating changed — the rated concepts' next review. Never their mastery. */
 export interface RecallRating {
@@ -1090,6 +1092,44 @@ export class SessionHost {
         ...(library ? [{ kind: "library" as const, dir: library }] : [])];
     if (shipped && !roots.some((root) => same(root.dir, shipped))) roots.push({ kind: "shipped", dir: shipped });
     return roots;
+  }
+
+  /** Follow-up to decision 4 (2026-11-25): how the lesson `bundleRef` is offered to the learner of the call outside the
+   * chat, or null — not a lesson on disk, one never offered outside the chat (offeredOutsideChat), or the chat is all
+   * there is. What this host gives: the VS Code pane (openLink) or its browser player (browserLink); what `client`
+   * gives: Studium's panel, its own app's pane. Their order is surface-offer.ts's: the native surface first (A), the
+   * surface of the learner's last answer first when it is one of them, the chat first when it was the chat (B).
+   * `scope` "first": only the first surface, and the browser's address asked only when it is that one (the line of a
+   * lesson started in the chat). */
+  async lessonOffer(
+    bundleRef: string, learnerId?: string, client: OfferClient = {}, scope: "all" | "first" = "all",
+  ): Promise<SurfaceOffer | null> {
+    const lesson = (await this.catalog()).lessons.find((l) => l.bundle_ref === bundleRef);
+    if (!lesson || !offeredOutsideChat(lesson)) return null;
+    const learner = this.learnerFor(learnerId);
+    let remembered: AnswerSurface | undefined;
+    try { remembered = (await this.studyStore.load(await this.profilePseudonymOf(learner)))?.answered_on; }
+    catch { remembered = undefined; } // an unreadable record offers the order of A; the write-through reports it
+    const pane = this.openLink ? this.paneLinkOf(lesson) : null;
+    let browser: boolean = !this.openLink && this.opts.browserLink !== undefined;
+    const can = (surface: OfferedSurface): boolean => surface === "vscode_pane" ? pane !== null
+      : surface === "browser" ? browser : surface === "panel" ? client.panel === true : client.nativePane?.(learner) === true;
+    const named = () => { const order = surfaceOrder(can, remembered); return scope === "first" ? order.slice(0, 1) : order; };
+    let order = named();
+    let address: string | null = null;
+    if (order.includes("browser")) {
+      address = await this.browserLinkFor(lesson.bundle_ref, learnerId);
+      if (address === null) { browser = false; order = named(); }
+    }
+    if (!order.length) return null;
+    const asked = learnerId !== undefined && !this.editorNamesLearner ? { learner_id: learnerId } : {};
+    return {
+      first: order[0]!, order,
+      ...(order.includes("vscode_pane") && pane ? { open_link: pane.open_link, lesson_path: pane.lesson_path } : {}),
+      ...(order.includes("browser") && address ? { open_link: address } : {}),
+      ...(order.includes("panel") ? { open_panel: { bundle_ref: lesson.bundle_ref, ...asked } } : {}),
+      ...(order.includes("assistant_pane") ? { command: `/studium ${lesson.bundle_ref}` } : {}),
+    };
   }
 
   /** D2: the pane link of a lesson of the catalog — its file under the root it was listed from — or null. */
@@ -1539,8 +1579,10 @@ export class SessionHost {
    * older name) defaults to the language of the lesson the learner touched last, else of the newest
    * lesson on disk, else English. RFR-06: the learner's minutes a day size the next step. */
   async studyPlan(
-    learnerId: string = this.defaultLearnerId, opts: { nowMs?: number; locale?: DisplayLocale; language?: DisplayLocale } = {},
+    learnerId: string = this.defaultLearnerId,
+    opts: { nowMs?: number; locale?: DisplayLocale; language?: DisplayLocale; client?: OfferClient } = {},
   ): Promise<StudyPlan> {
+    const asked = learnerId;
     learnerId = this.learnerFor(learnerId);
     const nowMs = this.nowOr(opts.nowMs);
     const requested = opts.language ?? opts.locale;
@@ -1586,17 +1628,15 @@ export class SessionHost {
       timeZone: this.zone,
       reviewSeconds,
       unfinishedBuild: unfinished[0] ?? null,
-      ...(this.openLink ? { paneLinkFor: (lesson: CatalogLesson) => this.paneLinkOf(lesson) } : {}),
     };
     const plan = buildStudyPlan(input);
-    // D4: no pane to offer, the lesson to start or continue is offered in this server's browser player. Its address is
-    // asked for only now that the plan names such a lesson: the player starts on first need, never for a review.
+    // D2, D4 and their follow-up: the lesson to start or continue is offered outside the chat (lessonOffer). The offer
+    // is made only now that the plan names such a lesson: the browser player starts on first need, never for a review.
     const step = plan.next_step;
     const ref = step.action === "start" || step.action === "continue" ? step.arguments["bundle_ref"] : undefined;
-    const lesson = typeof ref === "string" ? catalog.lessons.find((l) => l.bundle_ref === ref) : undefined;
-    if (!lesson || !offeredOutsideChat(lesson)) return plan;
-    const link = await this.browserLinkFor(lesson.bundle_ref, learnerId);
-    return link ? buildStudyPlan({ ...input, browserLinkFor: (l: CatalogLesson) => (l.bundle_ref === lesson.bundle_ref ? link : null) }) : plan;
+    if (typeof ref !== "string") return plan;
+    const offer = await this.lessonOffer(ref, asked, opts.client);
+    return offer ? buildStudyPlan({ ...input, offerFor: (l: CatalogLesson) => (l.bundle_ref === ref ? offer : null) }) : plan;
   }
 
   /** list_lessons (HJ-5): the lessons on disk now, in the bundles root and the learner's library, with
@@ -2226,6 +2266,8 @@ export class SessionHost {
         ? replyToInput(scene, input.text, (publicScene(scene) as { deck?: Array<{ token: string }> }).deck, input.confidence)
         : checkDisplayedChoice(scene, input);
       const answeredCheck = entry.session.checkPending();
+      // Follow-up to decision 4 (B): where the learner answers, written to their study record with this answer.
+      if (opts.answeredOn !== undefined) entry.answeredOn = opts.answeredOn;
       const applied = await this.applyResponseLocked(entry, engineInput, opts.promptSurface);
       const settled = answeredCheck ? await this.settleContest(entry, applied.verdict?.correct === true) : undefined;
       const served = settled ? { ...applied, contest: settled } : applied;
@@ -2590,10 +2632,12 @@ export class SessionHost {
     entry.profileSeen = true;
     entry.carriedMemory = structuredClone(profile.concept_memory ?? {});
 
-    if (!change.moved.length && (entry.kind === "review" || entry.responses === 0)) return;
+    if (!change.moved.length && (entry.kind === "review" || entry.responses === 0) && entry.answeredOn === undefined) return;
     const record = (await this.studyStore.load(pseudonym)) ?? emptyStudyRecord();
     // RFR-06: the minutes a day the learner gave for the lesson they play are theirs from now on.
     if (entry.minutesPerDay !== undefined) record.minutes_per_day = entry.minutesPerDay;
+    // Follow-up to decision 4 (B): the surface of the learner's last answer.
+    if (entry.answeredOn !== undefined) record.answered_on = entry.answeredOn;
     for (const conceptId of change.moved) {
       const route = this.routeOf(entry, conceptId, change.sceneId);
       if (route) record.concepts[conceptId] = route;

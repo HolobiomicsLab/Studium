@@ -52,10 +52,10 @@ const READY: Record<DisplayLocale, { line: string; minutes: string }> = {
   fr: { line: "Ta leçon « {title} » est prête : {steps} étapes{minutes}.", minutes: ", environ {minutes} minutes" },
 };
 
-type ReadyLesson = { title: string; steps: number; minutes?: number | undefined; link: string };
+export type ReadyLesson = { title: string; steps: number; minutes?: number | undefined; link: string };
 
 /** The lesson is ready: its title, its steps, its minutes when the lesson says. */
-function readyLine(locale: DisplayLocale, lesson: ReadyLesson): string {
+export function readyLine(locale: DisplayLocale, lesson: ReadyLesson): string {
   const t = READY[locale];
   const minutes = lesson.minutes === undefined ? "" : t.minutes.replace("{minutes}", String(lesson.minutes));
   const line = t.line.replace("{title}", () => lesson.title).replace("{steps}", String(lesson.steps)).replace("{minutes}", minutes);

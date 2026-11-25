@@ -130,9 +130,12 @@ independent MCP client run separate servers with separate sessions and progress.
    authoring tools) with its `arguments` (which may carry `language` and `max_items`).
    With the minutes a day the learner gave, `minutes_per_day` and
    `next_step.estimated_minutes` size the step. Show its `display_markdown`. When
-   `next_step` (or `create_lesson`'s result) carries `open_link` (the server the Studium VS
-   Code extension registers), its text offers the Studium pane first: show it as it is, and
-   call `start_lesson_session` only if the learner says "here".
+   `next_step` (or `create_lesson`'s result) carries `offer_first`, show its text as it is
+   and do what it offers first: `panel`, call `open_lesson_panel` with `open_panel`;
+   `chat`, start the lesson here; otherwise (`open_link`: the Studium pane or the browser;
+   or the assistant's own pane) call `start_lesson_session` only if the learner says "here".
+   A lesson started in the chat may end its first step with one line naming a faster
+   surface: show it with the step.
    `list_lessons {query?, learner_id?, language?}` lists startable lessons, from
    `BUNDLES_ROOT` and the learner's library. For a new lesson from the learner's
    sources, follow [studium-self-learner](../studium-self-learner/SKILL.md).

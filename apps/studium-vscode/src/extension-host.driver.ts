@@ -693,8 +693,9 @@ async function main() {
       await client.connect(new StdioClientTransport({ command: def.command, args: def.args, cwd: def.cwd?.fsPath, env, stderr: "pipe" }));
       const info = parseToolResult("get_server_info", await client.callTool({ name: "get_server_info", arguments: {} }));
       // D1 + D2 (owner decision 1): the chat and the pane share one learner. Copilot starts a lesson without naming a
-      // learner and answers its first step; get_study_plan offers it in the pane first, with a link; that link, handed
-      // over the way VS Code does, opens the pane at the step the chat reached.
+      // learner and answers its first step; get_study_plan offers it with the pane's link (the chat first since that
+      // answer came from the chat: owner, 2026-11-25, the learner's last surface first, the link still given); that
+      // link, handed over the way VS Code does, opens the pane at the step the chat reached.
       expect(info["persistence"]?.["learner_id_from_editor"] === true && info["persistence"]?.["learner_id_default"] === "e2e-copilot",
         `the started server is told the editor names the learner (got ${JSON.stringify(info["persistence"])})`);
       makeLesson("shared", SAFE_RUN, "capsule-run-shared");
