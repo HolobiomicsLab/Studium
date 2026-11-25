@@ -4,6 +4,7 @@ import { SessionHost, resolvePersistence, type PersistenceConfig } from "@studiu
 import { buildMcpServer } from "./server.js";
 import { SERVER_VERSION } from "./build-info.js";
 import { REPOSITORY_URL } from "./feedback.js";
+import { runPlay } from "./play.js";
 
 export const MCP_SERVER_NAME = "studium-lesson";
 
@@ -35,6 +36,9 @@ Add it to an assistant
   Other clients   command "npx", arguments ["-y", "studium-mcp"], transport stdio
   If your shell defines LITELLM_BASE_URL, give the server an empty one so that it calls no model.
 
+Play lessons in a web browser, without an assistant (experimental)
+  npx -y studium-mcp play [folder]     opens the browser on 127.0.0.1; studium-mcp play --help
+
 Options
   -v, --version   print the version and exit
   -h, --help      print this help and exit
@@ -60,6 +64,7 @@ export function cliAnswer(argv: readonly string[]): string | null {
 }
 
 export async function main(argv: readonly string[] = process.argv.slice(2)): Promise<void> {
+  if (argv[0] === "play") { await runPlay(argv.slice(1)); return; }
   const answer = cliAnswer(argv);
   if (answer !== null) { process.stdout.write(answer); return; }
   const { host, config, live } = hostFromEnvironment();

@@ -118,6 +118,14 @@ non essayé dans une vraie session Copilot). Un autre assistant ajoute Node sur 
 compte (voir [Ajouter le serveur à votre assistant](installation.fr.md#ajouter-le-serveur-à-votre-assistant)).
 Le panneau et un assistant gardent des progressions séparées. Cela n'a pas été essayé en salle.
 
+## Sans VS Code
+
+Le [lecteur dans le navigateur](browser.fr.md) (expérimental) joue les mêmes leçons dans un navigateur web,
+servies par un processus du poste lui-même, qui n'écoute que sur 127.0.0.1. Il demande Node sur le poste et
+une commande par séance (`npx -y studium-mcp play /chemin/des/lecons/partagees`), qu'un script d'ouverture
+de session pourrait lancer ; la progression va dans `~/.studium/data` du compte, ou `STUDIUM_HOME`. Il n'a
+pas non plus été essayé en salle, et rien ne le lance encore depuis un raccourci du bureau.
+
 ## Limites
 
 - Aucune salle d'enseignement n'a été préparée avec ces étapes. Ce sur quoi elles reposent est dans le code

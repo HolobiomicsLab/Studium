@@ -111,6 +111,14 @@ session). Another assistant adds Node on the workstation and one command per acc
 [Add the server to your assistant](installation.md#add-the-server-to-your-assistant)). The pane and an
 assistant keep separate progress. This has not been tried in a room.
 
+## Without VS Code
+
+The [browser player](browser.md) (experimental) plays the same lessons in a web browser, served by a
+process on the workstation itself, listening on 127.0.0.1 only. It needs Node on the workstation and one
+command per session (`npx -y studium-mcp play /path/to/shared/lessons`), which a login script could run;
+progress goes to `~/.studium/data` of the account, or `STUDIUM_HOME`. It has not been tried in a room
+either, and nothing yet starts it from a desktop shortcut.
+
 ## Limits
 
 - No teaching room has been prepared with these steps. What they rely on is in the code and its automated

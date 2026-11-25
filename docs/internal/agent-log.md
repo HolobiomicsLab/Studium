@@ -63,6 +63,34 @@ Documentation EN/FR : skill self-learner, apprendre avec son assistant, deux tut
 leçon, SECURITY, confidentialité, référence des outils régénérée. Non vérifié : un vrai assistant
 (Vibe, Claude, Copilot) appelant `path` ; Windows (chemins, racines système) ; le gain de temps réel.
 
+
+---
+
+## 2026-11-25 — un lecteur dans le navigateur, local d'abord
+
+Origine : le même retour de testeur (« l'usage demande l'habitude des environnements de développement ») ;
+décision ouverte 5 de INT-STUDIUM-064, approuvée pour une première tranche le 25 nov. Branche
+`feat/2026-11-25-browser-player`, depuis `integration/2026-11-25-tester-feedback` (`d995d57`). Rien n'est poussé.
+
+- Conception : `docs/design-records/specs/2026-11-25-browser-player.md` (architecture, variantes écartées,
+  modèle de sécurité, ce qu'exigerait une version hébergée).
+- Code : `apps/lesson-mcp/src/player.ts` sert `/play` (la page) et `/play/api/tools/<nom>` (quatre outils)
+  depuis l'API locale, par un client MCP en mémoire vers les outils de panneau ; `bridge-browser.js` donne au
+  pont MCP Apps un objet de forme App qui passe par `fetch` ; `studium-mcp play` (`play.ts`) génère le
+  jeton, écoute sur 127.0.0.1 et ouvre le navigateur. Contrôles : boucle locale, Host avec le port (rebinding
+  DNS), Origin et Sec-Fetch-Site, jeton porteur, aucun en-tête CORS, CSP par empreinte du script.
+- Tests d'abord : `player.test.ts` (8), `play.test.ts` (8), `bridge-browser.test.mjs` (7, jsdom, dont une
+  comparaison octet pour octet du DOM avec le rendu du panneau VS Code pour la même vue).
+- Essai réel : Chrome sans fenêtre (Playwright 1.65, Chrome du système, aucun navigateur téléchargé) sur le
+  serveur empaqueté : liste, cinq étapes de `atomistique-l1` (quiz avec indice noté par la clé, audit de
+  résumé non certifié avec note de rappel), thèmes clair et sombre, rechargement. Il a révélé deux défauts,
+  corrigés : le barreau « explication » de l'aide était un bouton mort (pas d'assistant), et la demande de
+  favicon donnait un 401 dans la console. Reprise après redémarrage vérifiée avec un stockage durable.
+- Documentation : `docs/start/browser` (EN/FR), liens depuis le portail, le démarrage rapide, les postes
+  de salle de TP et la référence de l'API HTTP.
+
+---
+
 ## 2026-11-25 — choisir un cours sans dossier ouvert ouvre la leçon
 
 Rapport d'un testeur (VS Code fraîchement installé, une leçon construite par un assistant dans
