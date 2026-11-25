@@ -117,17 +117,22 @@ independent MCP client run separate servers with separate sessions and progress.
 
 1. `get_server_info {}` (no session): version, build origin (`source` or `bundled` and
    date), the registered tools and `persistence` (`durable`, `data_dir`,
-   `library_root`, `learner_id_default`). A compiled server older than the checkout
+   `library_root`, `learner_id_default`, and `learner_id_from_editor` when the editor names the
+   learner). A compiled server older than the checkout
    lacks recent tools; rebuild it. If `durable` is false, tell the learner progress is
    lost at restart.
-2. Pass one stable `learner_id` per person on every call, and the learner's `language`
+2. Pass one stable `learner_id` per person on every call (when `learner_id_from_editor` is
+   true, omit it: the editor names the learner and ignores an id you pass), and the learner's `language`
    (`fr` or `en`) to `get_study_plan`, `list_lessons` and `start_review_session`;
    without it they use the language of the learner's last lesson, else the server's.
 3. `get_study_plan {learner_id, language?, now_ms?}` says what to do now; its
    `next_step` names the call (`start_review_session`, `start_lesson_session` or the
    authoring tools) with its `arguments` (which may carry `language` and `max_items`).
    With the minutes a day the learner gave, `minutes_per_day` and
-   `next_step.estimated_minutes` size the step. Show its `display_markdown`.
+   `next_step.estimated_minutes` size the step. Show its `display_markdown`. When
+   `next_step` (or `create_lesson`'s result) carries `open_link` (the server the Studium VS
+   Code extension registers), its text offers the Studium pane first: show it as it is, and
+   call `start_lesson_session` only if the learner says "here".
    `list_lessons {query?, learner_id?, language?}` lists startable lessons, from
    `BUNDLES_ROOT` and the learner's library. For a new lesson from the learner's
    sources, follow [studium-self-learner](../studium-self-learner/SKILL.md).
