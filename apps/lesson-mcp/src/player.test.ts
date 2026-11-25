@@ -171,6 +171,17 @@ describe('browser player: a lesson the list does not show', () => {
   });
 });
 
+// Review of decision 4, nit: a body over 1 MiB cut the connection before any answer; the page then saw a network error,
+// which it reads as a server that is gone. The 413 now reaches the client.
+describe('browser player: a body too large', () => {
+  it('is answered 413, not with a closed connection', async () => {
+    const {raw, browser} = await setup();
+    const reply = await raw('POST', '/play/api/tools/list_lessons', browser, JSON.stringify({arguments:{pad:'x'.repeat(1_100_000)}}));
+    expect(reply.status).toBe(413);
+    expect(reply.json.code).toBe('body_too_large');
+  });
+});
+
 describe('browser player: a lesson played through the routes', () => {
   it('shows no answer key before the answer, grades on the server and offers no assistant', async () => {
     const {view, tool, host} = await setup();

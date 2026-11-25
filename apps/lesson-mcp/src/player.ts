@@ -18,6 +18,9 @@ type PlayerTool = (typeof PLAYER_TOOLS)[number];
 /** The page has no assistant: the hand-over to one is neither offered nor taken. */
 const NO_ASSISTANT = new Set(['ask']);
 const MAX_BODY_BYTES = 1024 * 1024;
+/** A body over MAX_BODY_BYTES is read to its end and kept nowhere, so that its 413 reaches a client still sending; past
+ * this many bytes the connection is cut instead. */
+const DRAIN_LIMIT_BYTES = 8 * MAX_BODY_BYTES;
 const LOOPBACK = ['127.0.0.1', '::1', '::ffff:127.0.0.1'];
 const CDN = 'https://cdn.jsdelivr.net';
 
@@ -239,10 +242,11 @@ function readJson(request: IncomingMessage): Promise<unknown> {
     let length = 0;
     request.on('data', (chunk: Buffer) => {
       length += chunk.length;
-      if (length > MAX_BODY_BYTES) { reject(new PlayerError(413, 'body_too_large', 'Request exceeds 1 MiB')); request.destroy(); return; }
-      chunks.push(chunk);
+      if (length > DRAIN_LIMIT_BYTES) { reject(new PlayerError(413, 'body_too_large', 'Request exceeds 1 MiB')); request.destroy(); return; }
+      if (length <= MAX_BODY_BYTES) chunks.push(chunk);
     });
     request.on('end', () => {
+      if (length > MAX_BODY_BYTES) { reject(new PlayerError(413, 'body_too_large', 'Request exceeds 1 MiB')); return; }
       try { accept(JSON.parse(Buffer.concat(chunks).toString('utf8'))); }
       catch { reject(new PlayerError(400, 'invalid_json', 'Body is not valid JSON')); }
     });
