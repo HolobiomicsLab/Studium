@@ -521,7 +521,7 @@ const FR = {
   // The browser player (apps/lesson-panel-ui/src/bridge-browser.js): its list of lessons and its notices.
   player_title: "Leçons Studium",
   player_intro: "Choisis une leçon à suivre dans ce navigateur. Aucun assistant n'est nécessaire.",
-  player_empty: "Aucune leçon dans le dossier des leçons. Arrête le lecteur (Ctrl+C) et relance-le avec le dossier qui contient tes leçons : npx -y studium-mcp play <dossier>",
+  player_empty: "Pas encore de leçon. Une leçon que ton assistant enregistre dans ta bibliothèque Studium apparaît ici quand tu reviens sur cet onglet, ou quand tu recharges la page. Pour jouer un autre dossier, arrête le lecteur (Ctrl+C) et lance : npx -y studium-mcp play <dossier>",
   player_status_in_progress: "{done} étapes sur {total} faites",
   player_status_completed: "terminée",
   player_shipped: "livrée avec Studium",
@@ -1031,7 +1031,7 @@ const EN: Record<PhraseKey, string> = {
   pane_course_steps: "{count} steps",
   player_title: "Studium lessons",
   player_intro: "Choose a lesson to follow in this browser. No assistant is needed.",
-  player_empty: "No lesson in the lessons folder. Stop the player (Ctrl+C) and start it again with the folder that holds your lessons: npx -y studium-mcp play <folder>",
+  player_empty: "No lesson yet. A lesson your assistant saves in your Studium library appears here when you come back to this tab, or when you reload the page. To play another folder, stop the player (Ctrl+C) and run: npx -y studium-mcp play <folder>",
   player_status_in_progress: "{done} of {total} steps done",
   player_status_completed: "completed",
   player_shipped: "shipped with Studium",

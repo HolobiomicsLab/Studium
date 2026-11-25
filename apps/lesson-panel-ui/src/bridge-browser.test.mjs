@@ -167,3 +167,117 @@ test("an answer goes to the server through panel_action, with the scene on scree
   assert.match(text(p.doc.getElementById("pane")), /56 − 26 = 30/);
   p.dom.window.close();
 });
+
+// Coming back to the list (BN-6): an assistant may save a lesson while the list is open in another tab or
+// behind VS Code. The list is read again when its tab is shown again or its window regains focus; no polling.
+const PHOTOSYNTHESE = { bundle_ref: "photosynthese/lesson.json", title: "Photosynthèse", scene_count: 9, validated: false, status: { state: "not_started" } };
+/** A list_lessons reply the test changes between calls, as an assistant saving a lesson would. */
+function changingList(first) {
+  const state = { catalog: first, gate: null };
+  const reply = async (name) => {
+    if (name !== "list_lessons") return defaultReply(name);
+    if (state.gate) await state.gate;
+    return [200, { content: [{ type: "text", text: JSON.stringify(state.catalog) }] }];
+  };
+  return { state, reply };
+}
+const listings = (p) => p.calls.filter(call => call.url.endsWith("/list_lessons")).length;
+const tabShown = (p) => p.doc.dispatchEvent(new p.dom.window.Event("visibilitychange"));
+const windowFocused = (p) => p.dom.window.dispatchEvent(new p.dom.window.Event("focus"));
+const titles = (p) => [...p.doc.querySelectorAll(".course-choice-title")].map(text);
+
+test("coming back to the list reads it again: a lesson saved meanwhile appears without a reload", async () => {
+  const list = changingList({ lessons: [] });
+  const p = page({ reply: list.reply });
+  await p.start();
+  const empty = p.doc.querySelector(".course-picker-empty");
+  assert.equal(text(empty), flat(fr.player_empty));
+  // The notice says the list fills in on return, and still names the command for another folder.
+  assert.match(fr.player_empty, /onglet/);
+  assert.match(browserPhrases("en").player_empty, /come back to this tab/);
+  for (const words of [fr, browserPhrases("en")]) assert.match(words.player_empty, /npx -y studium-mcp play/);
+  list.state.catalog = { lessons: [PHOTOSYNTHESE] };
+  // A tab sent to the background lists nothing.
+  Object.defineProperty(p.doc, "visibilityState", { value: "hidden", configurable: true });
+  tabShown(p); await settle(); await settle();
+  assert.equal(listings(p), 1);
+  Object.defineProperty(p.doc, "visibilityState", { value: "visible", configurable: true });
+  tabShown(p); await settle(); await settle();
+  assert.equal(listings(p), 2);
+  assert.equal(p.doc.querySelector(".course-picker-empty"), null);
+  assert.deepEqual(titles(p), ["Photosynthèse"]);
+  // Coming back from another window (VS Code beside the browser) is a focus, not a visibilitychange.
+  list.state.catalog = { lessons: [PHOTOSYNTHESE, LESSONS.lessons[1]] };
+  windowFocused(p); await settle(); await settle();
+  assert.equal(listings(p), 3);
+  assert.deepEqual(titles(p), ["Photosynthèse", "Capsule"]);
+  p.doc.querySelector(".course-choice").click(); await settle(); await settle();
+  assert.deepEqual(p.calls.at(-1).body, { arguments: { bundle_ref: "photosynthese/lesson.json", locale: "fr" } });
+  p.dom.window.close();
+});
+
+test("a tab shown and its window focused at the same moment list the lessons once", async () => {
+  const p = page();
+  await p.start();
+  tabShown(p); windowFocused(p);
+  await settle(); await settle();
+  assert.equal(listings(p), 2);
+  p.dom.window.close();
+});
+
+test("reading the list again moves no focus: the same list is left as it is, a new one keeps the lesson in focus", async () => {
+  const list = changingList(LESSONS);
+  const p = page({ reply: list.reply });
+  await p.start();
+  const capsule = p.doc.querySelectorAll(".course-choice")[1];
+  capsule.focus();
+  windowFocused(p); await settle(); await settle();
+  assert.equal(listings(p), 2);
+  assert.equal(p.doc.querySelectorAll(".course-choice")[1], capsule);
+  assert.equal(p.doc.activeElement, capsule);
+  list.state.catalog = { lessons: [PHOTOSYNTHESE, ...LESSONS.lessons] };
+  windowFocused(p); await settle(); await settle();
+  assert.equal(listings(p), 3);
+  assert.deepEqual(titles(p), ["Photosynthèse", "Atomistique L1", "Capsule"]);
+  assert.equal(text(p.doc.activeElement.querySelector(".course-choice-title")), "Capsule");
+  p.dom.window.close();
+});
+
+test("nothing is listed again while a lesson opens or plays, and a late list does not unlock the choices", async () => {
+  let release;
+  const p = page({ reply: async (name) => {
+    if (name === "open_lesson_panel") await new Promise(resolve => { release = resolve; });
+    return defaultReply(name);
+  } });
+  await p.start();
+  p.doc.querySelector(".course-choice").click();
+  tabShown(p); windowFocused(p); await settle(); await settle();
+  assert.equal(listings(p), 1);
+  assert.ok([...p.doc.querySelectorAll(".course-choice")].every(choice => choice.disabled));
+  release(); await settle(); await settle();
+  assert.match(text(p.doc.querySelector(".scene-title")), /atome de fer/);
+  tabShown(p); windowFocused(p); await settle(); await settle();
+  assert.equal(listings(p), 1);
+  p.dom.window.close();
+
+  // A list already on its way when a lesson is chosen is not drawn over the opening lesson.
+  const list = changingList(LESSONS);
+  const late = page({ reply: async (name) => name === "open_lesson_panel" ? new Promise(() => {}) : list.reply(name) });
+  await late.start();
+  let arrive;
+  list.state.gate = new Promise(resolve => { arrive = resolve; });
+  list.state.catalog = { lessons: [PHOTOSYNTHESE, ...LESSONS.lessons] };
+  windowFocused(late); await settle();
+  late.doc.querySelector(".course-choice").click();
+  arrive(); await settle(); await settle();
+  assert.deepEqual(titles(late), ["Atomistique L1", "Capsule"]);
+  assert.ok([...late.doc.querySelectorAll(".course-choice")].every(choice => choice.disabled));
+  late.dom.window.close();
+
+  // A tab that resumed its session lists nothing on return.
+  const resumed = page({ hash: "", stored: { [TOKEN_KEY]: TOKEN, [SESSION_KEY]: "session-1" } });
+  await resumed.start();
+  tabShown(resumed); windowFocused(resumed); await settle(); await settle();
+  assert.deepEqual(resumed.calls.map(call => call.url.split("/").pop()), ["get_panel_view"]);
+  resumed.dom.window.close();
+});
