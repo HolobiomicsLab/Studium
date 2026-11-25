@@ -101,6 +101,25 @@ test("the list shows each lesson with its steps, approval and progress, and open
   p.dom.window.close();
 });
 
+test("a lesson shipped with Studium is listed after the learner's own and labelled; alone, it replaces the empty notice", async () => {
+  const demo = { bundle_ref: "discover-studium-fr/lesson.json", title: "Découvrir Studium", scene_count: 12, validated: false, source: "shipped", status: { state: "not_started" } };
+  const withBoth = page({ reply: async (name) => name === "list_lessons"
+    ? [200, { content: [{ type: "text", text: JSON.stringify({ ...LESSONS, shipped_lessons: [demo] }) }] }] : defaultReply(name) });
+  await withBoth.start();
+  const rows = [...withBoth.doc.querySelectorAll(".course-choice")].map(choice => [text(choice.querySelector(".course-choice-title")), text(choice.querySelector(".course-choice-facts"))]);
+  assert.deepEqual(rows[2], ["Découvrir Studium", "12 étapes · " + flat(fr.player_shipped)]);
+  withBoth.dom.window.close();
+  const alone = page({ reply: async (name) => name === "list_lessons"
+    ? [200, { content: [{ type: "text", text: JSON.stringify({ lessons: [], shipped_lessons: [demo] }) }] }] : defaultReply(name) });
+  await alone.start();
+  assert.equal(alone.doc.querySelector(".course-choice-empty, .course-picker-empty"), null);
+  const only = [...alone.doc.querySelectorAll(".course-choice")];
+  assert.equal(only.length, 1);
+  only[0].click(); await settle(); await settle();
+  assert.deepEqual(alone.calls[1].body, { arguments: { bundle_ref: "discover-studium-fr/lesson.json", locale: "fr" } });
+  alone.dom.window.close();
+});
+
 test("a reload resumes the session of this tab instead of listing the lessons", async () => {
   const p = page({ hash: "", stored: { [TOKEN_KEY]: TOKEN, [SESSION_KEY]: "session-1" } });
   await p.start();

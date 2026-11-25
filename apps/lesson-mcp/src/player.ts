@@ -91,7 +91,8 @@ export function createPlayer(options: { host: SessionHost; token: string; html?:
     if (name === 'list_lessons') return { ...rest, learner_id: options.host.defaultLearnerId };
     if (name === 'open_lesson_panel') {
       if (rest.bundle_ref !== undefined) {
-        const listed = (await options.host.listLessons()).lessons.map(lesson => lesson.bundle_ref);
+        const catalog = await options.host.listLessons();
+        const listed = [...catalog.lessons, ...catalog.shipped_lessons].map(lesson => lesson.bundle_ref);
         if (typeof rest.bundle_ref !== 'string' || !listed.includes(rest.bundle_ref)) {
           throw new PlayerError(400, 'invalid_bundle', 'Open a lesson the list shows');
         }

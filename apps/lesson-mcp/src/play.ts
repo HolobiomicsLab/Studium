@@ -9,7 +9,7 @@ import { resolve } from 'node:path';
 import type { Server } from 'node:http';
 import { createLessonHttpServer } from './http.js';
 import { createPlayer } from './player.js';
-import { hostFromEnvironment } from './index.js';
+import { hostFromEnvironment, shippedLessonsRoot } from './index.js';
 
 export interface PlayArgs { folder?: string; port: number; open: boolean }
 export interface PlayRun { url: string; server: Server; close(): Promise<void> }
@@ -18,6 +18,8 @@ export interface PlayDeps {
   home: string;
   open: (url: string) => void;
   print: (line: string) => void;
+  /** The folder of the lessons shipped with Studium (index.ts shippedLessonsRoot); absent or null: none. */
+  shippedRoot?: string | null;
 }
 
 export const PLAY_HELP = `studium-mcp play: play Studium lessons in your web browser (experimental)
@@ -78,7 +80,7 @@ export async function startPlay(args: PlayArgs, deps: PlayDeps): Promise<PlayRun
     if (!isFolder) throw new Error(`no folder at ${folder}`);
     env['BUNDLES_ROOT'] = folder;
   }
-  const { host, config } = hostFromEnvironment(env, deps.home);
+  const { host, config } = hostFromEnvironment(env, deps.home, { shippedRoot: deps.shippedRoot ?? null });
   const token = randomBytes(32).toString('hex');
   const server = createLessonHttpServer({ host, token, bundlesRoot: config.bundlesRoot, player: createPlayer({ host, token }) });
   await new Promise<void>((accept, reject) => {
@@ -106,7 +108,8 @@ export async function startPlay(args: PlayArgs, deps: PlayDeps): Promise<PlayRun
 export async function runPlay(argv: readonly string[]): Promise<void> {
   if (argv.includes('--help') || argv.includes('-h')) { process.stdout.write(PLAY_HELP); return; }
   const run = await startPlay(parsePlayArgs(argv), {
-    env: process.env, home: homedir(), open: openInBrowser, print: line => process.stdout.write(`${line}\n`),
+    env: process.env, home: homedir(), open: openInBrowser,
+    shippedRoot: shippedLessonsRoot({ scriptPath: process.argv[1], env: process.env }), print: line => process.stdout.write(`${line}\n`),
   });
   for (const signal of ['SIGINT', 'SIGTERM'] as const) {
     process.once(signal, () => { void run.close().then(() => process.exit(0)); });

@@ -1,6 +1,8 @@
 // `studium-mcp play`: the one-command start of the browser player (design record 2026-11-25).
 import { afterEach, describe, expect, it } from 'vitest';
-import { resolve } from 'node:path';
+import { resolve, join } from 'node:path';
+import { mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { parsePlayArgs, openerFor, startPlay, type PlayRun } from './play.js';
 import { cliAnswer } from './index.js';
 
@@ -32,6 +34,27 @@ describe('openerFor', () => {
 });
 
 describe('startPlay', () => {
+  it('offers the lessons shipped with Studium beside an empty lessons folder, apart from the learner\'s, and opens one', async () => {
+    const empty = mkdtempSync(join(tmpdir(), 'studium-play-empty-'));
+    const run = await startPlay({folder:empty, port:0, open:false}, {
+      env:{STUDIUM_EPHEMERAL:'1'}, home:'/nonexistent-home', open:() => {}, print:() => {},
+      shippedRoot: resolve(import.meta.dirname, '../shipped-lessons'),
+    });
+    runs.push(run);
+    const origin = run.url.replace(/\/play#.*/, '');
+    const token = run.url.split('#token=')[1];
+    const call = (name:string, args:Record<string, unknown>) => fetch(`${origin}/play/api/tools/${name}`, {
+      method:'POST', headers:{authorization:`Bearer ${token}`, 'content-type':'application/json', origin}, body:JSON.stringify({arguments:args}),
+    });
+    const reply = await (await call('list_lessons', {language:'fr'})).json() as {content:Array<{text:string}>};
+    const listed = JSON.parse(reply.content[0]!.text);
+    expect(listed.lessons).toEqual([]);
+    const refs = listed.shipped_lessons.map((lesson:{bundle_ref:string}) => lesson.bundle_ref);
+    expect(refs).toContain('discover-studium-fr/lesson.json');
+    expect((await call('open_lesson_panel', {bundle_ref:'discover-studium-fr/lesson.json', locale:'fr'})).status).toBe(200);
+    expect((await call('open_lesson_panel', {bundle_ref:'discover-studium-xx/lesson.json'})).status).toBe(400);
+  });
+
   it('listens on 127.0.0.1 with a fresh token, serves the page, and opens the address it prints', async () => {
     const opened:string[] = [];
     const lines:string[] = [];

@@ -97,7 +97,9 @@ export async function startBrowserPlayer({ window: win, document: doc, connectMc
   section.setAttribute("aria-labelledby", "player-title");
   heading.id = "player-title";
   section.append(heading, intro);
-  const lessons = Array.isArray(catalog.lessons) ? catalog.lessons : [];
+  // The learner's own lessons first; those shipped with Studium (the demo) after them, labelled as such.
+  const shipped = Array.isArray(catalog.shipped_lessons) ? catalog.shipped_lessons.map(lesson => ({ ...lesson, shipped: true })) : [];
+  const lessons = [...(Array.isArray(catalog.lessons) ? catalog.lessons : []), ...shipped];
   if (!lessons.length) {
     const empty = doc.createElement("p");
     empty.className = "course-picker-empty"; empty.textContent = words.player_empty;
@@ -109,6 +111,7 @@ export async function startBrowserPlayer({ window: win, document: doc, connectMc
     const facts = [
       Number.isInteger(lesson.scene_count) && lesson.scene_count > 0 ? words.pane_course_steps.replace("{count}", String(lesson.scene_count)) : null,
       lesson.validated === true ? words.pane_course_validated : null,
+      lesson.shipped === true ? words.player_shipped : null,
       lesson.status?.state === "in_progress"
         ? words.player_status_in_progress.replace("{done}", String(lesson.status.scenes_completed)).replace("{total}", String(lesson.status.total_scenes)) : null,
       lesson.status?.state === "completed" ? words.player_status_completed : null,
