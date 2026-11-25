@@ -228,6 +228,7 @@ export function activate(context: vscode.ExtensionContext) {
       locations: () => lessonServerLocations(context, resolveLessonBundlesRoot(context)),
       repoRoot: () => cfg<string>("repoRoot", resolve(context.extensionPath, "..", "..")),
       enabled: () => cfg<boolean>("registerMcpServer", true) !== false,
+      learnerId: () => cfg<string>("learnerId", "vscode-learner"),
       studiumHome: studiumHomeDir,
       log: (line) => mcpOutput.appendLine(line),
     });

@@ -8,7 +8,7 @@ import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { connectLessonMcp, liveLessonMcpCount, withLessonMcpPaused, connectOrClose, describeServerLaunch, resolveServerLaunch, resolveTsx, parseToolResult, forwardStderr, resolveLogSink, serverBuildWarning, serverInfoLine, setLessonMcpLog, lessonMcpEnv, type LogSink, type ServerInfo } from "./mcp-connect.js";
 import { isolateFromHome } from "./driver-isolation.js";
-import { findHandAddedStudium, mcpConfigFiles, mcpServerApi, registeredServerEnv, studiumServerIn } from "./mcp-provider.js";
+import { findHandAddedStudium, mcpConfigFiles, mcpServerApi, openLinkPrefix, registeredServerEnv, studiumServerIn } from "./mcp-provider.js";
 
 // I-10: no driver may write into the developer's home, even one that starts no server.
 const isolation = isolateFromHome("mcp-connect");
@@ -75,6 +75,23 @@ const repoRoot = resolve(fileURLToPath(new URL(".", import.meta.url)), "..", "..
   const home = registeredServerEnv({ bundlesRoot: "/l", storageDir: "/s", telemetryConsent: false, hostEnv: { STUDIUM_HOME: "/elsewhere" },
     studiumHome: "/h/.studium" });
   expect(home["STUDIUM_HOME"] === "/h/.studium", `the server gets the extension's STUDIUM_HOME (got ${JSON.stringify(home)})`);
+}
+{
+  // Owner decision 1 (D1, D2) and review finding 3: the Copilot server plays the pane's learner, offers lessons in the
+  // pane first through the link the URI handler opens, and writes its library under the STUDIUM_HOME the extension
+  // resolved once and watches. A learner id or a STUDIUM_HOME inherited from the editor's environment never travels.
+  const prefix = openLinkPrefix("vscode", "holobiomicslab.studium-vscode");
+  expect(prefix === "vscode://holobiomicslab.studium-vscode/open?bundle=", `the link starts with the editor's scheme and the extension id (got ${prefix})`);
+  expect(openLinkPrefix("vscode-insiders", "holobiomicslab.studium-vscode").startsWith("vscode-insiders://"), "VS Code Insiders links to itself");
+  expect(openLinkPrefix(undefined, "p.e").startsWith("vscode://p.e/open?bundle="), "no scheme known: vscode");
+  const shared = registeredServerEnv({ bundlesRoot: "/l", storageDir: "/s", telemetryConsent: false,
+    hostEnv: { STUDIUM_LEARNER_ID: "someone-else", STUDIUM_HOME: "/elsewhere" },
+    learnerId: "vscode-learner", openLink: prefix, studiumHome: "/h/.studium" });
+  expect(shared["STUDIUM_LEARNER_ID"] === "vscode-learner" && shared["STUDIUM_OPEN_LINK"] === prefix && shared["STUDIUM_HOME"] === "/h/.studium",
+    `the server gets the pane's learner, the pane link and the extension's STUDIUM_HOME (got ${JSON.stringify(shared)})`);
+  const unnamed = registeredServerEnv({ bundlesRoot: "/l", storageDir: "/s", telemetryConsent: false,
+    hostEnv: { STUDIUM_LEARNER_ID: "someone-else" }, learnerId: "  ", openLink: prefix, studiumHome: "/h" });
+  expect(unnamed["STUDIUM_LEARNER_ID"] === null, `a blank learner id removes an inherited one, the model then names the learner (got ${JSON.stringify(unnamed)})`);
 }
 {
   // Where a server added by hand can be: the user profile's mcp.json (next to globalStorage), each workspace
