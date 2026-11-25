@@ -86,8 +86,8 @@ lui-même : seuls des scripts l'ont vérifié.
 OpenCode 1.19.6 n'annonce pas MCP Apps à la connexion : le navigateur vient donc d'abord. Dans un essai du
 25 novembre 2026, le modèle a commencé une leçon aussitôt dans la conversation, comme demandé, et relayé sa
 première étape sans l'offre : une leçon commencée dans la conversation finit désormais sa première étape par
-une ligne qui donne l'adresse. Si vous avez répondu dans la conversation la dernière fois, l'offre dit que la
-leçon se poursuit dans la conversation et donne l'adresse une fois
+une ligne qui donne l'adresse. Si vous avez répondu dans la conversation après cette ligne, l'offre suivante
+dit que la leçon se suit dans la conversation et donne l'adresse une fois
 ([Où une leçon est proposée d'abord](harness-panels.fr.md#où-une-leçon-est-proposée-dabord)).
 
 ## Limites

@@ -8,7 +8,8 @@
 //      trial), and so does a client that announces only {roots} (OpenCode 1.19.6, measured). The Claude Code mod is
 //      known once it has opened its pane on this connection, for the learner it plays.
 //   B  The surface where the learner last answered comes first when this client gives it; after answers in the chat, the
-//      offer says the lesson goes on here and gives one link. forget_session erases the choice; another learner keeps A.
+//      offer says the lesson plays here and gives one link. forget_session erases the choice; another learner keeps A.
+//      An answer in the chat counts only in a session that showed the learner the other surface (review G, finding 3).
 //   C  (lead, after OpenCode 1.19.6 with Mistral Large 4: the model started the lesson in the chat at once and relayed
 //      the first step only) A lesson started or resumed in the chat ends its first step with one line naming the better
 //      surface; never a later step, never when the learner's choice is the chat.
@@ -137,15 +138,16 @@ async function call0(host: SessionHost, client: readonly [string, Record<string,
 }
 
 describe("B: the learner's last surface first", () => {
-  it("after an answer in the chat the offer says the lesson goes on here; after one in the browser, the browser first again", async () => {
+  it("after an answer in the chat the offer says the lesson plays here; after one in the browser, the browser first again", async () => {
     const { host } = serve();
     const call = await connect(host, ...OPENCODE);
     await answerInChat(call, "ana");
     const afterChat = await call("get_study_plan", { learner_id: "ana", language: "en" });
     expect(afterChat.next_step).toMatchObject({ action: "continue", offer_first: "chat" });
     const link = String(afterChat.next_step.open_link);
-    // Changed: "To answer each step at once" promised a speed a judge model does not keep (review G, finding 2).
-    expect(afterChat.next_step.text).toMatch(/As last time, it goes on here, in this chat\. To answer each step without going through this chat, open it in your web browser/);
+    // Changed: "To answer each step at once" promised a speed a judge model does not keep (review G, finding 2), and "As
+    // last time, it goes on here" read as going on with a lesson on the start step of a new one (finding 3).
+    expect(afterChat.next_step.text).toMatch(/It plays here, in this chat, as you chose last time\. To answer each step without going through this chat, open it in your web browser/);
     expect(String(afterChat.display_markdown).split(link)).toHaveLength(2);
 
     await answerInBrowser(link);
@@ -244,6 +246,20 @@ describe("C: one line at the end of the first step of a lesson started in the ch
     // Another learner, who never answered: the line.
     const bob = await call("start_lesson_session", { bundle_ref: REF, learner_id: "bob" });
     expect(String(bob.presentation.display_markdown)).toMatch(/without going through this chat, follow it in your web browser/);
+  });
+
+  // Review G, finding 3: a chat answer is the learner's choice only when that session showed the other surface. A
+  // session the model opened in the chat by itself (open_lesson_panel, which draws no line) records nothing, so the
+  // next start still names the browser.
+  it("keeps the line after answers in a session that showed the learner no other surface", async () => {
+    const { host } = serve();
+    const call = await connect(host, ...OPENCODE);
+    const opened = await call("open_lesson_panel", { bundle_ref: REF, learner_id: "ana" });
+    expect(opened.panel.surface).toMatchObject({ kind: "text" });
+    await call("panel_action", { session_id: opened.panel.session_id, action: { type: "respond", input: { kind: "quiz_choice", choiceId: rightReply(opened.panel.scene) } } });
+    expect((await call("get_study_plan", { learner_id: "ana", language: "en" })).next_step).toMatchObject({ action: "continue", offer_first: "browser" });
+    const started = await call("start_lesson_session", { bundle_ref: REF, learner_id: "ana" });
+    expect(String(started.presentation.display_markdown)).toMatch(/without going through this chat, follow it in your web browser/);
   });
 
   it("names the panel to a client that draws it, with open_panel for the session", async () => {

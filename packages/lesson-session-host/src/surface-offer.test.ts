@@ -2,7 +2,7 @@
 // GUI quand c'est utilisé, ou modifier le comportement selon décisions de l'utilisateur ». A lesson ready to play is
 // offered on the surface this host draws natively first (A), unless the learner last answered a step on another surface
 // this host can give, which then comes first (B). The chat is always one word away, and first when the learner last
-// answered in the chat: the offer then says the lesson goes on here and gives one link. A lesson started in the chat
+// answered in the chat: the offer then says the lesson plays here and gives one link. A lesson started in the chat
 // gets one short line at the end of its first step naming the better surface, never when the chat was the choice.
 import { describe, expect, it } from "vitest";
 import { chatStartLine, offerSentences, surfaceOrder, type OfferedSurface, type SurfaceOffer } from "./surface-offer.js";
@@ -62,13 +62,16 @@ describe("offerSentences", () => {
     expect(fr).toMatch(/^Ouvre-la dans ton navigateur/);
     expect(fr).toMatch(/Ou tape `\/studium photo\/lesson\.json`/);
   });
-  it("says, after answers in the chat, that the lesson goes on here, and gives the link once", () => {
+  it("says, after answers in the chat, that the lesson plays here, and gives the link once", () => {
     const en = offerSentences("en", offer(["chat", "browser"], { open_link: BROWSER }));
-    expect(en).toMatch(/^As last time, it goes on here, in this chat\./);
+    // Changed: "As last time, it goes on here" read as going on with a lesson on the start step of a new one (review G,
+    // finding 3); the sentence now names the learner's choice, for a lesson started or continued alike.
+    expect(en).toMatch(/^It plays here, in this chat, as you chose last time\./);
     expect(en.split(BROWSER)).toHaveLength(2);
     expect(en).not.toMatch(/say “here”/);
     const fr = offerSentences("fr", offer(["chat", "vscode_pane"], { open_link: PANE }));
-    expect(fr).toMatch(/^Comme la dernière fois, elle se poursuit ici, dans cette conversation\./);
+    // Changed: as above, in French.
+    expect(fr).toMatch(/^Tu la suis ici, dans cette conversation, comme tu l'as choisi la dernière fois\./);
     expect(fr).toContain(`](${PANE})`);
     expect(offerSentences("en", offer(["chat", "panel"], { open_panel: { bundle_ref: "photo/lesson.json" } }))).toMatch(/say “panel”/);
   });

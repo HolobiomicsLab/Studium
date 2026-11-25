@@ -81,8 +81,8 @@ this off. Not yet tried with OpenCode itself: only scripts have checked it.
 OpenCode 1.19.6 announces no MCP Apps at connection, so the browser comes first. In a run of 25 November
 2026, the model started a lesson in the chat at once, as asked, and relayed its first step without the
 offer: a lesson started in the chat now ends its first step with one line that gives the address. When you
-answered in the chat last time, the offer says the lesson goes on in the chat and gives the address once
-([Where a lesson is offered first](harness-panels.md#where-a-lesson-is-offered-first)).
+answered in the chat after that line, the next offer says the lesson plays in the chat and gives the
+address once ([Where a lesson is offered first](harness-panels.md#where-a-lesson-is-offered-first)).
 
 ## Limits
 

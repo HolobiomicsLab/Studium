@@ -41,9 +41,13 @@ function host(opts: { openLink?: string; dataDir?: string | null } = {}) {
   });
   return { library, h, asked };
 }
-/** One step of REF answered by `learner`, on `surface` (none: a caller that names none, as the HTTP API). */
-async function answer(h: SessionHost, learner: string, surface?: AnswerSurface) {
+/** One step of REF answered by `learner`, on `surface` (none: a caller that names none, as the HTTP API). `shown`: the
+ * session showed the learner another surface than the chat (start_lesson_session's line). */
+async function answer(h: SessionHost, learner: string, surface?: AnswerSurface, shown = surface === "chat") {
   const { sessionId, presentation } = await h.create(REF, learner);
+  // Changed: a chat answer is the learner's choice only in a session that showed another surface (review G, finding
+  // 3); the cases below that answer in the chat are such sessions.
+  if (shown) h.noteSurfaceOffered(sessionId);
   const right = (presentation.scene as unknown as { choices: Array<{ id: string; correct: boolean }> }).choices.find((c) => c.correct)!.id;
   await h.respond(sessionId, { kind: "quiz_choice", choiceId: right }, surface === "chat" ? "companion" : "fast", surface ? { answeredOn: surface } : {});
 }
@@ -61,7 +65,8 @@ describe("the surface the learner last answered on comes first (B)", () => {
     expect(await h.lessonOffer(REF, "ana", CODEX)).toMatchObject({ first: "chat", order: ["chat", "panel"] });
     const plan = await h.studyPlan("ana", { language: "en", client: CODEX });
     expect(plan.next_step).toMatchObject({ action: "continue", tool: "start_lesson_session", offer_first: "chat" });
-    expect(plan.next_step.text).toMatch(/As last time, it goes on here, in this chat\. To answer each step at once, say “panel”/);
+    // Changed: the chat's sentence reads as the learner's choice, not as going on (review G, finding 3).
+    expect(plan.next_step.text).toMatch(/It plays here, in this chat, as you chose last time\. To answer each step at once, say “panel”/);
     await h.forgetLearner("ana");
     expect((await h.lessonOffer(REF, "ana", CODEX))?.order).toEqual(["panel", "browser", "chat"]);
   });
@@ -71,6 +76,22 @@ describe("the surface the learner last answered on comes first (B)", () => {
     await answer(h, "ana", "chat");
     expect((await h.lessonOffer(REF, "bob", CODEX))?.order).toEqual(["panel", "browser", "chat"]);
     expect((await h.lessonOffer(REF, "bob"))?.order).toEqual(["browser", "chat"]);
+  });
+
+  // Review G, finding 3: the owner's intent is to follow the learner's decisions, not the model's. A model that starts the
+  // lesson in the chat by itself, the learner shown nothing else, has not let the learner choose the chat.
+  it("takes a chat answer for the learner's choice only when the session showed another surface", async () => {
+    const { h } = host();
+    await answer(h, "ana", "chat", false);
+    expect((await h.lessonOffer(REF, "ana"))?.order).toEqual(["browser", "chat"]);
+    await answer(h, "ana", "browser");
+    await answer(h, "ana", "chat", false);
+    expect((await h.lessonOffer(REF, "ana"))?.first).toBe("browser");
+    await answer(h, "ana", "chat");
+    expect((await h.lessonOffer(REF, "ana"))?.first).toBe("chat");
+    // Another surface than the chat is the learner's wherever the session began.
+    await answer(h, "ana", "browser");
+    expect((await h.lessonOffer(REF, "ana"))?.first).toBe("browser");
   });
 
   it("changes nothing for an answer whose caller names no surface", async () => {
@@ -141,7 +162,8 @@ describe("the VS Code extension's server (STUDIUM_OPEN_LINK)", () => {
     await answer(h, "ana", "chat");
     const step = (await h.studyPlan("ana", { language: "en" })).next_step;
     expect(step).toMatchObject({ offer_first: "chat", open_link: pane });
-    expect(step.text).toMatch(/As last time, it goes on here, in this chat\. To answer each step at once, \[open it in the Studium pane\]/);
+    // Changed: the chat's sentence reads as the learner's choice, not as going on (review G, finding 3).
+    expect(step.text).toMatch(/It plays here, in this chat, as you chose last time\. To answer each step at once, \[open it in the Studium pane\]/);
     expect(asked).toEqual([]);
   });
 });

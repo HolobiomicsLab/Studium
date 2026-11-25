@@ -344,6 +344,8 @@ export function lessonOperations(host: SessionHost, opts: LessonOperationsOption
         const shown = (presentation as { locale?: string }).locale ?? host.sessionLanguage(r.sessionId).source_language;
         const line = chatStartLine(shown.trim().toLowerCase().startsWith("fr") ? "fr" : "en", offer);
         if (line) presentation.display_markdown = `${presentation.display_markdown}\n\n${line}`;
+        // Review G, finding 3: this session showed the learner the other surface, so an answer in the chat is their choice.
+        if (line) host.noteSurfaceOffered(r.sessionId);
         return text({
           session_id: r.sessionId,
           authoring: r.authoring,

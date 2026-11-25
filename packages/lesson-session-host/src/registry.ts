@@ -48,6 +48,9 @@ export interface SessionEntry {
   /** Follow-up to decision 4 (B): the surface the learner last answered this session's steps on, as the caller named
    * it (RespondOptions.answeredOn), recorded in their study record (answered_on). Absent: no caller named one. */
   answeredOn?: AnswerSurface;
+  /** Review G, finding 3: the session showed the learner another surface than the chat when it started (the line that
+   * ends start_lesson_session's first step). A chat answer is the learner's choice only then. */
+  otherSurfaceShown?: boolean;
   /** A lesson, or a review session assembled from the scenes of several lessons (start_review_session). */
   kind: "lesson" | "review";
   /** Who wrote the lesson and its approval record, read once at start (authoring.ts). */

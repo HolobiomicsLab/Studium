@@ -1058,6 +1058,11 @@ export class SessionHost {
     if (!entry) return null;
     return entry.profilePseudonym !== undefined && entry.profilePseudonym === await this.profilePseudonymOf(this.learnerFor(learnerId));
   }
+  /** Review G, finding 3: session `id` showed the learner another surface than the chat (start_lesson_session's line):
+   * from now on its answers in the chat are the learner's choice of the chat (respond). */
+  noteSurfaceOffered(id: string): void {
+    this.require(id).otherSurfaceShown = true;
+  }
   /** D1: the learner a call plays: the editor's when it names the learner, else the one named, else the default. */
   learnerFor(requested?: string): string {
     return this.editorNamesLearner ? this.defaultLearnerId : requested ?? this.defaultLearnerId;
@@ -2266,8 +2271,10 @@ export class SessionHost {
         ? replyToInput(scene, input.text, (publicScene(scene) as { deck?: Array<{ token: string }> }).deck, input.confidence)
         : checkDisplayedChoice(scene, input);
       const answeredCheck = entry.session.checkPending();
-      // Follow-up to decision 4 (B): where the learner answers, written to their study record with this answer.
-      if (opts.answeredOn !== undefined) entry.answeredOn = opts.answeredOn;
+      // Follow-up to decision 4 (B): where the learner answers, written to their study record with this answer. An
+      // answer in the chat is the learner's choice only when this session showed them another surface (review G,
+      // finding 3): a model that starts the lesson in the chat by itself does not choose for them.
+      if (opts.answeredOn !== undefined && (opts.answeredOn !== "chat" || entry.otherSurfaceShown === true)) entry.answeredOn = opts.answeredOn;
       const applied = await this.applyResponseLocked(entry, engineInput, opts.promptSurface);
       const settled = answeredCheck ? await this.settleContest(entry, applied.verdict?.correct === true) : undefined;
       const served = settled ? { ...applied, contest: settled } : applied;

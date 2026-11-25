@@ -10,7 +10,9 @@
 //      assistant calls open_lesson_panel), the VS Code pane (the extension's server); then the server's browser player;
 //      the chat last, on « here ».
 //   B  the surface where the learner last answered a step (study-record.ts answered_on) first, when this host gives it;
-//      after answers in the chat, the chat first: the lesson goes on here, and one other surface is named, once.
+//      after answers in the chat, the chat first: the lesson plays here, and one other surface is named, once. An answer
+//      in the chat is the learner's choice only in a session that showed them another surface (review G, finding 3;
+//      SessionHost.noteSurfaceOffered): one the model started in the chat by itself records nothing.
 // A lesson started in the chat ends its first step with one line naming the best surface (chatStartLine), never when
 // the chat was the learner's choice. Pure: the host says what it gives (SessionHost.lessonOffer).
 import type { DisplayLocale } from "./chat-display.js";
@@ -94,10 +96,11 @@ const CHAT_LAST: Record<DisplayLocale, string> = {
   en: "Or say “here” to play it in this chat.",
   fr: "Ou dis « ici » pour la suivre dans cette conversation.",
 };
-/** B: the learner last answered in the chat: the lesson goes on here, and one surface is named, once. */
+/** B: the learner chose the chat last time: the lesson plays here, and one surface is named, once. The words fit a
+ * lesson started as well as one continued (review G, finding 3: « it goes on here » read as going on with a new one). */
 const CHAT_FIRST: Record<DisplayLocale, string> = {
-  en: "As last time, it goes on here, in this chat.",
-  fr: "Comme la dernière fois, elle se poursuit ici, dans cette conversation.",
+  en: "It plays here, in this chat, as you chose last time.",
+  fr: "Tu la suis ici, dans cette conversation, comme tu l'as choisi la dernière fois.",
 };
 const ONCE: Record<DisplayLocale, Words> = {
   en: {
