@@ -174,7 +174,10 @@ préparation et une révision due passent avant. Sans historique ni leçon en co
 
 Le panneau et le mode agent de Copilot lancent chacun leur propre serveur, que Copilot utilise celui que
 propose l'extension ou un serveur que vous avez configuré vous-même, et ne partagent pas l'étape courante.
-Pilotez une leçon depuis l'un des deux à la fois.
+Pilotez une leçon depuis l'un des deux à la fois. Avec le serveur que propose l'extension, Copilot joue
+l'apprenant du panneau (`studium.learnerId`) : une leçon se poursuit dans le panneau là où elle s'est arrêtée
+dans la conversation, et Copilot propose d'abord dans le panneau une leçon qu'il a construite
+([Connecter Copilot](copilot.fr.md)).
 
 ## Exécuter une reproduction
 

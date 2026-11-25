@@ -98,12 +98,19 @@ fois que vous voulez. Avec l'extension Studium installée, VS Code montre où en
 | Quand | Ce que VS Code affiche |
 |---|---|
 | L'assistant a préparé ses sources | la barre d'état indique **Studium · leçon en préparation…** ; son info-bulle nomme la source et dit de répondre à l'assistant dans le chat s'il demande d'autoriser une étape |
-| La leçon est écrite dans votre bibliothèque | **Studium : ta leçon « … » est prête (n étapes).** avec **Ouvrir**, **Plus tard** et **Ne plus afficher** ; la leçon apparaît dans la vue **Leçons**. Si vous étiez dans une autre fenêtre, l'avis attend votre retour dans VS Code |
+| La leçon est écrite dans votre bibliothèque | **Studium : ta leçon « … » est prête (n étapes).** avec **Ouvrir**, **Plus tard** et **Ne plus afficher** (qui désactive le réglage `studium.notifyLessonReady`) ; la leçon apparaît dans la vue **Leçons**. Si vous étiez dans une autre fenêtre, l'avis attend votre retour dans VS Code |
 
 En attendant, vous pouvez essayer la leçon de démonstration (**Studium : Essayer la leçon de
 démonstration**). L'extension surveille votre bibliothèque, `~/.studium/library` (ou
 `<STUDIUM_HOME>/library`), le dossier où le serveur Studium écrit les leçons ; elle crée ce dossier au
 démarrage s'il manque. **Ouvrir** joue la leçon dans le panneau et ne modifie aucun réglage.
+
+Avec le serveur de l'extension, Copilot propose ensuite la leçon d'abord dans le panneau Studium : son
+message se termine par **Ouvre-la dans le panneau Studium**, un lien qui ouvre la leçon dans le panneau, où
+chaque étape répond aussitôt. La première fois, VS Code demande si Studium peut ouvrir le lien. Dites plutôt
+« ici » pour jouer la leçon dans la conversation. Quand vous demandez à Copilot quoi étudier ensuite, la leçon
+à commencer ou à reprendre vient avec le même lien. Dans VS Code avant la version 1.120 environ, le lien
+s'affiche comme du texte : ouvrez la leçon depuis la vue **Leçons**.
 
 ## Limites
 
@@ -117,10 +124,21 @@ démarrage s'il manque. **Ouvrir** joue la leçon dans le panneau et ne modifie 
   celle-ci n'a pas été vérifié.
 - Les éditeurs sans cette interface (VS Code avant 1.101, et peut-être Cursor ou d'autres dérivés, non
   essayés) n'ont pas de serveur intégré ; le canal de sortie le dit. Ajoutez-y le serveur à la main.
-- Le panneau de leçon lance son propre serveur. Copilot et le panneau ne partagent pas l'étape courante :
-  pilotez une leçon depuis l'un des deux à la fois. Le serveur intégré garde la progression dans le même
-  dossier que le panneau, sous l'identifiant d'apprenant que donne Copilot (`anonymous` par défaut) : les
-  révisions du panneau ne la comptent pas.
+- Copilot et le panneau jouent le même apprenant, le réglage `studium.learnerId` (`vscode-learner` par
+  défaut), et gardent la progression dans le même dossier : une leçon commencée dans l'un se poursuit dans
+  l'autre à l'étape où vous en étiez, et les révisions faites dans la conversation apparaissent dans la barre
+  d'état à son prochain rafraîchissement. Ils ne se suivent pas en direct : terminez ou fermez la leçon dans
+  l'un avant de continuer dans l'autre. Une réponse donnée dans la conversation après avoir avancé dans le
+  panneau est refusée plutôt qu'enregistrée par-dessus votre progression, et Copilot relance la leçon là où
+  vous en êtes. Après avoir changé `studium.learnerId`, redémarrez **Studium** dans **MCP: List Servers**.
+- La progression que Copilot gardait avant cette version, sous l'identifiant d'apprenant qu'il avait choisi
+  (`anonymous` par défaut), reste sous cet identifiant : elle n'est pas transférée à l'apprenant du panneau.
+- Un serveur Studium ajouté à la main ne reçoit ni l'apprenant du panneau ni le lien. Retirez cette entrée pour
+  utiliser le serveur intégré, ou définissez `STUDIUM_LEARNER_ID` et `STUDIUM_OPEN_LINK`
+  (`vscode://holobiomicslab.studium-vscode/open?bundle=`) dans son `env`.
+- Le lien et l'apprenant partagé ont été vérifiés face à une imitation de VS Code : le lien de Copilot, transmis
+  comme le fait le code de VS Code lui-même, ouvre le panneau à l'étape de l'apprenant. Le cliquer dans une
+  vraie conversation Copilot n'a pas été essayé.
 - **Studium : Oublier mes données** ferme les serveurs que l'extension a lancés pour le panneau, la
   conversation et le notebook, pas celui que VS Code a lancé pour Copilot. Arrêtez d'abord **Studium** dans
   **MCP: List Servers**.

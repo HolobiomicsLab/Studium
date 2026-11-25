@@ -166,7 +166,9 @@ progress, nothing is shown.
 
 The pane and Copilot's agent mode each start their own server, whether Copilot uses the one the extension
 offers or one you configured yourself, and they do not share the current step. Drive a lesson from one of
-them at a time.
+them at a time. With the server the extension offers, Copilot plays the pane's learner (`studium.learnerId`):
+a lesson goes on in the pane where it stopped in the chat, and Copilot offers a lesson it built in the pane
+first ([Connect Copilot](copilot.md)).
 
 ## Running a reproduction
 

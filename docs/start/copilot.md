@@ -92,12 +92,18 @@ want. With the Studium extension installed, VS Code shows where the build is:
 | When | What VS Code shows |
 |---|---|
 | The assistant has prepared its sources | the status bar says **Studium · preparing a lesson…**; its tooltip names the source and says to answer the assistant in the chat if it asks to allow a step |
-| The lesson is written to your library | **Studium: your lesson “…” is ready (n steps).** with **Open**, **Later** and **Don't show again**; the lesson appears in the **Lessons** view. If you were in another window, the notice waits until you come back to VS Code |
+| The lesson is written to your library | **Studium: your lesson “…” is ready (n steps).** with **Open**, **Later** and **Don't show again** (it turns off the `studium.notifyLessonReady` setting); the lesson appears in the **Lessons** view. If you were in another window, the notice waits until you come back to VS Code |
 
 Meanwhile, you can try the demo lesson (**Studium: Try the demo lesson**). The extension watches your
 library, `~/.studium/library` (or `<STUDIUM_HOME>/library`), the folder the Studium server writes lessons to;
 it creates that folder at startup if it is missing. **Open** plays the lesson in the pane and changes no
 setting.
+
+With the server from the extension, Copilot then offers the lesson in the Studium pane first: its message
+ends with **Open it in the Studium pane**, a link that opens the lesson in the pane, where each step answers
+at once. The first time, VS Code asks whether Studium may open the link. Say "here" instead to play the
+lesson in the chat. When you ask Copilot what to study next, the lesson to start or continue comes with the
+same link. In VS Code before about 1.120 the link shows as text: open the lesson from the **Lessons** view.
 
 ## Limits
 
@@ -109,9 +115,20 @@ setting.
   sessions; whether Copilot's own agent sessions receive this one has not been checked.
 - Editors without this interface (VS Code before 1.101, and possibly Cursor or other forks, not tried) get
   no built-in server; the output channel says so. Add the server by hand there.
-- The lesson pane starts its own server. Copilot and the pane do not share the current step: drive a lesson
-  from one of them at a time. The built-in server keeps progress in the same folder as the pane, under the
-  learner id Copilot gives (`anonymous` by default), so the pane's reviews do not count it.
+- Copilot and the pane play the same learner, the `studium.learnerId` setting (`vscode-learner` by default),
+  and keep progress in the same folder: a lesson started in one goes on in the other at the step you reached,
+  and reviews done in the chat show in the status bar at its next refresh. They do not follow each other
+  live: finish or close the lesson in one before going on in the other. An answer given in the chat after you
+  went on in the pane is refused rather than saved over your progress, and Copilot starts the lesson again
+  where you are. After changing `studium.learnerId`, restart **Studium** in **MCP: List Servers**.
+- Progress Copilot kept before this version, under the learner id it chose (`anonymous` by default), stays
+  under that id: it is not moved to the pane's learner.
+- A Studium server added by hand gets neither the pane's learner nor the link. Remove that entry to use the
+  built-in server, or set `STUDIUM_LEARNER_ID` and `STUDIUM_OPEN_LINK`
+  (`vscode://holobiomicslab.studium-vscode/open?bundle=`) in its `env`.
+- The link and the shared learner were checked against a stand-in for VS Code: Copilot's link, handed over
+  the way VS Code's own code does, opens the pane at the learner's step. Clicking it in a real Copilot chat
+  has not been tried.
 - **Studium: Forget my data** closes the servers the extension started for the pane, the chat and the
   notebook, not the one VS Code started for Copilot. Stop **Studium** in **MCP: List Servers** first.
 - The preparing state and the ready notice were checked against a stand-in for VS Code, with the real server

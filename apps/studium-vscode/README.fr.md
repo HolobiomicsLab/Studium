@@ -223,7 +223,9 @@ l'extension lit votre bibliothèque personnelle ; sinon réglez `studium.bundl
 ou utilisez **Studium : Choisir un cours**. Dans un clone, elle préfère le serveur source et le
 `fixtures/` du clone. `studium.vsix` est un artefact de construction local, pas une publication sur le
 Marketplace. Un client MCP natif et le panneau de l'extension ouvrent des séances séparées ; ils ne
-partagent pas la scène courante. L'installation est décrite dans le
+partagent pas la scène courante. Copilot avec le serveur qu'enregistre l'extension joue l'apprenant du
+panneau (`studium.learnerId`) : la progression passe de l'un à l'autre, et Copilot propose d'abord une leçon
+dans le panneau, avec un lien que l'extension ouvre. L'installation est décrite dans le
 [guide d'installation](../../docs/start/installation.fr.md).
 
 La page que montrent le Marketplace et Open VSX est [`MARKETPLACE.md`](MARKETPLACE.md), écrite pour la

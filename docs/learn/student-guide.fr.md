@@ -119,7 +119,8 @@ un rapport ne l'envoie pas à l'enseignant.
 - **Reprise.** Relancez la même leçon avec le même identifiant : Studium reprend à la première étape
   inachevée. Une leçon terminée recommence au début, comme une reprise.
 - **Plusieurs endroits.** Le panneau VS Code et un assistant gardent des progressions distinctes. Deux
-  assistants la partagent s'ils utilisent le même dossier de données et le même identifiant.
+  assistants la partagent s'ils utilisent le même dossier de données et le même identifiant. Copilot avec le
+  serveur que propose l'extension Studium la partage avec le panneau : même dossier, même apprenant.
 - **Effacement.** Demandez à l'assistant d'oublier vos données pour une leçon, ou toutes vos données
   (`forget_session`) ; il vous dit ensuite ce qui reste sur le disque. Voir
   [apprendre avec votre assistant](learn-with-your-assistant.fr.md#7-fermer-ou-oublier). Dans VS Code,
