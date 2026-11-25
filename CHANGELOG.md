@@ -8,6 +8,11 @@ All notable changes to Studium are recorded here. The format follows [Keep a Cha
 
 - **Choosing a course opens it whatever the window holds.** With no folder open, which is how VS Code starts just after the extension is installed, **Studium: Pick a course** stopped on "Unable to write to Workspace Settings because no workspace is opened" and no lesson opened. The choice is now saved in the workspace when a folder or a workspace is open, and in the user settings otherwise. When no settings file can be written (read-only, with errors, or with unsaved changes), the lesson opens all the same, from the folder you chose, and a warning says the choice was not saved.
 
+### Added
+
+- Documentation: a path to play a lesson without a terminal, first in the README, the quickstart and the Marketplace page, and [Classroom workstations](docs/start/classroom-workstations.md) for preconfigured practical-room machines (not tried in a room).
+- Documentation: [Connect Mistral Vibe](docs/start/vibe.md), with an example configuration, from one run in which Vibe with Mistral Large 4 built and played a lesson through `studium-mcp` 0.6.3.
+
 ## 0.6.3 — 2026-11-12
 
 This release changes no behaviour of the server, of the extension or of the lessons. It makes the `studium-mcp` package on npm link the Studium site, as the 0.6.2 changelog said it would.
