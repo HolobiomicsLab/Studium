@@ -141,9 +141,10 @@ Pour aller plus loin : [honnêteté et provenance](../concepts/honesty-and-prov
 Ouvrez une nouvelle conversation et demandez « Qu'est-ce que je révise avec Studium aujourd'hui ? ».
 L'assistant appelle `get_study_plan` dans votre langue, qui liste les révisions dues, les leçons en cours et la leçon suivante, et
 nomme la seule étape à faire maintenant. `start_review_session` joue ensuite toutes les révisions dues, toutes
-leçons confondues. Voir [réviser dans la durée](review-over-time.fr.md). Si la préparation d'une leçon s'est
-arrêtée avant qu'elle soit écrite, le plan propose de la terminer, pendant 14 jours ; dites que vous n'en
-voulez plus et elle ne vous est plus proposée.
+leçons confondues. Voir [réviser dans la durée](review-over-time.fr.md). Si Studium a refusé un brouillon de
+votre leçon et qu'aucune leçon n'a été écrite pour vous depuis, le plan propose de la terminer, après une leçon
+en cours, pendant 14 jours, et à vous seulement (l'assistant passe votre identifiant d'apprenant) ; dites que
+vous n'en voulez plus et elle ne vous est plus proposée.
 
 Si vous reprenez simplement une leçon, son premier écran le dit et, quand des révisions sont dues, les propose au début
 de la séance, ou à la première pause qui suit quand la séance a commencé sur une question, une fois par séance :
@@ -166,7 +167,7 @@ assistant, gardez le même dossier de données et le même identifiant : demand
 |---|---|---|
 | « On s'arrête là pour aujourd'hui. » | `end_session` | Ferme la séance et garde votre progression. Relancer la leçon la reprend. |
 | « Efface mes données pour cette leçon. » | `forget_session {session_id}` | Efface votre progression dans la leçon, son journal d'expérience, ainsi que votre profil inter-leçons et votre historique d'étude. Irréversible. |
-| « Efface toutes mes données Studium. » | `forget_session {learner_id}` | La même chose, plus votre progression dans toutes les autres leçons et les brouillons de leçons inachevées, sans leçon ouverte. Irréversible. |
+| « Efface toutes mes données Studium. » | `forget_session {learner_id}` | La même chose, plus votre progression dans toutes les autres leçons et les brouillons que Studium a gardés pour vous, sans leçon ouverte. Irréversible. |
 
 L'assistant montre ensuite ce qui a été effacé et ce qui reste. L'oubli ne supprime ni les leçons de votre
 bibliothèque (`~/.studium/library/<cours>/`) ni les sources préparées (`~/.studium/library/_sources/`), ni la

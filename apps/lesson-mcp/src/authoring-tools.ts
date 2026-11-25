@@ -15,7 +15,9 @@
 // D4 (waiting review 2026-11-25): a refused draft is kept, and create_lesson takes either the whole draft
 // or {draft_id, scenes: [{at, ...scene}]}, the scenes its refusal named (a zod raw shape cannot say « one
 // of the two »: createLesson refuses both or neither). discard: true drops an unfinished build that
-// get_study_plan offers, when the learner does not want it. No tool is added.
+// get_study_plan offers, when the learner does not want it. No tool is added. Review of D4: create_lesson
+// takes learner_id, like every call: a draft refused for a learner is kept for them and offered to them
+// alone (ctx.draftLearner); without a learner known it serves the resend only.
 import { z } from "zod";
 import { zodToJsonSchema } from "zod-to-json-schema";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
@@ -44,6 +46,9 @@ export interface AuthoringToolsContext {
   /** How prepare_sources reads a source given by path: the base of a relative path and the folders it
    * refuses (Studium's own data). Absent: a source given by path is refused, only text is taken. */
   sourceFiles?(): SourceFilePolicy;
+  /** The learner a refused draft is kept for (SessionHost.draftLearnerOf), from the call's learner_id; null
+   * when no learner is known. Absent: no learner is ever known. */
+  draftLearner?(learnerId: string | undefined): Promise<string | null>;
 }
 
 type ToolResult = { content: Array<{ type: "text"; text: string }>; isError?: true };
@@ -127,8 +132,10 @@ export function registerAuthoringTools(server: McpServer, ctx: AuthoringToolsCon
       "them from the learner. The outline holds no key: show the learner only what differs from the sketch you showed " +
       "before writing, never a key. Then start the lesson with start_lesson_session {bundle_ref: course_ref} and relay " +
       "the notice. An existing lesson is replaced only with overwrite: true, and only a self-study lesson no teacher " +
-      "validated or approved. {source_set_id, discard: true} drops the unfinished build get_study_plan offers, when the " +
-      "learner does not want it finished: it is not offered again.",
+      "validated or approved. Pass learner_id as on every call: a draft refused for a learner is offered to them alone " +
+      "by get_study_plan (with no learner_id and no STUDIUM_LEARNER_ID, it serves the resend only). {source_set_id, " +
+      "learner_id, discard: true} drops the unfinished build get_study_plan offers, when the learner does not want it " +
+      "finished: it is not offered again.",
     inputSchema: {
       source_set_id: z.string(),
       draft: z.record(z.string(), z.unknown()).optional(),
@@ -137,18 +144,21 @@ export function registerAuthoringTools(server: McpServer, ctx: AuthoringToolsCon
       course_id: z.string().optional(),
       overwrite: z.boolean().optional(),
       discard: z.boolean().optional(),
+      learner_id: z.string().min(1).max(200).optional()
+        .describe("one stable id per learner; defaults to persistence.learner_id_default"),
     },
-  }, async ({ source_set_id, draft, draft_id, scenes, course_id, overwrite, discard }) => {
+  }, async ({ source_set_id, draft, draft_id, scenes, course_id, overwrite, discard, learner_id }) => {
     try {
+      const learner = await ctx.draftLearner?.(learner_id) ?? null;
       if (discard === true) {
         if (draft !== undefined || draft_id !== undefined || scenes !== undefined) {
           return refuse({ ok: false, errors: [{ path: "discard", message: "discard takes only source_set_id", hint: "send discard: true alone to drop the unfinished build, or a draft to build it" }] });
         }
-        await discardBuild(ctx.libraryRoot(), source_set_id, new Date());
+        await discardBuild(ctx.libraryRoot(), source_set_id, new Date(), learner);
         return reply({ ok: true, discarded: source_set_id });
       }
       const result = await createLesson(ctx.libraryRoot(), { source_set_id, draft, draft_id, scenes, course_id, overwrite },
-        ctx.servedElsewhere ? { servedElsewhere: (id) => ctx.servedElsewhere!(id) } : {});
+        { learner, ...(ctx.servedElsewhere ? { servedElsewhere: (id: string) => ctx.servedElsewhere!(id) } : {}) });
       if (!result.ok) return refuse(result);
       ctx.onLessonWritten(result.course_ref);
       const { notice } = authoringOf(result.bundle, { judge: ctx.judge?.() ?? false });

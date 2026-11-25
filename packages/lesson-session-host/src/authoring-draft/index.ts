@@ -21,6 +21,6 @@ export {
 } from "./build.js";
 export { lintBundleData, placeholderPaths, type LintFinding } from "./lint.js";
 export {
-  BUILD_GRACE_MINUTES, discardBuild, DRAFTS_DIR, eraseDrafts, UNFINISHED_BUILD_DAYS, unfinishedBuilds,
+  BUILD_GRACE_MINUTES, discardBuild, DRAFTS_DIR, eraseDrafts, eraseLearnerDrafts, UNFINISHED_BUILD_DAYS, unfinishedBuilds,
   type KeptDraftOutline, type Resend, type UnfinishedBuild,
 } from "./draft-store.js";

@@ -190,3 +190,99 @@ describe("createLesson reports every scene's errors in one refusal (L1)", () => 
     expect(result.fix_scenes).toEqual([2, 8]);
   });
 });
+
+const ANA = "a1a1a1a1a1a1a1a1";
+const BOB = "b0b0b0b0b0b0b0b0";
+/** A kept draft file, as far as these tests read it. */
+type KeptRecord = { draft_id: string; draft: { learner_profile?: unknown }; errors: Array<{ path: string }> };
+const keptRecords = (root: string): KeptRecord[] => (existsSync(join(root, DRAFTS_DIR))
+  ? readdirSync(join(root, DRAFTS_DIR)).map((name) => JSON.parse(readFileSync(join(root, DRAFTS_DIR, name), "utf8")) as KeptRecord)
+  : []);
+
+describe("what a kept draft holds of the learner (review of D4, minor 1)", () => {
+  it("keeps of the learner profile only minutes_per_day and target_date, and no error about the profile", async () => {
+    // Misspelled fields: the top level does not parse, the refusal names them, and their values stay out.
+    const misspelled = await prepared();
+    const first = refusal(await createLesson(misspelled.root, { source_set_id: misspelled.set.source_set_id, draft: {
+      ...clone(REJECTED.draft),
+      learner_profile: { prior_knowledge: "SECRET-PRIOR infirmière diabétique", interest: ["SECRET-INTEREST"], minutes_per_day: 20, target_date: "2026-12-20" },
+    } }, { now: () => NOW, learner: ANA }));
+    expect(first.errors.map((error) => error.path)).toContain("learner_profile");
+    // prior with a placeholder: the refusal quotes it to the assistant; the kept draft and its errors do not.
+    const placeholder = await prepared();
+    const second = refusal(await createLesson(placeholder.root, { source_set_id: placeholder.set.source_set_id, draft: {
+      ...clone(REJECTED.draft), learner_profile: { prior: "TODO SECRET-PLACEHOLDER-PRIOR", interests: ["SECRET-INTEREST"], minutes_per_day: 20 },
+    } }, { now: () => NOW, learner: ANA }));
+    expect(second.errors).toContainEqual(expect.objectContaining({ path: "learner_profile.prior", message: expect.stringContaining("SECRET-PLACEHOLDER-PRIOR") }));
+    const [kept1, kept2] = [keptRecords(misspelled.root), keptRecords(placeholder.root)];
+    expect([kept1.length, kept2.length]).toEqual([1, 1]);
+    const records = [...kept1, ...kept2];
+    expect(JSON.stringify(records)).not.toContain("SECRET");
+    expect(JSON.stringify(records)).not.toContain("infirmière");
+    expect(records.map((record) => record["draft"]["learner_profile"])).toEqual([{ minutes_per_day: 20, target_date: "2026-12-20" }, { minutes_per_day: 20 }]);
+    for (const record of records) {
+      expect(record["errors"].filter((error: { path: string }) => error.path.startsWith("learner_profile"))).toEqual([]);
+      expect(record["errors"]).toContainEqual(expect.objectContaining({ path: "scenes.8" }));
+    }
+  });
+});
+
+describe("createLesson runs one call at a time per library (review of D4, minor 2)", () => {
+  it("never leaves a refused draft beside a lesson written by a call made at the same time, in either order", async () => {
+    for (let trial = 0; trial < 12; trial += 1) {
+      const { root, set } = await prepared();
+      const good = () => createLesson(root, { source_set_id: set.source_set_id, draft: clone(ACCEPTED.draft) }, { learner: ANA });
+      const bad = () => createLesson(root, { source_set_id: set.source_set_id, draft: clone(REJECTED.draft) }, { learner: ANA });
+      const [a, b] = trial % 2 === 0 ? await Promise.all([good(), bad()]) : await Promise.all([bad(), good()]);
+      const [written, refused] = trial % 2 === 0 ? [a, b] : [b, a];
+      expect(written.ok).toBe(true);
+      expect(refused.ok).toBe(false);
+      expect({ trial, kept: keptRecords(root).length }).toEqual({ trial, kept: 0 });
+      // A refusal that came while the lesson was being written keeps nothing, so it offers no draft_id.
+      if (trial % 2 === 0) expect({ trial, draft_id: refused.ok ? null : refused.draft_id }).toEqual({ trial, draft_id: undefined });
+    }
+  });
+
+  it("lets only one of two patches of the same kept draft sent at the same time write the lesson", async () => {
+    const { root, set } = await prepared();
+    const kept = refusal(await createLesson(root, { source_set_id: set.source_set_id, draft: clone(REJECTED.draft) }, { learner: ANA }));
+    const patch = { source_set_id: set.source_set_id, draft_id: kept.draft_id!, scenes: [{ at: 8, ...clone(ACCEPTED.draft["scenes"][8]) }] };
+    const results = await Promise.all([createLesson(root, patch, { learner: ANA }), createLesson(root, patch, { learner: ANA })]);
+    expect(results.filter((result) => result.ok)).toHaveLength(1);
+    const other = refusal(results.find((result) => !result.ok)!);
+    expect(other.errors[0]).toMatchObject({ path: "draft_id" });
+    expect(keptRecords(root)).toEqual([]);
+  });
+});
+
+describe("a resend takes only a draft kept to be fixed scene by scene (review of D4, minor 4)", () => {
+  it("refuses the id of a draft kept for a whole resend, and never names a draft_id a refusal withheld", async () => {
+    const { root, set } = await prepared();
+    const draft = clone(REJECTED.draft);
+    draft["concepts"][1]["prerequisites"] = ["c-absent"];
+    const whole = refusal(await createLesson(root, { source_set_id: set.source_set_id, draft }, { now: () => NOW, learner: ANA }));
+    expect(whole).toMatchObject({ resend: "draft" });
+    expect(whole).not.toHaveProperty("draft_id");
+    const [record] = keptRecords(root);
+    const withheld = String(record!["draft_id"]);
+    const scenes = [{ at: 8, ...clone(ACCEPTED.draft["scenes"][8]) }];
+    const patched = refusal(await createLesson(root, { source_set_id: set.source_set_id, draft_id: withheld, scenes }, { now: () => NOW, learner: ANA }));
+    expect(patched.errors[0]).toMatchObject({ path: "draft_id" });
+    expect(patched.errors[0]!.hint).not.toContain(withheld);
+    const stale = refusal(await createLesson(root, { source_set_id: set.source_set_id, draft_id: "dr-0000000000000000", scenes }, { now: () => NOW, learner: ANA }));
+    expect(JSON.stringify(stale)).not.toContain(withheld);
+    expect(stale.errors[0]!.hint).toMatch(/whole draft/);
+  });
+
+  it("names in its hint only a draft kept for the same learner", async () => {
+    const { root, set } = await prepared();
+    const ana = refusal(await createLesson(root, { source_set_id: set.source_set_id, draft: clone(REJECTED.draft) }, { now: () => NOW, learner: ANA }));
+    const scenes = [{ at: 8, ...clone(ACCEPTED.draft["scenes"][8]) }];
+    const forBob = refusal(await createLesson(root, { source_set_id: set.source_set_id, draft_id: "dr-0000000000000000", scenes }, { now: () => NOW, learner: BOB }));
+    expect(JSON.stringify(forBob)).not.toContain(ana.draft_id!);
+    const forNobody = refusal(await createLesson(root, { source_set_id: set.source_set_id, draft_id: "dr-0000000000000000", scenes }, { now: () => NOW }));
+    expect(JSON.stringify(forNobody)).not.toContain(ana.draft_id!);
+    const forAna = refusal(await createLesson(root, { source_set_id: set.source_set_id, draft_id: "dr-0000000000000000", scenes }, { now: () => NOW, learner: ANA }));
+    expect(forAna.errors[0]!.hint).toContain(ana.draft_id!);
+  });
+});

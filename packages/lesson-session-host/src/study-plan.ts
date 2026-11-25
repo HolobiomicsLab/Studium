@@ -21,9 +21,10 @@
 // (RFR-06), the next step says how long it takes: a lesson longer than that is proposed in several
 // sittings, and a review session longer than that is cut with max_items.
 //
-// D4 (waiting review 2026-11-25): a lesson build that stopped — its draft refused and kept, or its sources
-// prepared with nothing written — is offered again (action finish), after the reviews due and before
-// anything else: the learner came for that lesson. The host finds it (draft-store.ts unfinishedBuilds).
+// D4 (waiting review 2026-11-25): a lesson build that stopped — its draft refused and kept for this learner
+// (review of D4, M1: never sources prepared with nothing kept) — is offered again (action finish), after
+// the reviews due and a lesson in progress (M2: it never pushes that lesson aside), before a lesson to
+// start. The host finds it (draft-store.ts unfinishedBuilds).
 import { nextCourseLesson } from "@studium/lesson-bundle-schema";
 import { dueAt, dueForReinforcement, isDue, retrievability, type ConceptMemoryState } from "./fsrs-memory.js";
 import { formatReviewDate, type DisplayLocale } from "./chat-display.js";
@@ -368,9 +369,6 @@ export function buildStudyPlan(input: StudyPlanInput): StudyPlan {
       nextStep.estimated_minutes = minutes;
       nextStep.text = `${text} ${fill(cut ? t.review_cut : t.review_fits, { budget, count, minutes })}`;
     }
-  } else if (unfinished) {
-    nextStep = { action: "finish", tool: "get_authoring_guide", arguments: { language: input.locale },
-      text: fill(t.finish, { sources: sourceTitles(unfinished, input.locale) }) };
   } else if (inProgress[0]) {
     const current = inProgress[0];
     nextStep = { action: "continue", tool: "start_lesson_session", arguments: { bundle_ref: current.bundle_ref, ...learner },
@@ -381,6 +379,9 @@ export function buildStudyPlan(input: StudyPlanInput): StudyPlan {
       nextStep.estimated_minutes = minutes;
       nextStep.text = `${nextStep.text} ${lessonBudgetText(t, minutes, budget, true)}`;
     }
+  } else if (unfinished) {
+    nextStep = { action: "finish", tool: "get_authoring_guide", arguments: { language: input.locale },
+      text: fill(t.finish, { sources: sourceTitles(unfinished, input.locale) }) };
   } else if (next) {
     nextStep = { action: "start", tool: "start_lesson_session", arguments: { bundle_ref: next.bundle_ref, ...learner },
       text: next === demo && next.duration_minutes !== undefined

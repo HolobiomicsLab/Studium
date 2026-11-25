@@ -5,8 +5,12 @@
 // the faulty scene with draft_id, and after a restart get_study_plan offers to finish a build that
 // stopped. The drafts replayed are the two create_lesson calls recorded in OpenCode (fixture of the
 // authoring-draft package): the first was refused for an unknown field in scene 8.
+//
+// Review of D4 (M1, M2): only a kept draft is offered, to the learner it was refused for (create_lesson
+// takes learner_id), never sources prepared with nothing kept; forget_session {learner_id} erases that
+// learner's drafts, and on a fresh install nothing is offered afterwards.
 import { afterAll, describe, expect, it } from "vitest";
-import { mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -25,13 +29,20 @@ const LEARNER = "ana";
 
 const home = realpathSync(mkdtempSync(join(tmpdir(), "studium-d4-home-")));
 const notesDir = realpathSync(mkdtempSync(join(tmpdir(), "studium-d4-notes-")));
-afterAll(() => { for (const dir of [home, notesDir]) rmSync(dir, { recursive: true, force: true }); });
+const homes: string[] = [home, notesDir];
+afterAll(() => { for (const dir of homes) rmSync(dir, { recursive: true, force: true }); });
+/** A STUDIUM_HOME no server has used yet. */
+function freshHome(): string {
+  const dir = realpathSync(mkdtempSync(join(tmpdir(), "studium-d4-fresh-")));
+  homes.push(dir);
+  return dir;
+}
 const notes = join(notesDir, "photosynthese.md");
 writeFileSync(notes, readFileSync(join(FIXTURE, "notes.txt"), "utf8"), "utf8");
 
 type Json = Record<string, any>;
-async function startServer() {
-  const { host } = hostFromEnvironment({ STUDIUM_HOME: home }, "/nonexistent-home");
+async function startServer(studiumHome = home) {
+  const { host } = hostFromEnvironment({ STUDIUM_HOME: studiumHome }, "/nonexistent-home");
   const server = buildMcpServer(host);
   const [clientT, serverT] = InMemoryTransport.createLinkedPair();
   await server.connect(serverT);
@@ -55,7 +66,10 @@ describe("a refused draft is kept, fixed scene by scene, and offered again after
       sources: [{ path: notes, title: PREPARE.sources[0]!.title }], goal: PREPARE.goal, language: PREPARE.language,
     });
     expect(prepared.isError).toBe(false);
-    const refused = await first.call("create_lesson", { source_set_id: prepared.body["source_set_id"], draft: REJECTED.draft, course_id: REJECTED.course_id });
+    // Changed (review of D4): the refused call names its learner, so the draft is offered to them only.
+    const refused = await first.call("create_lesson", {
+      source_set_id: prepared.body["source_set_id"], draft: REJECTED.draft, course_id: REJECTED.course_id, learner_id: LEARNER,
+    });
     expect(refused).toMatchObject({ isError: true, body: { ok: false, resend: "scenes", fix_scenes: [8], draft_id: expect.stringMatching(/^dr-/) } });
     expect(refused.body["errors"]).toEqual([{ path: "scenes.8", message: "unknown field: markdown", hint: "remove it or fix its spelling" }]);
     await first.close();
@@ -82,17 +96,27 @@ describe("a refused draft is kept, fixed scene by scene, and offered again after
     await second.close();
   });
 
-  it("drops an unfinished build the learner does not want: create_lesson {source_set_id, discard: true}", async () => {
+  // Changed (review of D4, M1): sources prepared with nothing kept are no longer offered, so the build the
+  // learner drops is a draft refused for them; then forget offers nothing either (dismiss, then forget).
+  it("drops an unfinished build the learner does not want: create_lesson {source_set_id, learner_id, discard: true}; forget offers nothing after", async () => {
     const server = await startServer();
     const other = join(notesDir, "calvin.md");
     writeFileSync(other, readFileSync(notes, "utf8").split("## Facteurs limitants")[0]!, "utf8");
     const prepared = await server.call("prepare_sources", { sources: [{ path: other, title: "Le cycle de Calvin" }], language: "fr" });
+    const before = (await server.call("get_study_plan", { learner_id: LEARNER, language: "fr", now_ms: afterGrace() })).body;
+    expect(before["unfinished_build"]).toBeNull();
+    const refused = await server.call("create_lesson", { source_set_id: prepared.body["source_set_id"], draft: REJECTED.draft, learner_id: LEARNER });
+    expect(refused.isError).toBe(true);
     const plan = (await server.call("get_study_plan", { learner_id: LEARNER, language: "fr", now_ms: afterGrace() })).body;
-    expect(plan["unfinished_build"]).toMatchObject({ source_set_id: prepared.body["source_set_id"], draft_id: null });
-    const discarded = await server.call("create_lesson", { source_set_id: prepared.body["source_set_id"], discard: true });
+    expect(plan["unfinished_build"]).toMatchObject({ source_set_id: prepared.body["source_set_id"], sources: ["Le cycle de Calvin"] });
+    const discarded = await server.call("create_lesson", { source_set_id: prepared.body["source_set_id"], learner_id: LEARNER, discard: true });
     expect(discarded).toMatchObject({ isError: false, body: { ok: true, discarded: prepared.body["source_set_id"] } });
     const after = (await server.call("get_study_plan", { learner_id: LEARNER, language: "fr", now_ms: afterGrace() })).body;
     expect(after["unfinished_build"]).toBeNull();
+    await server.call("forget_session", { learner_id: LEARNER, language: "fr" });
+    const forgotten = (await server.call("get_study_plan", { learner_id: LEARNER, language: "fr", now_ms: afterGrace() })).body;
+    expect(forgotten["unfinished_build"]).toBeNull();
+    expect(forgotten["next_step"]["action"]).not.toBe("finish");
     await server.close();
   });
 
@@ -106,8 +130,75 @@ describe("a refused draft is kept, fixed scene by scene, and offered again after
     const neither = await server.call("create_lesson", { source_set_id: id });
     expect(neither).toMatchObject({ isError: true, body: { ok: false, errors: [{ path: "draft" }] } });
     const description = (await server.client.listTools()).tools.find((tool) => tool.name === "create_lesson")!.description!;
-    for (const words of ["draft_id", "scenes: [{at", "only the scenes", "whole draft", "discard: true"]) expect(description).toContain(words);
+    for (const words of ["draft_id", "scenes: [{at", "only the scenes", "whole draft", "discard: true", "learner_id"]) expect(description).toContain(words);
     expect(description).toMatch(/no lesson is written/i);
+    await server.close();
+  });
+});
+
+describe("a kept draft belongs to the learner it was refused for (review of D4, M1 and M2)", () => {
+  it("offers it to that learner only, on a library two learners share, and forget erases only theirs", async () => {
+    const shared = freshHome();
+    const server = await startServer(shared);
+    const prepared = await server.call("prepare_sources", {
+      sources: [{ path: notes, title: PREPARE.sources[0]!.title }], goal: PREPARE.goal, language: PREPARE.language,
+    });
+    const id = prepared.body["source_set_id"];
+    const ana = await server.call("create_lesson", { source_set_id: id, draft: REJECTED.draft, learner_id: "ana" });
+    const bob = await server.call("create_lesson", { source_set_id: id, draft: { ...REJECTED.draft, title: "La photosynthèse, version de Bob" }, learner_id: "bob" });
+    expect(ana.body["draft_id"]).toMatch(/^dr-/);
+    expect(bob.body["draft_id"]).not.toBe(ana.body["draft_id"]);
+    const plan = async (learner?: string) =>
+      (await server.call("get_study_plan", { ...(learner ? { learner_id: learner } : {}), language: "fr", now_ms: afterGrace() })).body;
+    expect((await plan("ana"))["unfinished_build"]).toMatchObject({ draft_id: ana.body["draft_id"] });
+    expect((await plan("bob"))["unfinished_build"]).toMatchObject({ draft_id: bob.body["draft_id"] });
+    // A call that names no learner, on a server with no STUDIUM_LEARNER_ID, sees no one's goal or file.
+    const nobody = await plan();
+    expect(nobody["unfinished_build"]).toBeNull();
+    expect(JSON.stringify(nobody)).not.toContain(notes);
+    expect(JSON.stringify(nobody)).not.toContain(PREPARE.goal);
+    await server.call("forget_session", { learner_id: "bob", language: "fr" });
+    expect((await plan("bob"))["unfinished_build"]).toBeNull();
+    expect((await plan("ana"))["unfinished_build"]).toMatchObject({ draft_id: ana.body["draft_id"] });
+    await server.call("forget_session", { learner_id: "ana", language: "fr" });
+    expect((await plan("ana"))["unfinished_build"]).toBeNull();
+    expect(existsSync(join(shared, "library", "_drafts"))).toBe(false);
+    await server.close();
+  });
+
+  it("offers nothing after a forget on a fresh install, whether the refused draft named a learner or not", async () => {
+    for (const learner of [undefined, "ana"]) {
+      const fresh = freshHome();
+      const diagnosis = join(notesDir, "secret-diagnosis.md");
+      writeFileSync(diagnosis, readFileSync(notes, "utf8"), "utf8");
+      const server = await startServer(fresh);
+      const prepared = await server.call("prepare_sources", {
+        sources: [{ path: diagnosis, title: "Mon dossier médical" }], goal: "comprendre mon diagnostic", language: "fr",
+      });
+      const refused = await server.call("create_lesson", {
+        source_set_id: prepared.body["source_set_id"], draft: REJECTED.draft, ...(learner ? { learner_id: learner } : {}),
+      });
+      expect(refused.body["resend"]).toBe("scenes");
+      expect(readdirSync(join(fresh, "library", "_drafts"))).toHaveLength(1);
+      const forgotten = await server.call("forget_session", { learner_id: "ana", language: "fr" });
+      expect(String(forgotten.body["display_markdown"])).toContain("brouillons de leçons inachevées");
+      expect(existsSync(join(fresh, "library", "_drafts"))).toBe(false);
+      const plan = (await server.call("get_study_plan", { learner_id: "ana", language: "fr", now_ms: afterGrace() })).body;
+      expect(plan["unfinished_build"]).toBeNull();
+      expect(plan["next_step"]["action"]).not.toBe("finish");
+      expect(JSON.stringify(plan)).not.toContain("secret-diagnosis");
+      expect(JSON.stringify(plan)).not.toContain("diagnostic");
+      await server.close();
+    }
+  });
+
+  it("never offers sources prepared with nothing kept: a prepared source set is not an unfinished build", async () => {
+    const fresh = freshHome();
+    const server = await startServer(fresh);
+    await server.call("prepare_sources", { sources: [{ path: notes, title: "Photo" }], goal: "comprendre mon diagnostic", language: "fr" });
+    const plan = (await server.call("get_study_plan", { learner_id: "ana", language: "fr", now_ms: afterGrace() })).body;
+    expect(plan["unfinished_build"]).toBeNull();
+    expect(plan["next_step"]["action"]).not.toBe("finish");
     await server.close();
   });
 });

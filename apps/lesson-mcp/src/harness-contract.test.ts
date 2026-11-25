@@ -127,6 +127,17 @@ describe("instructions and prompts (RT-8a, RFR-16, L-4)", () => {
     expect(lines.length).toBeLessThanOrEqual(13);
   });
 
+  // Review of D4 (minor 6): the sketch names each step's kind and title, its titles name the topic and never
+  // the answer, and a refusal that asks for the whole draft gets the whole draft; still 13 lines at most.
+  it("say what the sketch holds, and that a refusal asking for the whole draft gets it", () => {
+    const lines = SERVER_INSTRUCTIONS.split("\n");
+    const authoring = lines.find((line) => line.includes("prepare_sources, create_lesson"))!;
+    expect(authoring).toMatch(/each step's kind and title/);
+    expect(authoring).toMatch(/titles name the topic, never the answer/);
+    expect(authoring).toMatch(/only the scenes it names, with draft_id, unless it asks for the whole draft/);
+    expect(lines.length).toBeLessThanOrEqual(13);
+  });
+
   it("call list_lessons only when the plan's next step is not to author, and pass the language", async () => {
     const { client } = await connect({ bundlesRoot: tmp() });
     const en = await promptText(client, "learn", { topic: "binary search", learner_id: "ren", language: "en" });

@@ -196,12 +196,16 @@ describe("buildStudyPlan", () => {
   });
 });
 
-// D4 (waiting review 2026-11-25): a lesson build that stopped (its draft refused and kept, or its sources
-// prepared and nothing written) is offered again, after the reviews due and before anything else.
+// D4 (waiting review 2026-11-25): a lesson build that stopped is offered again. After the review of D4 (M1, M2),
+// that is a draft Studium refused and kept for this learner, and the offer comes after the reviews due and
+// after a lesson in progress, before anything else: it never pushes a lesson in progress aside.
 describe("buildStudyPlan: an unfinished build (D4)", () => {
+  // Changed (review of D4): a kept draft always has an outline, so the fixture gives one.
   const build: UnfinishedBuild = {
     source_set_id: "ss-1111111111111111", draft_id: "dr-2222222222222222", resend: "scenes", fix_scenes: [8],
-    sources: ["La photosynthèse : notes de cours (L1)"], left_at: "2026-11-19T10:00:00.000Z", outline: null, prepare_sources: null,
+    sources: ["La photosynthèse : notes de cours (L1)"], left_at: "2026-11-19T10:00:00.000Z",
+    outline: { title: "La photosynthèse", concepts: [{ id: "c-a", label: "Phase claire" }], scenes: [{ at: 0, type: "concept", title: "La lumière", concepts: ["c-a"] }] },
+    prepare_sources: null,
   };
   const inProgress: StudyRecord = {
     ...emptyStudyRecord(),
@@ -212,8 +216,10 @@ describe("buildStudyPlan: an unfinished build (D4)", () => {
   };
   const catalog = catalogOf(lessonEntry("b/lesson.json", "lesson-b", "Liaisons", ["c-b"]));
 
-  it.each(["fr", "en"] as const)("offers to finish it before a lesson in progress, starting from the guide (%s)", (locale) => {
-    const plan = buildStudyPlan(input({ locale, record: inProgress, catalog, unfinishedBuild: build }));
+  // Changed (review of D4, M2): the offer now comes after a lesson in progress (this test asserted it came
+  // before); it still comes before a lesson to start, which is what this test now checks, word for word.
+  it.each(["fr", "en"] as const)("offers to finish it before a lesson to start, starting from the guide (%s)", (locale) => {
+    const plan = buildStudyPlan(input({ locale, catalog, unfinishedBuild: build }));
     expect(plan.unfinished_build).toEqual(build);
     expect(plan.next_step).toMatchObject({ action: "finish", tool: "get_authoring_guide", arguments: { language: locale } });
     // French typography puts no-break spaces before « : » and inside « » (L-5).
@@ -221,6 +227,15 @@ describe("buildStudyPlan: an unfinished build (D4)", () => {
     expect(text).toContain(locale === "fr" ? "« La photosynthèse : notes de cours (L1) »" : "“La photosynthèse : notes de cours (L1)”");
     expect(text).toMatch(locale === "fr" ? /n'a pas été terminée[^]*plus proposée/ : /was not finished[^]*not be offered again/);
     expect(plan.display_markdown).toContain(plan.next_step.text);
+  });
+
+  it.each(["fr", "en"] as const)("never pushes a lesson in progress aside: continue first, the unfinished build under its own heading (%s)", (locale) => {
+    const plan = buildStudyPlan(input({ locale, record: inProgress, catalog, unfinishedBuild: build }));
+    expect(plan.next_step).toMatchObject({ action: "continue", tool: "start_lesson_session", arguments: { bundle_ref: "b/lesson.json" } });
+    expect(plan.unfinished_build).toEqual(build);
+    const shown = plan.display_markdown.replace(/[\u00a0\u202f]/g, " ");
+    expect(shown).toContain(locale === "fr" ? "**Leçon inachevée**" : "**Unfinished lesson**");
+    expect(shown).toContain(locale === "fr" ? "- une leçon tirée de « La photosynthèse : notes de cours (L1) »" : "- a lesson from “La photosynthèse : notes de cours (L1)”");
   });
 
   it("lists it under its own heading when a review comes first", () => {

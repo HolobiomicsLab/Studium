@@ -9,7 +9,10 @@ import { describe, it, expect, afterEach } from "vitest";
 import { existsSync, mkdtempSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { SessionHost } from "./host.js";
+import { createLesson } from "./authoring-draft/build.js";
+import { prepareSources } from "./authoring-draft/source-set.js";
 
 const dirs: string[] = [];
 function tmp(): string { const d = mkdtempSync(join(tmpdir(), "forget-learner-")); dirs.push(d); return d; }
@@ -186,5 +189,70 @@ describe("the drafts Studium kept after a refusal (D4)", () => {
     expect(report.kept).toContainEqual({ kind: "lesson_drafts", path: join(library, "_drafts") });
     expect(existsSync(join(library, "_drafts"))).toBe(true);
     expect(report.display_markdown).toContain(join(library, "_drafts"));
+  });
+});
+
+// Review of D4 (M1, M2): a kept draft is offered only to the learner it was refused for, after a lesson in
+// progress, and forgetLearner erases that learner's drafts (and those kept for no known learner), never
+// another learner's. The drafts replayed are the recorded OpenCode drafts of the authoring-draft fixture.
+describe("drafts kept per learner (review of D4)", () => {
+  const FIXTURE = fileURLToPath(new URL("authoring-draft/fixtures/photosynthese/", import.meta.url));
+  const NOTES = readFileSync(join(FIXTURE, "notes.txt"), "utf8");
+  const REJECTED = JSON.parse(readFileSync(join(FIXTURE, "create-1-rejected.json"), "utf8")) as { draft: Record<string, unknown> };
+  const TITLE = "La photosynthèse : notes de cours (L1)";
+  const later = () => Date.now() + 31 * 60_000;
+
+  /** A draft refused for `learnerId` (none: no learner known) and kept in the library. */
+  async function refusedFor(host: SessionHost, library: string, learnerId?: string, title = REJECTED.draft["title"]): Promise<string> {
+    const set = await prepareSources(library, [{ title: TITLE, text: NOTES }], { goal: "comprendre la photosynthèse", language: "fr" });
+    const result = await createLesson(library, { source_set_id: set.source_set_id, draft: { ...structuredClone(REJECTED.draft), title } },
+      { learner: await host.draftLearnerOf(learnerId) });
+    if (result.ok || !result.draft_id) throw new Error("expected a kept draft");
+    return result.draft_id;
+  }
+
+  it("names no learner for a call without learner_id on a server with no STUDIUM_LEARNER_ID, and a pseudonym otherwise", async () => {
+    const { host } = await setup();
+    expect(await host.draftLearnerOf(undefined)).toBeNull();
+    expect(await host.draftLearnerOf("anonymous")).toBeNull();
+    expect(await host.draftLearnerOf("ana")).toMatch(/^[0-9a-f]{16}$/);
+    expect(await host.draftLearnerOf("ana")).not.toBe(await host.draftLearnerOf("bob"));
+    const configured = new SessionHost({ bundlesRoot: tmp(), live: false, dataDir: null, defaultLearnerId: "ana" });
+    expect(await configured.draftLearnerOf(undefined)).toBe(await configured.draftLearnerOf("ana"));
+  });
+
+  it("keeps a lesson in progress as the next step, and the unfinished build under its own heading, for its learner only", async () => {
+    const { host, library, play } = await setup();
+    await host.close(await play("atomes/lesson.json", "ana"));
+    const draftId = await refusedFor(host, library, "ana");
+    const plan = await host.studyPlan("ana", { nowMs: later(), language: "fr" });
+    expect(plan.next_step).toMatchObject({ action: "continue", arguments: { bundle_ref: "atomes/lesson.json" } });
+    expect(plan.unfinished_build).toMatchObject({ draft_id: draftId });
+    expect(plan.display_markdown).toContain("**Leçon inachevée**");
+    for (const other of ["bob", undefined]) {
+      const theirs = await host.studyPlan(other, { nowMs: later(), language: "fr" });
+      expect(theirs.unfinished_build).toBeNull();
+      expect(JSON.stringify(theirs)).not.toContain("photosynthèse");
+    }
+  });
+
+  it("forgetLearner erases this learner's drafts and those kept for no learner, never another learner's", async () => {
+    const { host, library, play } = await setup();
+    await host.close(await play("atomes/lesson.json", "ana"));
+    await refusedFor(host, library, "ana");
+    const bob = await refusedFor(host, library, "bob", "La photosynthèse, version de Bob");
+    await refusedFor(host, library, undefined, "La photosynthèse, sans apprenant");
+    expect(readdirSync(join(library, "_drafts"))).toHaveLength(3);
+    const report = await host.forgetLearner("ana", "en");
+    expect(report.erased).toContainEqual({ kind: "lesson_drafts" });
+    // Bob's draft is his: not named to Ana as kept, and still offered to him.
+    expect(report.kept.map((item) => item.kind)).not.toContain("lesson_drafts");
+    expect(readdirSync(join(library, "_drafts"))).toHaveLength(1);
+    expect((await host.studyPlan("ana", { nowMs: later() })).unfinished_build).toBeNull();
+    expect((await host.studyPlan("bob", { nowMs: later() })).unfinished_build).toMatchObject({ draft_id: bob });
+    const bobReport = await host.forgetLearner("bob", "en");
+    expect(bobReport.erased).toContainEqual({ kind: "lesson_drafts" });
+    expect(existsSync(join(library, "_drafts"))).toBe(false);
+    expect((await host.studyPlan("bob", { nowMs: later() })).unfinished_build).toBeNull();
   });
 });

@@ -56,7 +56,7 @@ export const SERVER_INSTRUCTIONS = [
   `- Wait for the learner's answer and send their words with ${REPLY_CALL}; never answer, choose or rate for them.`,
   "- When a transition carries self_rating, ask the learner to rate their recall and call rate_recall: it schedules reviews, never mastery.",
   "- start_review_session plays every review due, across lessons; list_lessons shows what can be started.",
-  "- To learn from new sources: get_authoring_guide, prepare_sources, create_lesson, then start_lesson_session. Writing a lesson takes minutes: relay get_authoring_guide's tell_learner as it is, with your prepare_sources call, and go on without waiting for a reply. In prepare_sources, name a file on this computer by its path (Studium reads it: do not copy its text) and pass the text of what you fetched from the web. Then show a short sketch (goal, concepts, step titles; never a key) and go on; write the draft once, in the create_lesson call; after a refusal, resend only the scenes it names, with draft_id.",
+  "- To learn from new sources: get_authoring_guide, prepare_sources, create_lesson, then start_lesson_session. Writing a lesson takes minutes: relay get_authoring_guide's tell_learner as it is, with your prepare_sources call, and go on without waiting for a reply. In prepare_sources, name a file on this computer by its path (Studium reads it: do not copy its text) and pass the text of what you fetched from the web. Then show a short sketch (goal, concepts, each step's kind and title; titles name the topic, never the answer; never a key) and go on; write the draft once, in the create_lesson call; after a refusal, resend only the scenes it names, with draft_id, unless it asks for the whole draft.",
   "- When the learner asks where they are, show the map (get_workflow_graph). Offer once, at a pause, never between a question and its answer: at the end, the map as a page on the learner's yes (export_concept_map); in a working conversation, a short lesson from it when the person wants to understand it (prepare_sources, kind \"conversation\"). When the learner says they already know a concept of the map, or doubt one they got, relay it with submit_response {kind: \"contest\", concept_id, claim}, the id as the map names it; never contest for them.",
   "- Never call forget_session unless the learner asks to erase their data: it deletes their progress for good.",
   "- When Studium itself fails, contradicts its documentation or cannot do what the person asks, say so plainly and help them on; then offer once, at a pause, to report it or propose a change (get_server_info.feedback gives the addresses and what a report holds). The person posts it, or asks you to once they have read the final text; a lesson's content goes to its teacher or author.",
@@ -132,12 +132,13 @@ export function studyOperations(
     readOnly(operation("get_study_plan",
       "Start here: what the learner should do now. Reviews due (with dates), concepts to relearn, lessons in progress, " +
       "the next lesson, and next_step {action: review|finish|continue|start|author|wait, tool, arguments, text} naming the " +
-      "call to make with its arguments (language included where the tool takes one). finish: a lesson build stopped " +
-      "before its lesson was written; unfinished_build gives its sources, prepare_sources (the arguments that prepare " +
-      "them again, or null for a source given as text) and, for a draft Studium refused and kept, draft_id, fix_scenes " +
-      "and a keyless outline. If the learner wants it, read the guide, prepare the sources again and call create_lesson " +
-      "(with draft_id and only the scenes in fix_scenes when there is a draft_id); if not, create_lesson " +
-      "{source_set_id, discard: true}. With the minutes a day the " +
+      "call to make with its arguments (language included where the tool takes one). finish: Studium refused and kept " +
+      "a draft of this learner's, and no lesson was written since (it comes after a lesson in progress); " +
+      "unfinished_build gives its sources, prepare_sources (the arguments that prepare them again, or null for a source " +
+      "given as text), resend, draft_id and fix_scenes when only those scenes must be sent again, and a keyless " +
+      "outline. If the learner wants it, read the guide, prepare the sources again and call create_lesson with " +
+      "learner_id (draft_id and only the scenes in fix_scenes when there is a draft_id, else the whole draft); if not, " +
+      "create_lesson {source_set_id, learner_id, discard: true}. With the minutes a day the " +
       "learner gave, minutes_per_day and next_step.estimated_minutes size the step. display_markdown is the plan in " +
       "`language`, ready to show. A learner with no lesson of their own gets the demo lesson shipped with Studium as the " +
       "step to start (before authoring). Dates (due_date, next_review_date) are days in get_server_info.time_zone.",
@@ -328,6 +329,7 @@ export function buildMcpServer(host: SessionHost): McpServer {
     onLessonWritten: () => {},
     judge: () => host.judge,
     sourceFiles: () => sourceFilePolicy(host),
+    draftLearner: (learnerId) => host.draftLearnerOf(learnerId),
   }));
   registered.push(...registerTeacherTools(server, {
     bundlesRoot: host.bundlesRoot, libraryRoot: host.libraryRoot, dataDir: host.persistence().data_dir,
