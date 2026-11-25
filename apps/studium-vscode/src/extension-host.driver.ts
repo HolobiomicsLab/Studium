@@ -63,6 +63,11 @@ const seen = {
   outputLines: [] as string[], uriHandler: undefined as any, chatHandler: undefined as any, executed: [] as string[], serializers: new Map<string, any>(), treeProviders: new Map<string, any>(), statusItems: [] as any[],
 };
 let warningAnswer: ((items: string[]) => string | undefined) = () => undefined;
+let quickPickAnswer: ((items: Json[]) => Json | undefined) = () => undefined;
+let openDialogAnswer: string | undefined;
+/** Every settings write, with its target (1 user, 2 workspace, 3 folder), and the error the next writes throw. */
+const configWrites: Array<{ key: string; value: unknown; target: unknown }> = [];
+let configWriteError: string | undefined;
 const noop = () => ({ dispose() {} });
 class FakeUri {
   scheme = "file";
@@ -97,7 +102,7 @@ const fakeVscode: Json = {
   ThemeIcon: class { constructor(public id: string) {} },
   TreeItemCollapsibleState: { None: 0, Collapsed: 1, Expanded: 2 },
   StatusBarAlignment: { Left: 1, Right: 2 },
-  ViewColumn: { Beside: -2 }, ConfigurationTarget: { Workspace: 2 }, TaskScope: { Workspace: 2 },
+  ViewColumn: { Beside: -2 }, ConfigurationTarget: { Global: 1, Workspace: 2, WorkspaceFolder: 3 }, TaskScope: { Workspace: 2 },
   Task: class { constructor(public definition: Json, public scope: unknown, public name: string, public source: string, public execution: any) {} },
   CustomExecution: class { constructor(public callback: () => Promise<any>) {} },
   NotebookCellKind: { Markup: 1, Code: 2 },
@@ -108,7 +113,15 @@ const fakeVscode: Json = {
     getConfiguration: () => ({
       get: (key: string) => settings[key],
       inspect: (key: string) => ({ globalValue: settings[key] }),
-      update: async (key: string, value: unknown) => { settings[key] = value; },
+      // Like VS Code: workspace settings cannot be written when no folder or workspace is open.
+      update: async (key: string, value: unknown, target?: unknown) => {
+        if (configWriteError) throw new Error(configWriteError);
+        if (target === 2 && !fakeVscode.workspace.workspaceFolders?.length && !fakeVscode.workspace.workspaceFile) {
+          throw new Error("Unable to write to Workspace Settings because no workspace is opened. Please open a workspace first and try again.");
+        }
+        configWrites.push({ key, value, target });
+        settings[key] = value;
+      },
     }),
     registerNotebookSerializer: noop, openNotebookDocument: async () => ({}), onDidCloseNotebookDocument: noop,
   },
@@ -138,7 +151,8 @@ const fakeVscode: Json = {
       seen.warnings.push({ message, options, items });
       return Promise.resolve(warningAnswer(items));
     },
-    showQuickPick: async () => undefined, showOpenDialog: async () => undefined,
+    showQuickPick: async (items: Json[]) => quickPickAnswer(items),
+    showOpenDialog: async () => (openDialogAnswer ? [new FakeUri(openDialogAnswer)] : undefined),
     showNotebookDocument: async () => ({}),
     createWebviewPanel: (viewType: string) => { const p = fakePanel(viewType); seen.panels.push(p); return p; },
   },
@@ -551,6 +565,80 @@ async function main() {
     expect(!pane.posted.slice(before).some((m: Json) => m.type === "action_error"), "and no action error");
     settings["learnerId"] = "e2e-learner";
     pane.dispose();
+  }
+
+  // Tester report 2026-11-24: VS Code freshly installed, no folder open, a lesson built by an assistant; choosing it in
+  // « Choisir un cours » stopped on « Unable to write to Workspace Settings » and no lesson opened. Remembering the
+  // choice must never block the open: with no folder it goes to the user settings, and when no settings file can be
+  // written the lesson opens all the same, from the folder the learner chose.
+  {
+    makeLesson("picked", SAFE_RUN, "capsule-run-picked");
+    const savedFolders = fakeVscode.workspace.workspaceFolders;
+    const savedRoot = settings["bundlesRoot"];
+    const pickPicked = (items: Json[]) => items.find((i) => i.ref === "picked/lesson.json") ?? items.find((i) => i.action === "folder");
+    quickPickAnswer = pickPicked;
+    openDialogAnswer = lib;
+    const openPicked = async (what: string) => {
+      const panesBefore = seen.panels.length;
+      await seen.commands.get("studium.pickLesson")!();
+      const pane = seen.panels.length > panesBefore ? lastPanel() : undefined;
+      if (pane) await waitFor(() => pane.posted.some((m: Json) => m.type === "render" || m.type === "error"), `the picked lesson (${what})`);
+      return pane;
+    };
+
+    // No folder open: the choice is saved in the user settings and the lesson opens.
+    fakeVscode.workspace.workspaceFolders = undefined;
+    settings["bundlesRoot"] = emptyRoot;
+    settings["bundleRef"] = undefined;
+    let errorsBefore = seen.errors.length;
+    let writesBefore = configWrites.length;
+    let pane = await openPicked("no folder");
+    expect(seen.errors.length === errorsBefore, `no folder open: picking a lesson shows no error (got ${JSON.stringify(seen.errors.slice(errorsBefore))})`);
+    expect(pane?.posted.some((m: Json) => m.type === "render" && m.view?.bundle_ref === "picked/lesson.json") === true,
+      "no folder open: the picked lesson opens in the pane");
+    const noFolderWrites = configWrites.slice(writesBefore);
+    expect(noFolderWrites.length === 2 && noFolderWrites.every((w) => w.target === 1),
+      `no folder open: the choice is saved in the user settings (got ${JSON.stringify(noFolderWrites)})`);
+    expect(settings["bundlesRoot"] === lib && settings["bundleRef"] === "picked/lesson.json",
+      "no folder open: the tree, the chat and the notebook read the saved course from the settings");
+    pane?.dispose();
+
+    // No settings file can be written (read-only, malformed, unsaved changes): the lesson opens anyway, from the
+    // chosen folder, and the learner is told the choice was not saved.
+    settings["bundlesRoot"] = emptyRoot;
+    settings["bundleRef"] = undefined;
+    configWriteError = "Unable to write into user settings. Please open the user settings to correct errors/warnings in it and try again.";
+    errorsBefore = seen.errors.length;
+    const warningsBefore = seen.warnings.length;
+    globalStateData.delete("studium.lastLesson");
+    pane = await openPicked("unwritable settings");
+    configWriteError = undefined;
+    expect(pane?.posted.some((m: Json) => m.type === "render" && m.view?.bundle_ref === "picked/lesson.json") === true,
+      "unwritable settings: the picked lesson still opens, from the folder the learner chose");
+    expect(seen.errors.length === errorsBefore, "unwritable settings: no error stops the open");
+    expect(seen.warnings.slice(warningsBefore).some((w) => w.message.includes("Unable to write into user settings")),
+      "unwritable settings: a notice says the choice was not saved, and why");
+    const remembered = globalStateData.get("studium.lastLesson") as Json;
+    expect(remembered?.bundlesRoot === lib && remembered?.bundleRef === "picked/lesson.json",
+      "unwritable settings: a window reload still restores the lesson from the chosen folder");
+    pane?.dispose();
+
+    // A folder open: the choice stays the workspace's, as before.
+    fakeVscode.workspace.workspaceFolders = savedFolders;
+    settings["bundlesRoot"] = emptyRoot;
+    writesBefore = configWrites.length;
+    pane = await openPicked("folder open");
+    const folderWrites = configWrites.slice(writesBefore);
+    expect(folderWrites.length === 2 && folderWrites.every((w) => w.target === 2),
+      `a folder open: the choice is saved in the workspace settings (got ${JSON.stringify(folderWrites)})`);
+    expect(pane?.posted.some((m: Json) => m.type === "render" && m.view?.bundle_ref === "picked/lesson.json") === true,
+      "a folder open: the picked lesson opens");
+    pane?.dispose();
+
+    quickPickAnswer = () => undefined;
+    openDialogAnswer = undefined;
+    settings["bundlesRoot"] = savedRoot;
+    settings["bundleRef"] = undefined;
   }
 }
 
