@@ -56,7 +56,7 @@ export const SERVER_INSTRUCTIONS = [
   `- Wait for the learner's answer and send their words with ${REPLY_CALL}; never answer, choose or rate for them.`,
   "- When a transition carries self_rating, ask the learner to rate their recall and call rate_recall: it schedules reviews, never mastery.",
   "- start_review_session plays every review due, across lessons; list_lessons shows what can be started.",
-  "- To learn from new sources: get_authoring_guide, prepare_sources, create_lesson, then start_lesson_session. Writing a lesson takes minutes: relay get_authoring_guide's tell_learner as it is, with your prepare_sources call, and go on without waiting for a reply. In prepare_sources, name a file on this computer by its path (Studium reads it: do not copy its text) and pass the text of what you fetched from the web. Then show a short sketch (goal, concepts, each step's kind and title; titles name the topic, never the answer; never a key) and go on; write the draft once, in the create_lesson call; after a refusal, resend only the scenes it names, with draft_id, unless it asks for the whole draft.",
+  "- To learn from new sources: get_authoring_guide, prepare_sources, create_lesson, then start_lesson_session. When a result or a next_step carries open_link, show its display_markdown as it is (the link first) and call start_lesson_session only if the learner says “here”. Writing a lesson takes minutes: relay get_authoring_guide's tell_learner as it is, with your prepare_sources call, and go on without waiting for a reply. In prepare_sources, name a file on this computer by its path (Studium reads it: do not copy its text) and pass the text of what you fetched from the web. Then show a short sketch (goal, concepts, each step's kind and title; titles name the topic, never the answer; never a key) and go on; write the draft once, in the create_lesson call; after a refusal, resend only the scenes it names, with draft_id, unless it asks for the whole draft.",
   "- When the learner asks where they are, show the map (get_workflow_graph). Offer once, at a pause, never between a question and its answer: at the end, the map as a page on the learner's yes (export_concept_map); in a working conversation, a short lesson from it when the person wants to understand it (prepare_sources, kind \"conversation\"). When the learner says they already know a concept of the map, or doubt one they got, relay it with submit_response {kind: \"contest\", concept_id, claim}, the id as the map names it; never contest for them.",
   "- Never call forget_session unless the learner asks to erase their data: it deletes their progress for good.",
   "- When Studium itself fails, contradicts its documentation or cannot do what the person asks, say so plainly and help them on; then offer once, at a pause, to report it or propose a change (get_server_info.feedback gives the addresses and what a report holds). The person posts it, or asks you to once they have read the final text; a lesson's content goes to its teacher or author.",
@@ -67,22 +67,21 @@ export const SERVER_INSTRUCTIONS = [
 const EDITOR_LEARNER_LINE = "- The editor names the learner: omit learner_id (an id you pass is ignored; " +
   "persistence.learner_id_default is the learner).";
 
-/** D2: how the authoring line begins in SERVER_INSTRUCTIONS, and how it begins when the Studium VS Code extension
- * serves Studium (STUDIUM_OPEN_LINK): a lesson ready to play is offered in the pane first. */
-const AUTHORING_START = "- To learn from new sources: get_authoring_guide, prepare_sources, create_lesson, then start_lesson_session.";
-const PANE_FIRST_START = "- To learn from new sources: get_authoring_guide, prepare_sources, create_lesson. When a result or a " +
-  "next_step carries open_link, show its display_markdown as it is (the Studium pane first) and call " +
-  "start_lesson_session only if the learner says “here”.";
+/** D2, D4: what open_link leads to. Any server may offer a link (D4, owner decision 4: the server's browser player when
+ * no VS Code extension serves Studium), so the rule is in SERVER_INSTRUCTIONS; the extension's server (STUDIUM_OPEN_LINK)
+ * names its pane. */
+const LINK_FIRST = "(the link first)";
+const PANE_FIRST = "(the Studium pane first)";
 
 /** The instructions of a server over `host`: SERVER_INSTRUCTIONS, with the learner line rewritten when the editor
- * names the learner (D1) and the authoring line's start when the VS Code extension serves Studium (D2). Same number
+ * names the learner (D1) and the link named as the pane when the VS Code extension serves Studium (D2). Same number
  * of lines (at most 13). */
 export function serverInstructions(host: Pick<SessionHost, "editorNamesLearner" | "openLink">): string {
   const lines = SERVER_INSTRUCTIONS.split("\n");
   if (host.editorNamesLearner) lines[lines.findIndex((line) => line.startsWith("- Pass one stable learner_id"))] = EDITOR_LEARNER_LINE;
   if (host.openLink) {
-    const at = lines.findIndex((line) => line.startsWith(AUTHORING_START));
-    lines[at] = PANE_FIRST_START + lines[at]!.slice(AUTHORING_START.length);
+    const at = lines.findIndex((line) => line.includes(LINK_FIRST));
+    lines[at] = lines[at]!.replace(LINK_FIRST, PANE_FIRST);
   }
   return lines.join("\n");
 }
@@ -161,7 +160,8 @@ export function studyOperations(
     readOnly(operation("get_study_plan",
       "Start here: what the learner should do now. Reviews due (with dates), concepts to relearn, lessons in progress, " +
       "the next lesson, and next_step {action: review|finish|continue|start|author|wait, tool, arguments, text} naming the " +
-      "call to make with its arguments (language included where the tool takes one). finish: Studium refused and kept " +
+      "call to make with its arguments (language included where the tool takes one); on start and continue it may carry " +
+      "open_link (the lesson in the Studium pane or in the browser), which its text offers first. finish: Studium refused and kept " +
       "a draft of this learner's, and no lesson was written since (it comes after a lesson in progress); " +
       "unfinished_build gives its sources, prepare_sources (the arguments that prepare them again, or null for a source " +
       "given as text), resend, draft_id and fix_scenes when only those scenes must be sent again, and a keyless " +
@@ -360,6 +360,7 @@ export function buildMcpServer(host: SessionHost): McpServer {
     sourceFiles: () => sourceFilePolicy(host),
     draftLearner: (learnerId) => host.draftLearnerOf(learnerId),
     openLink: () => host.openLink,
+    browserLink: (learnerId, courseRef) => host.browserLinkFor(courseRef, learnerId),
   }));
   registered.push(...registerTeacherTools(server, {
     bundlesRoot: host.bundlesRoot, libraryRoot: host.libraryRoot, dataDir: host.persistence().data_dir,

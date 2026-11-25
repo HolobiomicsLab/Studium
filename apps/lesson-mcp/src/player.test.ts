@@ -6,7 +6,7 @@ import { resolve } from 'node:path';
 import { request as httpRequest, type Server } from 'node:http';
 import { SessionHost } from '@studium/lesson-session-host';
 import { createLessonHttpServer } from './http.js';
-import { createPlayer, PLAYER_TOOLS } from './player.js';
+import { createPlayer, PlayerKeys, PLAYER_TOOLS } from './player.js';
 
 const root = resolve(import.meta.dirname, '../../../fixtures');
 const token = 'synthetic-player-token-with-more-than-32-characters';
@@ -177,5 +177,81 @@ describe('browser player: a lesson played through the routes', () => {
     const again = await view('get_panel_view', {session_id});
     expect(again.session_id).toBe(session_id);
     expect(again.surface.kind).toBe('pane');
+  });
+});
+
+// D4 (waiting review 2026-11-25, owner decision 4): the server an assistant runs mints one key per learner, and the
+// player plays the learner of the key for every call made with it: the page cannot choose another learner, and a key
+// minted for one learner never reads or moves another learner's session.
+describe('browser player: a key per learner (the server an assistant runs)', () => {
+  async function keyed() {
+    const host = new SessionHost({bundlesRoot:root, live:false, dataDir:null});
+    const keys = new PlayerKeys();
+    const server = createLessonHttpServer({host, token, bundlesRoot:root, player:createPlayer({host, keys})});
+    servers.push(server);
+    await new Promise<void>(r => server.listen(0, '127.0.0.1', r));
+    const port = (server.address() as {port:number}).port;
+    const origin = `http://127.0.0.1:${port}`;
+    const as = (key:string) => async (name:string, args:Record<string,unknown>) => {
+      const reply = await fetch(`${origin}/play/api/tools/${name}`, {
+        method:'POST', headers:{authorization:`Bearer ${key}`, 'content-type':'application/json', origin}, body:JSON.stringify({arguments:args}),
+      });
+      return {status:reply.status, json:await reply.json() as any};
+    };
+    return {host, keys, as};
+  }
+
+  it('mints one fresh key per learner, the same for each call, and no key for nobody', async () => {
+    const {keys} = await keyed();
+    const ana = keys.keyFor('ana');
+    expect(ana).toMatch(/^[0-9a-f]{64}$/);
+    expect(keys.keyFor('ana')).toBe(ana);
+    expect(keys.keyFor('bob')).not.toBe(ana);
+    expect(keys.learnerOf(`Bearer ${ana}`)).toBe('ana');
+    expect(keys.learnerOf(`Bearer ${ana.slice(1)}x`)).toBeNull();
+    expect(keys.learnerOf(undefined)).toBeNull();
+    expect(new PlayerKeys().keyFor('ana')).not.toBe(ana);
+  });
+
+  it('plays the learner of the key, whatever learner_id the page sends', async () => {
+    const {keys, as} = await keyed();
+    const opened = await as(keys.keyFor('ana'))('open_lesson_panel', {bundle_ref:'atomistique-l1/lesson.json', learner_id:'bob', locale:'fr'});
+    expect(opened.status).toBe(200);
+    expect(opened.json.structuredContent.panel.learner_id).toBe('ana');
+    const listed = await as(keys.keyFor('ana'))('list_lessons', {learner_id:'bob', language:'fr'});
+    const atom = JSON.parse(listed.json.content[0].text).lessons.find((lesson:{bundle_ref:string}) => lesson.bundle_ref === 'atomistique-l1/lesson.json');
+    expect(atom.status).toBeDefined();
+    expect((await as('x'.repeat(64))('list_lessons', {})).status).toBe(401);
+  });
+
+  it('never acts on another learner\'s session with a key minted for one learner', async () => {
+    const {keys, as, host} = await keyed();
+    const bob = await host.create('atomistique-l1/lesson.json', 'bob');
+    const asAna = as(keys.keyFor('ana'));
+    for (const [name, args] of [
+      ['get_panel_view', {session_id:bob.sessionId}],
+      ['panel_action', {session_id:bob.sessionId, action:{type:'respond', input:{kind:'ack'}, expected_scene_id:bob.presentation.scene.id}}],
+      ['open_lesson_panel', {session_id:bob.sessionId}],
+    ] as const) {
+      const refused = await asAna(name, args);
+      expect(refused.status, name).toBe(403);
+      expect(refused.json.code).toBe('not_your_session');
+    }
+    // Bob's session has not moved, and Bob's own key plays it.
+    expect(host.currentPresentation(bob.sessionId).scene.id).toBe(bob.presentation.scene.id);
+    const asBob = await as(keys.keyFor('bob'))('get_panel_view', {session_id:bob.sessionId});
+    expect(asBob.status).toBe(200);
+    expect(asBob.json.structuredContent.panel.learner_id).toBe('bob');
+  });
+
+  it('starts nothing for the server\'s default learner from a session the page acts on first', async () => {
+    const {keys, as, host} = await keyed();
+    const bob = await host.create('atomistique-l1/lesson.json', 'bob');
+    // No view first: « start again » starts the lesson for the learner of the panel's context, which must be Bob.
+    const restarted = await as(keys.keyFor('bob'))('panel_action', {session_id:bob.sessionId, action:{type:'restartLesson'}});
+    expect(restarted.status, JSON.stringify(restarted.json)).toBe(200);
+    const panel = restarted.json.structuredContent.panel;
+    expect(panel.learner_id).toBe('bob');
+    expect(await host.sessionPlays(panel.session_id, 'bob')).toBe(true);
   });
 });

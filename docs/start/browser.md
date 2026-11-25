@@ -5,7 +5,8 @@ English · [Français](browser.fr.md)
 **Status: experimental.** The browser player plays an existing Studium lesson in an ordinary web browser,
 with no VS Code and no AI assistant. It runs on your own computer, or on a classroom workstation, and
 answers only that computer. It does not build lessons: that still needs an assistant (see
-[Quickstart](quickstart.md)). Read [Limits](#limits) before you rely on it.
+[Quickstart](quickstart.md)). You start it with one command, or an assistant offers it
+([From your assistant](#from-your-assistant)). Read [Limits](#limits) before you rely on it.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="../assets/screenshots/browser-player-quiz-dark.png">
@@ -43,6 +44,32 @@ The `play` command is in `studium-mcp` 0.6.4 and later.
 The same environment variables as the server apply: `STUDIUM_HOME`, `STUDIUM_DATA_DIR`,
 `STUDIUM_LEARNER_ID`, `STUDIUM_EPHEMERAL=1` (see [Configuration](../reference/configuration.md)).
 
+## From your assistant
+
+When an assistant runs Studium without the Studium VS Code extension (OpenCode, Mistral Vibe, Copilot
+configured by hand, among others), its Studium server offers this player too, with no command to type. The
+first time it offers a lesson (one it has just built, or the one the study plan says to start or continue),
+it starts the player on 127.0.0.1, on a free port, and the assistant shows an address such as
+`http://127.0.0.1:53817/play#token=…&from=assistant&lesson=…`. Open it in your browser: the lesson opens at
+your current step. Or say "here" to play it in the chat. Studium never opens the browser itself.
+
+- **One learner per address.** The address plays the learner the assistant named in that call (its
+  `learner_id`, else `STUDIUM_LEARNER_ID`, else `anonymous`): a step answered in the browser is that
+  learner's progress in the chat, and the reverse. The page cannot play another learner. An assistant that
+  names you differently from one call to the next makes two learners: ask it to keep one name.
+- **The address lives as long as the assistant session.** When the assistant quits, the player stops with
+  its server, and the page says so: ask the assistant for your lesson again to get a new address. Progress
+  is kept as below.
+- **Your answers stay on your computer.** Studium checks the answers you give in the browser on your
+  computer and does not send them to the assistant's model. This holds only with no judge model configured
+  (`LITELLM_BASE_URL` empty, the default): with one, your written answers go to that model to be assessed.
+  Back in the chat, the assistant sees where you are in the lesson, as after any step.
+- **To turn it off** (a classroom, an IT policy), set `STUDIUM_BROWSER_PLAYER=off` in the server's
+  environment: lessons are then played in the chat only. If the player cannot start (a sandbox, a refused
+  port), the assistant offers the chat as before, and the server writes one line on its error output.
+- The Studium VS Code extension offers its own pane instead and starts no player
+  ([Configuration](../reference/configuration.md)).
+
 ## Play
 
 1. The page lists the lessons of the folder and of your library, then the demo lesson shipped with
@@ -73,7 +100,7 @@ student an account or set `STUDIUM_HOME` per student.
 ## Who can reach it
 
 - It listens on 127.0.0.1 only: other computers, on the room's network or elsewhere, cannot reach it.
-- Its address carries a key made for this run. Without it, nothing is answered; the key means nothing
+- Its address carries a key made for this run (from an assistant, a key for each learner it names). Without it, nothing is answered; the key means nothing
   once the player stops. Do not paste the address in a chat or a shared document.
 - Other web sites open in the same browser cannot call it: it refuses requests from other origins and
   answers none of them with permission to read.
@@ -84,6 +111,9 @@ hosted, multi-user version would need (sign-in, one identity per learner, data p
 
 ## Limits
 
+- **The address an assistant gives was tried by scripts only**: an end-to-end test that talks to the server
+  over stdio as an assistant does, and a headless Chrome on macOS that opened the address and answered a
+  step. No model in OpenCode, Vibe or Copilot has offered it to a person yet.
 - **Tried by scripts only, on macOS.** No person has used the player yet. A headless Google Chrome
   driven by Playwright:
   - from this repository's build of the server, opened the list, played the first five steps of

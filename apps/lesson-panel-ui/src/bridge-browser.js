@@ -7,16 +7,30 @@ import { browserPhrases, localeFromLanguage } from "../../../packages/lesson-pan
 
 export const TOKEN_KEY = "studium-player-token";
 export const SESSION_KEY = "studium-player-session";
+/** D4 (owner decision 4): "assistant" when the address came from the server an assistant runs, not from
+ * `studium-mcp play`: the page then says, once that server is gone, to ask the assistant for a new address. */
+export const FROM_KEY = "studium-player-from";
+
+/** The address the server gave, taken out of the address bar at once: its token (`#token=…`), the lesson it opens
+ * (`&lesson=…`, a bundle_ref) and who gave it (`&from=assistant`). The token and who gave it stay in this tab's
+ * storage; the lesson is opened once. */
+export function takeAddress(win) {
+  const fragment = new URLSearchParams(win.location.hash.slice(1));
+  const token = fragment.get("token");
+  let lesson = null;
+  if (token) {
+    win.sessionStorage.setItem(TOKEN_KEY, token);
+    if (fragment.get("from") === "assistant") win.sessionStorage.setItem(FROM_KEY, "assistant");
+    else win.sessionStorage.removeItem(FROM_KEY);
+    lesson = fragment.get("lesson") || null;
+    win.history.replaceState(null, "", win.location.pathname + win.location.search);
+  }
+  return { token: win.sessionStorage.getItem(TOKEN_KEY), lesson, fromAssistant: win.sessionStorage.getItem(FROM_KEY) === "assistant" };
+}
 
 /** The token of the address the server printed (`#token=…`), taken out of the address bar at once. */
 export function takeToken(win) {
-  const fragment = new URLSearchParams(win.location.hash.slice(1));
-  const token = fragment.get("token");
-  if (token) {
-    win.sessionStorage.setItem(TOKEN_KEY, token);
-    win.history.replaceState(null, "", win.location.pathname + win.location.search);
-  }
-  return win.sessionStorage.getItem(TOKEN_KEY);
+  return takeAddress(win).token;
 }
 
 /** An error the page explains in its own words, not in the server's. */
@@ -53,10 +67,16 @@ export function fetchApp(win, token, words) {
   return app;
 }
 
-/** Start the player: resume the session of this tab, or list the lessons. */
+/** Start the player: open the lesson of the address, else resume the session of this tab, else list the lessons. */
 export async function startBrowserPlayer({ window: win, document: doc, connectMcpApp, renderView }) {
   const locale = localeFromLanguage(win.navigator?.language);
   const words = browserPhrases(locale);
+  const { token, lesson, fromAssistant } = takeAddress(win);
+  if (fromAssistant) {
+    // The server an assistant runs ends with the assistant's session: a new address comes from asking it again.
+    words.player_unreachable = words.player_assistant_unreachable;
+    words.player_token_rejected = words.player_assistant_token_rejected;
+  }
   doc.documentElement.lang = locale;
   const pane = doc.getElementById("pane");
   const say = (text) => {
@@ -66,7 +86,6 @@ export async function startBrowserPlayer({ window: win, document: doc, connectMc
     notice.textContent = text;
     pane.replaceChildren(notice);
   };
-  const token = takeToken(win);
   if (!token) { say(words.player_no_token); return null; }
   const app = fetchApp(win, token, words);
   const bridge = await connectMcpApp(app, { window: win, document: doc, renderView });
@@ -75,7 +94,12 @@ export async function startBrowserPlayer({ window: win, document: doc, connectMc
     try { bridge.receive(await app.callServerTool({ name: "open_lesson_panel", arguments: { ...args, locale } })); }
     catch (error) { failed(error); }
   };
-  const resumed = win.sessionStorage.getItem(SESSION_KEY);
+  // The address names a lesson: open it, where this learner is (the server resumes it); one it does not open, the list.
+  if (lesson) {
+    try { bridge.receive(await app.callServerTool({ name: "open_lesson_panel", arguments: { bundle_ref: lesson, locale } })); return bridge; }
+    catch (error) { if (error instanceof PlayerUnavailable) { say(error.message); return bridge; } }
+  }
+  const resumed = lesson ? null : win.sessionStorage.getItem(SESSION_KEY);
   if (resumed) {
     try { bridge.receive(await app.callServerTool({ name: "get_panel_view", arguments: { session_id: resumed } })); return bridge; }
     catch (error) {

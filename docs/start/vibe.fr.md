@@ -49,6 +49,14 @@ cours, construit une leçon de 8 étapes sur 4 notions dont Studium a accepté l
 appel à `create_lesson`, l'a démarrée, a relayé chaque étape et transmis une réponse de quiz à Studium,
 qui l'a évaluée avec la clé. L'exemple complet est [vibe.toml](../examples/vibe.toml).
 
+Depuis cet essai, une leçon prête à jouer est proposée d'abord dans votre navigateur : Vibe affiche
+l'adresse du [lecteur dans le navigateur](browser.fr.md#depuis-votre-assistant) de Studium, sur votre
+ordinateur, où chaque étape répond aussitôt au lieu d'attendre le modèle ; dites « ici » pour la suivre
+dans la conversation. L'adresse vit le temps de la session de Vibe et joue l'identifiant d'apprenant que
+Vibe a passé. Vos réponses y sont vérifiées par Studium sur votre ordinateur et ne vont pas à Mistral AI,
+tant qu'aucun modèle juge n'est configuré. `STUDIUM_BROWSER_PLAYER=off` dans l'`env` du serveur désactive
+cela. Pas encore essayé avec Vibe lui-même : seuls des scripts l'ont vérifié.
+
 ## Ce qui quitte votre machine
 
 Studium lui-même n'envoie rien : les leçons et la progression restent dans `~/.studium`. Le modèle de

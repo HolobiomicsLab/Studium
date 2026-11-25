@@ -34,7 +34,7 @@ import type { Catalog, CatalogLesson } from "./lesson-catalog.js";
 import type { StudyRecord } from "./study-record.js";
 import type { UnfinishedBuild } from "./authoring-draft/draft-store.js";
 import { frenchSpacing } from "../../lesson-session/src/phrases.js";
-import { paneOffer, type PaneLink } from "./open-link.js";
+import { browserOffer, paneOffer, type PaneLink } from "./open-link.js";
 
 /** FSRS reinforcement's mastery gate (dueForReinforcement's default minMastery). */
 export const REVIEW_MIN_MASTERY = 0.6;
@@ -123,7 +123,8 @@ export interface StudyPlan {
      * progress; a review as cut by max_items). */
     estimated_minutes?: number;
     /** D2: on start and continue, when the Studium VS Code extension serves Studium (STUDIUM_OPEN_LINK): the lesson
-     * file and the link that opens it in the pane, which `text` offers first (open-link.ts). */
+     * file and the link that opens it in the pane, which `text` offers first (open-link.ts). D4: otherwise, open_link
+     * alone, the address of the server's browser player for this learner and lesson, which `text` offers first. */
     lesson_path?: string;
     open_link?: string;
   };
@@ -162,6 +163,9 @@ export interface StudyPlanInput {
   /** D2: when the Studium VS Code extension serves Studium, the pane link of a lesson on disk (null when none can
    * open it). Absent ⇒ no link: the plan is the same as before. */
   paneLinkFor?: (lesson: CatalogLesson) => PaneLink | null;
+  /** D4 (owner decision 4): when no pane is offered, the address of the server's browser player that plays the lesson
+   * as this learner (null when there is none). Absent ⇒ no address. */
+  browserLinkFor?: (lesson: CatalogLesson) => string | null;
 }
 
 /** What a review scene takes when nothing says (RFR-06's estimate of a review session). */
@@ -332,15 +336,27 @@ function shippedDemo(input: StudyPlanInput, started: ReadonlySet<string>): Catal
   return inLocale ?? shipped[0] ?? null;
 }
 
-/** D2: a lesson to start or continue, offered in the Studium pane first when a link can open it there — never the
- * demo shipped with Studium (its text says it is played through an assistant), never a .zip bundle. */
-function offerPane(step: StudyPlan["next_step"], lesson: CatalogLesson | undefined, input: StudyPlanInput): void {
-  if (!lesson || !input.paneLinkFor || lesson.root === "shipped" || lesson.bundle_ref.toLowerCase().endsWith(".zip")) return;
-  const pane = input.paneLinkFor(lesson);
-  if (!pane) return;
-  step.lesson_path = pane.lesson_path;
-  step.open_link = pane.open_link;
-  step.text = `${step.text} ${paneOffer(input.locale, pane.open_link)}`;
+/** Whether a lesson to start or continue may be offered outside the chat: never the demo shipped with Studium (its
+ * text says it is played through an assistant), never a .zip bundle. */
+export function offeredOutsideChat(lesson: Pick<CatalogLesson, "root" | "bundle_ref">): boolean {
+  return lesson.root !== "shipped" && !lesson.bundle_ref.toLowerCase().endsWith(".zip");
+}
+
+/** D2: a lesson to start or continue, offered in the Studium pane first when a link can open it there; D4: else in the
+ * server's browser player when it gives an address. */
+function offerLink(step: StudyPlan["next_step"], lesson: CatalogLesson | undefined, input: StudyPlanInput): void {
+  if (!lesson || !offeredOutsideChat(lesson)) return;
+  const pane = input.paneLinkFor?.(lesson) ?? null;
+  if (pane) {
+    step.lesson_path = pane.lesson_path;
+    step.open_link = pane.open_link;
+    step.text = `${step.text} ${paneOffer(input.locale, pane.open_link)}`;
+    return;
+  }
+  const browser = input.browserLinkFor?.(lesson) ?? null;
+  if (!browser) return;
+  step.open_link = browser;
+  step.text = `${step.text} ${browserOffer(input.locale, browser)}`;
 }
 
 export function buildStudyPlan(input: StudyPlanInput): StudyPlan {
@@ -398,7 +414,7 @@ export function buildStudyPlan(input: StudyPlanInput): StudyPlan {
       nextStep.estimated_minutes = minutes;
       nextStep.text = `${nextStep.text} ${lessonBudgetText(t, minutes, budget, true)}`;
     }
-    offerPane(nextStep, input.catalog.lessons.find((l) => l.bundle_ref === current.bundle_ref), input);
+    offerLink(nextStep, input.catalog.lessons.find((l) => l.bundle_ref === current.bundle_ref), input);
   } else if (unfinished) {
     nextStep = { action: "finish", tool: "get_authoring_guide", arguments: { language: input.locale },
       text: fill(t.finish, { sources: sourceTitles(unfinished, input.locale) }) };
@@ -410,7 +426,7 @@ export function buildStudyPlan(input: StudyPlanInput): StudyPlan {
       nextStep.estimated_minutes = next.duration_minutes;
       nextStep.text = `${nextStep.text} ${lessonBudgetText(t, next.duration_minutes, budget, false)}`;
     }
-    offerPane(nextStep, next, input);
+    offerLink(nextStep, next, input);
   } else if (ownLessons(input).length === 0) {
     nextStep = { action: "author", tool: "get_authoring_guide", arguments: { language: input.locale }, text: t.author };
   } else {

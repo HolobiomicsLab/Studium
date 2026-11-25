@@ -124,10 +124,11 @@ same link. In VS Code before about 1.120 the link shows as text: open the lesson
 - Progress Copilot kept before this version, under the learner id it chose (`anonymous` by default), stays
   under that id: it is not moved to the pane's learner.
 - A Studium server added by hand keeps its own progress, by default in `~/.studium/data`, apart from the
-  pane's, which is in the extension's storage, and gives no link to the pane. To share the pane's learner and progress,
-  remove that entry (see [With the Studium extension](#with-the-studium-extension-no-node-no-command)): the
-  extension then offers its own server. **MCP: List Servers** shows which one Copilot uses: **Studium** is
-  the extension's, `studium` one added by hand.
+  pane's, which is in the extension's storage, and gives no link to the pane: it offers its
+  [browser player](browser.md#from-your-assistant) instead. To share the pane's learner and progress, remove that
+  entry (see [With the Studium extension](#with-the-studium-extension-no-node-no-command)): the extension then
+  offers its own server. **MCP: List Servers** shows which one Copilot uses: **Studium** is the extension's,
+  `studium` one added by hand.
 - The link and the shared learner were checked against a stand-in for VS Code: Copilot's link, handed over
   the way VS Code's own code does, opens the pane at the learner's step. Clicking it in a real Copilot chat
   has not been tried.

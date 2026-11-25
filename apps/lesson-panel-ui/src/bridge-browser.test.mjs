@@ -12,7 +12,7 @@ const bundle = async (file) => {
   return import(`data:text/javascript;base64,${Buffer.from(compiled.outputFiles[0].text).toString("base64")}`);
 };
 const { connectMcpApp } = await bundle("bridge-mcp-app.js");
-const { startBrowserPlayer, TOKEN_KEY, SESSION_KEY } = await bundle("bridge-browser.js");
+const { startBrowserPlayer, TOKEN_KEY, SESSION_KEY, FROM_KEY } = await bundle("bridge-browser.js");
 const { browserPhrases } = await bundle("../../../packages/lesson-panel/src/phrases.ts");
 const pane = readFileSync(new URL("artifact-pane.js", import.meta.url), "utf8").replace(/export \{ renderView \};?\s*$/, "");
 const TOKEN = "t".repeat(64);
@@ -280,4 +280,57 @@ test("nothing is listed again while a lesson opens or plays, and a late list doe
   tabShown(resumed); windowFocused(resumed); await settle(); await settle();
   assert.deepEqual(resumed.calls.map(call => call.url.split("/").pop()), ["get_panel_view"]);
   resumed.dom.window.close();
+});
+
+// D4 (waiting review 2026-11-25, owner decision 4): the address the server an assistant runs gives opens its lesson at
+// once (the server resumes it at the learner's step), and once that server is gone the page says the assistant
+// session ended and that asking the assistant again gives a new address.
+const ASSISTANT = `#token=${TOKEN}&from=assistant&lesson=${encodeURIComponent("photosynthese/lesson.json")}`;
+
+test("an address with a lesson opens that lesson at once, without the list, and leaves the address bar", async () => {
+  const p = page({ hash: ASSISTANT, stored: { [SESSION_KEY]: "session-0" } });
+  await p.start();
+  assert.equal(p.dom.window.location.href, `${ORIGIN}/play`);
+  assert.equal(p.dom.window.sessionStorage.getItem(TOKEN_KEY), TOKEN);
+  assert.deepEqual(p.calls.map(call => [call.url, call.body.arguments]),
+    [["/play/api/tools/open_lesson_panel", { bundle_ref: "photosynthese/lesson.json", locale: "fr" }]]);
+  assert.match(text(p.doc.querySelector(".scene-title")), /atome de fer/);
+  assert.equal(p.dom.window.sessionStorage.getItem(SESSION_KEY), "session-1");
+  p.dom.window.close();
+});
+
+test("a lesson the server does not open falls back to the list", async () => {
+  const p = page({ hash: ASSISTANT, reply: async (name) => name === "open_lesson_panel"
+    ? [400, { error: "Open a lesson the list shows", code: "invalid_bundle" }] : defaultReply(name) });
+  await p.start();
+  assert.deepEqual(p.calls.map(call => call.url.split("/").pop()), ["open_lesson_panel", "list_lessons"]);
+  assert.equal(p.doc.querySelectorAll(".course-choice").length, 2);
+  p.dom.window.close();
+});
+
+test("an assistant's address that stopped answering says the session ended and that asking again gives a new one", async () => {
+  const stopped = page({ hash: ASSISTANT });
+  stopped.dom.window.fetch = async () => { throw new TypeError("Failed to fetch"); };
+  await stopped.start();
+  assert.equal(text(stopped.doc.querySelector(".player-notice")), flat(fr.player_assistant_unreachable));
+  assert.match(fr.player_assistant_unreachable, /session de ton assistant[\s\S]*nouvelle adresse/);
+  assert.match(browserPhrases("en").player_assistant_unreachable, /assistant's session[\s\S]*new address/);
+  stopped.dom.window.close();
+  // A reload of that tab: the address bar no longer says who gave the address, the tab still knows.
+  const reloaded = page({ hash: "", stored: { [TOKEN_KEY]: TOKEN, [FROM_KEY]: "assistant" }, reply: async () => [401, { code: "unauthorized" }] });
+  await reloaded.start();
+  assert.equal(text(reloaded.doc.querySelector(".player-notice")), flat(fr.player_assistant_token_rejected));
+  reloaded.dom.window.close();
+  // The address of studium-mcp play keeps the words of its terminal, even in a tab an assistant's address used.
+  const played = page({ stored: { [FROM_KEY]: "assistant" }, reply: async () => [401, { code: "unauthorized" }] });
+  await played.start();
+  assert.equal(text(played.doc.querySelector(".player-notice")), flat(fr.player_token_rejected));
+  played.dom.window.close();
+});
+
+test("the notice for a page opened without its key names both addresses Studium gives", () => {
+  for (const words of [fr, browserPhrases("en")]) {
+    assert.match(words.player_no_token, /assistant/);
+    assert.match(words.player_no_token, /studium-mcp play/);
+  }
 });

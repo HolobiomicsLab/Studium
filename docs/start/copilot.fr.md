@@ -134,10 +134,11 @@ s'affiche comme du texte : ouvrez la leçon depuis la vue **Leçons**.
 - La progression que Copilot gardait avant cette version, sous l'identifiant d'apprenant qu'il avait choisi
   (`anonymous` par défaut), reste sous cet identifiant : elle n'est pas transférée à l'apprenant du panneau.
 - Un serveur Studium ajouté à la main garde sa propre progression, par défaut dans `~/.studium/data`, à part
-  de celle du panneau, qui est dans l'espace de stockage de l'extension, et ne donne pas de lien vers le panneau. Pour
-  partager l'apprenant et la progression du panneau, retirez cette entrée (voir
-  [Avec l'extension Studium](#avec-lextension-studium-ni-node-ni-commande)) : l'extension propose alors son
-  propre serveur. **MCP: List Servers** montre celui qu'utilise Copilot : **Studium** est celui de
+  de celle du panneau, qui est dans l'espace de stockage de l'extension, et ne donne pas de lien vers le panneau :
+  il propose à la place son [lecteur dans le navigateur](browser.fr.md#depuis-votre-assistant). Pour partager
+  l'apprenant et la progression du panneau, retirez cette entrée (voir
+  [Avec l'extension Studium](#avec-lextension-studium-ni-node-ni-commande)) : l'extension propose alors son
+  propre serveur. **MCP: List Servers** montre celui qu'utilise Copilot : **Studium** est celui de
   l'extension, `studium` un serveur ajouté à la main.
 - Le lien et l'apprenant partagé ont été vérifiés face à une imitation de VS Code : le lien de Copilot, transmis
   comme le fait le code de VS Code lui-même, ouvre le panneau à l'étape de l'apprenant. Le cliquer dans une

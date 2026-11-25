@@ -2,7 +2,7 @@
 // routes under /play, served by the local lesson API on 127.0.0.1. The routes call the panel tools of
 // this server through an in-process MCP client, so the page receives the public PanelView the VS Code
 // pane and the MCP Apps panels receive, drawn there by the same renderer and bridge.
-import { createHash, timingSafeEqual } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
@@ -46,12 +46,49 @@ export function pageHeaders(html: string): Record<string, string> {
   };
 }
 
-/** The player of one SessionHost. Every call uses the host's default learner, whatever the page sends. */
-export function createPlayer(options: { host: SessionHost; token: string; html?: string }): Player {
-  if (options.token.length < 32) throw new Error('the player token must contain at least 32 characters');
+const digest = (authorization: string) => createHash('sha256').update(authorization).digest('hex');
+
+/** The keys of a player, each bound to one learner. D4 (waiting review 2026-11-25, owner decision 4): the server an
+ * assistant runs mints one key per learner the assistant names, and an address carries that learner's key, so that
+ * every call made with it plays that learner, whatever the page sends; `studium-mcp play` has one key, for the host's
+ * default learner. A received header is looked up by its SHA-256 digest: the comparison never runs over the key. */
+export class PlayerKeys {
+  private readonly learnerByDigest = new Map<string, string>();
+  private readonly keyByLearner = new Map<string, string>();
+  constructor(private readonly fresh: () => string = () => randomBytes(32).toString('hex')) {}
+
+  /** A player of one key, bound to `learnerId`. */
+  static single(key: string, learnerId: string): PlayerKeys {
+    const keys = new PlayerKeys(() => key);
+    keys.keyFor(learnerId);
+    return keys;
+  }
+
+  /** The key of `learnerId`'s addresses: made on first need, the same for the life of the player. */
+  keyFor(learnerId: string): string {
+    const known = this.keyByLearner.get(learnerId);
+    if (known !== undefined) return known;
+    const key = this.fresh();
+    if (key.length < 32) throw new Error('the player token must contain at least 32 characters');
+    this.keyByLearner.set(learnerId, key);
+    this.learnerByDigest.set(digest(`Bearer ${key}`), learnerId);
+    return key;
+  }
+
+  /** The learner whose key an Authorization header carries, or null. */
+  learnerOf(authorization: string | undefined): string | null {
+    return authorization ? this.learnerByDigest.get(digest(authorization)) ?? null : null;
+  }
+}
+
+/** The player of one SessionHost. Every call plays the learner of the key it carries, whatever the page sends: with
+ * `token`, the host's default learner (`studium-mcp play`); with `keys`, the learner each key was minted for. */
+export function createPlayer(options: { host: SessionHost; token?: string; keys?: PlayerKeys; html?: string }): Player {
+  if (options.token !== undefined && options.token.length < 32) throw new Error('the player token must contain at least 32 characters');
+  const keys = options.keys ?? (options.token !== undefined ? PlayerKeys.single(options.token, options.host.defaultLearnerId) : null);
+  if (!keys) throw new Error('a player needs a token or keys');
   const html = options.html ?? browserHtml;
   const headers = pageHeaders(html);
-  const expected = Buffer.from(`Bearer ${options.token}`);
   let client: Promise<Client> | null = null;
   const connect = () => (client ??= (async () => {
     const server = buildMcpServer(options.host);
@@ -74,21 +111,43 @@ export function createPlayer(options: { host: SessionHost; token: string; html?:
     }
     return host;
   }
-  /** Cross-site requests: the page's own origin only, and the token in a header (never a cookie). */
-  function checkCaller(request: IncomingMessage, host: string) {
+  /** Cross-site requests: the page's own origin only, and the token in a header (never a cookie). Returns the learner
+   * the token plays. */
+  function checkCaller(request: IncomingMessage, host: string): string {
     const site = request.headers['sec-fetch-site'];
     if (request.headers.origin !== `http://${host}` || (site !== undefined && site !== 'same-origin')) {
       throw new PlayerError(403, 'origin_rejected', 'Only the player page of this server may call it');
     }
-    const received = Buffer.from(request.headers.authorization ?? '');
-    if (received.length !== expected.length || !timingSafeEqual(received, expected)) {
-      throw new PlayerError(401, 'unauthorized', 'A valid token is required: open the address the player printed');
+    const learner = keys!.learnerOf(request.headers.authorization);
+    if (learner === null) throw new PlayerError(401, 'unauthorized', 'A valid token is required: open the address the player printed');
+    return learner;
+  }
+
+  /** A session the page names is read or moved only when it plays the learner of the key; one this server does not
+   * hold is left to the tool, which says so. */
+  async function checkSession(sessionId: unknown, learner: string): Promise<void> {
+    if (typeof sessionId !== 'string') return;
+    if (await options.host.sessionPlays(sessionId, learner) === false) {
+      throw new PlayerError(403, 'not_your_session', 'This session belongs to another learner');
     }
   }
 
-  async function argumentsFor(name: PlayerTool, args: Record<string, unknown>): Promise<Record<string, unknown>> {
+  /** The sessions whose panel context this player made with the learner of their key. A context remembers its learner,
+   * and an action such as « start again » or « review » starts a session for it: one made by get_panel_view or
+   * panel_action, which take no learner_id, would hold the server's default learner instead. */
+  const viewed = new Set<string>();
+
+  /** The tool the page's call goes to and its arguments: always the learner of the key; get_panel_view is read through
+   * open_lesson_panel {session_id}, the same view, so that the context it makes holds that learner. */
+  async function callFor(name: PlayerTool, args: Record<string, unknown>, learner: string): Promise<{ tool: string; args: Record<string, unknown> }> {
+    const routed = await argumentsFor(name, args, learner);
+    return name === 'get_panel_view' ? { tool: 'open_lesson_panel', args: { ...routed, learner_id: learner } } : { tool: name, args: routed };
+  }
+
+  async function argumentsFor(name: PlayerTool, args: Record<string, unknown>, learner: string): Promise<Record<string, unknown>> {
     const { learner_id: _ignored, ...rest } = args;
-    if (name === 'list_lessons') return { ...rest, learner_id: options.host.defaultLearnerId };
+    if (name === 'list_lessons') return { ...rest, learner_id: learner };
+    await checkSession(rest.session_id, learner);
     if (name === 'open_lesson_panel') {
       if (rest.bundle_ref !== undefined) {
         const catalog = await options.host.listLessons();
@@ -98,7 +157,7 @@ export function createPlayer(options: { host: SessionHost; token: string; html?:
         }
       }
       // The page is a native pane, as the VS Code pane is: no client capability can declare it.
-      return { ...rest, surface: 'pane' };
+      return { ...rest, learner_id: learner, surface: 'pane' };
     }
     if (name === 'get_panel_view') return { ...rest, surface: 'pane' };
     const action = rest.action as { type?: unknown } | undefined;
@@ -144,12 +203,23 @@ export function createPlayer(options: { host: SessionHost; token: string; html?:
         }
         const name = path.startsWith('/play/api/tools/') ? path.slice('/play/api/tools/'.length) : null;
         if (request.method !== 'POST' || !name) throw new PlayerError(404, 'not_found', 'Unknown player route');
-        checkCaller(request, host);
+        const learner = checkCaller(request, host);
         if (!(PLAYER_TOOLS as readonly string[]).includes(name)) throw new PlayerError(404, 'not_found', 'This tool is not served to the page');
         const body = await readJson(request);
         const args = typeof body === 'object' && body !== null && typeof (body as { arguments?: unknown }).arguments === 'object'
           ? (body as { arguments: Record<string, unknown> | null }).arguments ?? {} : {};
-        const result = await (await connect()).callTool({ name, arguments: await argumentsFor(name as PlayerTool, args) });
+        const mcp = await connect();
+        const call = await callFor(name as PlayerTool, args, learner);
+        const session = call.args.session_id;
+        if (call.tool === 'panel_action' && typeof session === 'string' && !viewed.has(session)) {
+          // An action on a session this player has not shown yet: its context is made first, with the key's learner.
+          const shown = await mcp.callTool({ name: 'open_lesson_panel', arguments: { session_id: session, learner_id: learner, surface: 'pane' } });
+          if (shown.isError) return sendJson(response, 200, forPage(shown));
+          viewed.add(session);
+        }
+        const result = await mcp.callTool({ name: call.tool, arguments: call.args });
+        const shownSession = (result.structuredContent as { panel?: { session_id?: unknown } } | undefined)?.panel?.session_id;
+        if (!result.isError && typeof shownSession === 'string') viewed.add(shownSession);
         sendJson(response, 200, forPage(result));
       } catch (error) {
         if (error instanceof PlayerError) return sendJson(response, error.status, { error: error.message, code: error.code });

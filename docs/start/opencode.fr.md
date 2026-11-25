@@ -74,6 +74,14 @@ conditions de votre abonnement ; voir [Connecter Mistral Vibe](vibe.fr.md#ce-qui
 [Connecter votre assistant](harnesses.fr.md#vérifier-la-connexion). L'exemple complet est
 [opencode-v2.json](../examples/opencode-v2.json).
 
+Une leçon prête à jouer est proposée d'abord dans votre navigateur : l'assistant affiche l'adresse du
+[lecteur dans le navigateur](browser.fr.md#depuis-votre-assistant) de Studium, sur votre ordinateur, où
+chaque étape répond aussitôt ; dites « ici » pour la suivre plutôt dans la conversation. L'adresse vit le
+temps de la session d'OpenCode et joue l'identifiant d'apprenant qu'OpenCode a passé. Vos réponses y sont
+vérifiées par Studium sur votre ordinateur et ne vont pas au modèle, tant qu'aucun modèle juge n'est
+configuré. `STUDIUM_BROWSER_PLAYER=off` dans `environment` désactive cela. Pas encore essayé avec OpenCode
+lui-même : seuls des scripts l'ont vérifié.
+
 ## Limites
 
 - Un seul essai fonde la configuration 1.x et le modèle Mistral : OpenCode 1.19.6 sous macOS, le 25 novembre

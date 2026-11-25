@@ -138,6 +138,17 @@ describe("instructions and prompts (RT-8a, RFR-16, L-4)", () => {
     expect(lines.length).toBeLessThanOrEqual(13);
   });
 
+  // D4 (waiting review 2026-11-25, owner decision 4): without the VS Code extension, a result or a next_step may carry
+  // open_link too (the server's browser player): one rule for every harness, the link first and the chat on « here »;
+  // still 13 lines at most.
+  it("tell every harness to show display_markdown with open_link first, and to start in the chat on “here” only", () => {
+    const lines = SERVER_INSTRUCTIONS.split("\n");
+    const authoring = lines.find((line) => line.includes("prepare_sources, create_lesson"))!;
+    expect(authoring).toMatch(/When a result or a next_step carries open_link, show its display_markdown as it is \(the link first\)/);
+    expect(authoring).toMatch(/call start_lesson_session only if the learner says “here”/);
+    expect(lines.length).toBeLessThanOrEqual(13);
+  });
+
   it("call list_lessons only when the plan's next step is not to author, and pass the language", async () => {
     const { client } = await connect({ bundlesRoot: tmp() });
     const en = await promptText(client, "learn", { topic: "binary search", learner_id: "ren", language: "en" });
