@@ -1,0 +1,531 @@
+{
+  "schema_version": "1.4",
+  "bundle_id": "self-study-photosynthese",
+  "source_plan_id": "ss-5c83b10d26d8c7bf",
+  "metadata": {
+    "title": "La photosynthèse : des photons aux glucides",
+    "target": "Expliquer les deux phases de la photosynthèse et d'où vient le dioxygène dégagé",
+    "duration_minutes": 15,
+    "language": "fr",
+    "discipline": "Biologie végétale",
+    "authoring": {
+      "mode": "self_study",
+      "author_is_learner": false,
+      "drafted_by": "agent",
+      "note": "Comprendre la photosynthèse à partir de ses propres notes de cours : bilan global, phase photochimique, cycle de Calvin et facteurs limitants"
+    }
+  },
+  "concepts": [
+    {
+      "id": "c-bilan",
+      "title": "Le bilan global de la photosynthèse",
+      "description": "Le bilan global : 6 CO2 + 6 H2O + lumière donnent un glucide (C6H12O6) et du dioxygène, dans les chloroplastes.",
+      "bloom_level_target": "remember"
+    },
+    {
+      "id": "c-phase-photochimique",
+      "title": "La phase photochimique",
+      "description": "Dans la membrane des thylakoïdes : la photolyse de l'eau libère O2, protons et électrons ; la chaîne de transporteurs pompe des protons qui alimentent l'ATP synthase ; le photosystème I réduit NADP+ en NADPH.",
+      "bloom_level_target": "understand"
+    },
+    {
+      "id": "c-cycle-calvin",
+      "title": "Le cycle de Calvin",
+      "description": "Dans le stroma : la RuBisCO fixe le CO2 sur le ribulose-1,5-bisphosphate, le 3-phosphoglycérate est réduit en glycéraldéhyde-3-phosphate grâce à l'ATP et au NADPH, qui servent à produire des glucides et à régénérer le RuBP.",
+      "bloom_level_target": "understand"
+    },
+    {
+      "id": "c-facteurs",
+      "title": "Les facteurs limitants",
+      "description": "L'intensité de la photosynthèse dépend de l'éclairement, de la concentration en CO2 et de la température ; à faible éclairement la lumière limite, à fort éclairement c'est le CO2.",
+      "bloom_level_target": "apply"
+    }
+  ],
+  "scenes": [
+    {
+      "id": "s-intro",
+      "type": "intro",
+      "title": "Bienvenue dans la leçon de photosynthèse",
+      "objective_refs": [],
+      "concept_refs": [
+        "c-bilan"
+      ],
+      "estimated_seconds": 60,
+      "adaptation_hooks": [],
+      "markdown": "Bienvenue ! Cette courte leçon part de tes notes de cours (L1) pour comprendre comment les plantes, algues et cyanobactéries convertissent l'énergie lumineuse en énergie chimique. On verra le bilan global, la phase photochimique, le cycle de Calvin, puis les facteurs qui limitent la vitesse du processus. Réponds à la première question dès l'écran suivant."
+    },
+    {
+      "id": "s-q-bilan",
+      "type": "quiz",
+      "title": "Le bilan global",
+      "objective_refs": [],
+      "concept_refs": [
+        "c-bilan"
+      ],
+      "estimated_seconds": 60,
+      "adaptation_hooks": [],
+      "evidence": {
+        "bibliographic_refs": [
+          {
+            "perspicacite_doc_id": "p:la-photosynthese-notes-de-cours-l1:1",
+            "title": "La photosynthèse : notes de cours (L1)",
+            "authors": [],
+            "excerpt": "Le bilan global s'écrit : 6 CO2 + 6 H2O + lumière → C6H12O6 + 6 O2.",
+            "relevance_score": 1,
+            "prov_derived_from": "source:la-photosynthese-notes-de-cours-l1"
+          }
+        ],
+        "enrichment_metadata": {
+          "enricher_version": "studium-authoring-draft/1",
+          "perspicacite_mode_used": "passages",
+          "timestamp": "2026-11-25T15:21:26.470Z",
+          "degraded": false
+        }
+      },
+      "question": "Quel est le bilan global de la photosynthèse ?",
+      "choices": [
+        {
+          "id": "a",
+          "text": "6 CO2 + 6 H2O + lumière → C6H12O6 + 6 O2",
+          "correct": true
+        },
+        {
+          "id": "b",
+          "text": "6 CO2 + 6 H2O + lumière → C6H12O6 + 6 H2O",
+          "correct": false
+        },
+        {
+          "id": "c",
+          "text": "C6H12O6 + 6 O2 + lumière → 6 CO2 + 6 H2O",
+          "correct": false
+        }
+      ],
+      "feedback_correct": "Exact : le dioxyde de carbone et l'eau, consommés grâce à l'énergie lumineuse, produisent un glucide et du dioxygène.",
+      "feedback_incorrect": "Revois le bilan global de tes notes : quels sont les réactifs et quels sont les produits ?",
+      "hints": [
+        "réactifs",
+        "produits",
+        "lumière"
+      ]
+    },
+    {
+      "id": "s-phase",
+      "type": "concept",
+      "title": "La phase photochimique",
+      "objective_refs": [],
+      "concept_refs": [
+        "c-phase-photochimique"
+      ],
+      "estimated_seconds": 120,
+      "adaptation_hooks": [],
+      "evidence": {
+        "bibliographic_refs": [
+          {
+            "perspicacite_doc_id": "p:la-photosynthese-notes-de-cours-l1:2",
+            "title": "La photosynthèse : notes de cours (L1)",
+            "authors": [],
+            "excerpt": "c'est la photolyse de l'eau, qui libère le dioxygène, des protons et des électrons. Le dioxygène dégagé par la plante provient donc de l'eau et non du dioxyde de carbone.",
+            "relevance_score": 1,
+            "prov_derived_from": "source:la-photosynthese-notes-de-cours-l1"
+          },
+          {
+            "perspicacite_doc_id": "p:la-photosynthese-notes-de-cours-l1:3",
+            "title": "La photosynthèse : notes de cours (L1)",
+            "authors": [],
+            "excerpt": "Le gradient de protons ainsi créé alimente l'ATP synthase, qui produit de l'ATP. Au niveau du photosystème I, les électrons réduisent le NADP+ en NADPH.",
+            "relevance_score": 1,
+            "prov_derived_from": "source:la-photosynthese-notes-de-cours-l1"
+          }
+        ],
+        "enrichment_metadata": {
+          "enricher_version": "studium-authoring-draft/1",
+          "perspicacite_mode_used": "passages",
+          "timestamp": "2026-11-25T15:21:26.470Z",
+          "degraded": false
+        }
+      },
+      "markdown": "La phase photochimique se déroule dans la membrane des thylakoïdes. Les pigments, surtout la chlorophylle a, absorbent la lumière dans le bleu et le rouge. Au photosystème II, cette énergie oxyde l'eau : c'est la photolyse, qui libère le dioxygène, des protons et des électrons. Les électrons cheminent ensuite le long d'une chaîne de transporteurs jusqu'au photosystème I, en pompant des protons vers le lumen ; ce gradient alimente l'ATP synthase (production d'ATP), et au photosystème I les électrons réduisent le NADP+ en NADPH."
+    },
+    {
+      "id": "s-q-o2",
+      "type": "quiz",
+      "title": "L'origine du dioxygène",
+      "objective_refs": [],
+      "concept_refs": [
+        "c-phase-photochimique"
+      ],
+      "estimated_seconds": 60,
+      "adaptation_hooks": [],
+      "evidence": {
+        "bibliographic_refs": [
+          {
+            "perspicacite_doc_id": "p:la-photosynthese-notes-de-cours-l1:2",
+            "title": "La photosynthèse : notes de cours (L1)",
+            "authors": [],
+            "excerpt": "Le dioxygène dégagé par la plante provient donc de l'eau et non du dioxyde de carbone.",
+            "relevance_score": 1,
+            "prov_derived_from": "source:la-photosynthese-notes-de-cours-l1"
+          }
+        ],
+        "enrichment_metadata": {
+          "enricher_version": "studium-authoring-draft/1",
+          "perspicacite_mode_used": "passages",
+          "timestamp": "2026-11-25T15:21:26.470Z",
+          "degraded": false
+        }
+      },
+      "question": "D'où provient le dioxygène (O2) dégagé par la plante ?",
+      "choices": [
+        {
+          "id": "a",
+          "text": "De l'eau, oxydée au photosystème II lors de la photolyse",
+          "correct": true
+        },
+        {
+          "id": "b",
+          "text": "Du dioxyde de carbone fixé dans le cycle de Calvin",
+          "correct": false
+        },
+        {
+          "id": "c",
+          "text": "De l'oxygène de l'air, absorbé par les feuilles",
+          "correct": false
+        }
+      ],
+      "feedback_correct": "Tout à fait : c'est l'eau, oxydée au photosystème II, qui fournit le dioxygène — pas le CO2.",
+      "feedback_incorrect": "Indice : la photolyse de l'eau se produit au photosystème II, pas dans le cycle de Calvin. De quelle molécule le O2 est-il arraché ?",
+      "hints": [
+        "photolyse",
+        "photosystème II",
+        "eau"
+      ]
+    },
+    {
+      "id": "s-calvin",
+      "type": "concept",
+      "title": "Le cycle de Calvin",
+      "objective_refs": [],
+      "concept_refs": [
+        "c-cycle-calvin"
+      ],
+      "estimated_seconds": 120,
+      "adaptation_hooks": [],
+      "evidence": {
+        "bibliographic_refs": [
+          {
+            "perspicacite_doc_id": "p:la-photosynthese-notes-de-cours-l1:4",
+            "title": "La photosynthèse : notes de cours (L1)",
+            "authors": [],
+            "excerpt": "L'enzyme RuBisCO catalyse la fixation du CO2 sur le ribulose-1,5-bisphosphate, une molécule à cinq carbones.",
+            "relevance_score": 1,
+            "prov_derived_from": "source:la-photosynthese-notes-de-cours-l1"
+          },
+          {
+            "perspicacite_doc_id": "p:la-photosynthese-notes-de-cours-l1:5",
+            "title": "La photosynthèse : notes de cours (L1)",
+            "authors": [],
+            "excerpt": "Le 3-phosphoglycérate est ensuite réduit en glycéraldéhyde-3-phosphate grâce à l'ATP et au NADPH.",
+            "relevance_score": 1,
+            "prov_derived_from": "source:la-photosynthese-notes-de-cours-l1"
+          }
+        ],
+        "enrichment_metadata": {
+          "enricher_version": "studium-authoring-draft/1",
+          "perspicacite_mode_used": "passages",
+          "timestamp": "2026-11-25T15:21:26.470Z",
+          "degraded": false
+        }
+      },
+      "markdown": "Le cycle de Calvin se déroule dans le stroma du chloroplaste. Il consomme l'ATP et le NADPH de la phase photochimique pour fixer le CO2 : la RuBisCO catalyse la fixation du CO2 sur le ribulose-1,5-bisphosphate (5 carbones), et le produit se scinde en deux molécules de 3-phosphoglycérate (3 carbones). Celui-ci est réduit en glycéraldéhyde-3-phosphate grâce à l'ATP et au NADPH : une partie sert à fabriquer des glucides, le reste régénère le ribulose-1,5-bisphosphate, ce qui consomme encore de l'ATP."
+    },
+    {
+      "id": "s-q-rubisco",
+      "type": "quiz",
+      "title": "La fixation du CO2",
+      "objective_refs": [],
+      "concept_refs": [
+        "c-cycle-calvin"
+      ],
+      "estimated_seconds": 60,
+      "adaptation_hooks": [],
+      "evidence": {
+        "bibliographic_refs": [
+          {
+            "perspicacite_doc_id": "p:la-photosynthese-notes-de-cours-l1:4",
+            "title": "La photosynthèse : notes de cours (L1)",
+            "authors": [],
+            "excerpt": "L'enzyme RuBisCO catalyse la fixation du CO2 sur le ribulose-1,5-bisphosphate, une molécule à cinq carbones.",
+            "relevance_score": 1,
+            "prov_derived_from": "source:la-photosynthese-notes-de-cours-l1"
+          }
+        ],
+        "enrichment_metadata": {
+          "enricher_version": "studium-authoring-draft/1",
+          "perspicacite_mode_used": "passages",
+          "timestamp": "2026-11-25T15:21:26.470Z",
+          "degraded": false
+        }
+      },
+      "question": "Quel enzyme catalyse la fixation du CO2 dans le cycle de Calvin ?",
+      "choices": [
+        {
+          "id": "a",
+          "text": "La RuBisCO",
+          "correct": true
+        },
+        {
+          "id": "b",
+          "text": "L'ATP synthase",
+          "correct": false
+        },
+        {
+          "id": "c",
+          "text": "La chlorophylle a",
+          "correct": false
+        }
+      ],
+      "feedback_correct": "Oui : c'est la RuBisCO qui fixe le CO2 sur le ribulose-1,5-bisphosphate.",
+      "feedback_incorrect": "L'ATP synthase produit de l'ATP dans les thylakoïdes et la chlorophylle absorbe la lumière : ni l'une ni l'autre ne fixe le CO2. Cherche le nom de l'enzyme dans la partie « cycle de Calvin ».",
+      "hints": [
+        "enzyme",
+        "fixation du CO2",
+        "stroma"
+      ]
+    },
+    {
+      "id": "s-facteurs",
+      "type": "concept",
+      "title": "Les facteurs limitants",
+      "objective_refs": [],
+      "concept_refs": [
+        "c-facteurs"
+      ],
+      "estimated_seconds": 120,
+      "adaptation_hooks": [],
+      "evidence": {
+        "bibliographic_refs": [
+          {
+            "perspicacite_doc_id": "p:la-photosynthese-notes-de-cours-l1:6",
+            "title": "La photosynthèse : notes de cours (L1)",
+            "authors": [],
+            "excerpt": "À faible éclairement, la lumière est le facteur limitant. À fort éclairement, c'est la concentration en CO2 qui limite la vitesse de la photosynthèse.",
+            "relevance_score": 1,
+            "prov_derived_from": "source:la-photosynthese-notes-de-cours-l1"
+          }
+        ],
+        "enrichment_metadata": {
+          "enricher_version": "studium-authoring-draft/1",
+          "perspicacite_mode_used": "passages",
+          "timestamp": "2026-11-25T15:21:26.470Z",
+          "degraded": false
+        }
+      },
+      "markdown": "La vitesse de la photosynthèse dépend de trois facteurs : l'éclairement, la concentration en CO2 et la température. Quand la lumière est faible, c'est elle qui limite tout ; quand l'éclairement est fort, la lumière ne suffit plus à accélérer la réaction et c'est la concentration en CO2 qui devient le facteur limitant."
+    },
+    {
+      "id": "s-q-facteur",
+      "type": "quiz",
+      "title": "Le facteur limitant au soleil",
+      "objective_refs": [],
+      "concept_refs": [
+        "c-facteurs"
+      ],
+      "estimated_seconds": 60,
+      "adaptation_hooks": [],
+      "evidence": {
+        "bibliographic_refs": [
+          {
+            "perspicacite_doc_id": "p:la-photosynthese-notes-de-cours-l1:6",
+            "title": "La photosynthèse : notes de cours (L1)",
+            "authors": [],
+            "excerpt": "À fort éclairement, c'est la concentration en CO2 qui limite la vitesse de la photosynthèse.",
+            "relevance_score": 1,
+            "prov_derived_from": "source:la-photosynthese-notes-de-cours-l1"
+          }
+        ],
+        "enrichment_metadata": {
+          "enricher_version": "studium-authoring-draft/1",
+          "perspicacite_mode_used": "passages",
+          "timestamp": "2026-11-25T15:21:26.470Z",
+          "degraded": false
+        }
+      },
+      "question": "En plein soleil (fort éclairement), quel facteur limite le plus la vitesse de la photosynthèse ?",
+      "choices": [
+        {
+          "id": "a",
+          "text": "La concentration en CO2",
+          "correct": true
+        },
+        {
+          "id": "b",
+          "text": "L'intensité lumineuse",
+          "correct": false
+        },
+        {
+          "id": "c",
+          "text": "La température des thylakoïdes",
+          "correct": false
+        }
+      ],
+      "feedback_correct": "Exact : à fort éclairement, la lumière n'est plus le bottleneck, c'est le CO2 qui limite.",
+      "feedback_incorrect": "Relis la dernière phrase de tes notes : à fort éclairement, quel facteur prend le relais de la lumière ?",
+      "hints": [
+        "éclairement fort",
+        "CO2",
+        "limite"
+      ]
+    },
+    {
+      "id": "s-explique",
+      "type": "explain_back",
+      "title": "Explique la photosynthèse en deux phases",
+      "objective_refs": [],
+      "concept_refs": [
+        "c-phase-photochimique",
+        "c-cycle-calvin"
+      ],
+      "estimated_seconds": 240,
+      "adaptation_hooks": [],
+      "evidence": {
+        "bibliographic_refs": [
+          {
+            "perspicacite_doc_id": "p:la-photosynthese-notes-de-cours-l1:1",
+            "title": "La photosynthèse : notes de cours (L1)",
+            "authors": [],
+            "excerpt": "La photosynthèse est le processus par lequel les plantes, les algues et les cyanobactéries convertissent l'énergie lumineuse en énergie chimique.",
+            "relevance_score": 1,
+            "prov_derived_from": "source:la-photosynthese-notes-de-cours-l1"
+          }
+        ],
+        "enrichment_metadata": {
+          "enricher_version": "studium-authoring-draft/1",
+          "perspicacite_mode_used": "passages",
+          "timestamp": "2026-11-25T15:21:26.470Z",
+          "degraded": false
+        }
+      },
+      "prompt": "Explique avec tes mots, en deux temps, comment une plante produit des glucides à partir de la lumière : que se passe-t-il dans les thylakoïdes, puis dans le stroma ?",
+      "key_points": [
+        {
+          "id": "kp1",
+          "text": "La phase photochimique produit de l'ATP et du NADPH dans la membrane des thylakoïdes",
+          "cues": [
+            "thylako",
+            "ATP",
+            "NADPH"
+          ]
+        },
+        {
+          "id": "kp2",
+          "text": "Elle libère du dioxygène en oxydant l'eau au photosystème II",
+          "cues": [
+            "photolyse",
+            "eau",
+            "O2"
+          ]
+        },
+        {
+          "id": "kp3",
+          "text": "Le cycle de Calvin fixe le CO2 dans le stroma grâce à la RuBisCO",
+          "cues": [
+            "stroma",
+            "RuBisCO",
+            "CO2"
+          ]
+        },
+        {
+          "id": "kp4",
+          "text": "Il produit des glucides en consommant l'ATP et le NADPH",
+          "cues": [
+            "glucide",
+            "glucose",
+            "sucre"
+          ]
+        }
+      ],
+      "model_explanation": "Deux temps : d'abord, dans les thylakoïdes, la phase photochimique capte la lumière, oxyde l'eau (d'où vient le O2) et produit de l'ATP et du NADPH. Ensuite, dans le stroma, le cycle de Calvin fixe le CO2 grâce à la RuBisCO et utilise l'ATP et le NADPH pour fabriquer des glucides.",
+      "rubric": {
+        "completeness": 0.5,
+        "evidence_quality": 0.3,
+        "tone": 0.2
+      }
+    }
+  ],
+  "rules": [
+    {
+      "id": "rule_2err_replay_concept",
+      "when": {
+        "consecutive_errors_same_concept": ">=2"
+      },
+      "action": {
+        "kind": "replay_current_scene",
+        "reason": "errors_threshold"
+      },
+      "modulator": "M1",
+      "explanation_short": "Deux erreurs sur ce concept : on reprend la scène avec un appui."
+    }
+  ],
+  "validated_by": "SELF-STUDY — not teacher-validated",
+  "validated_at": "2026-11-25T15:21:26.470Z",
+  "learning_workflow_graph": {
+    "schema_version": "1.0",
+    "course_id": "self-study-photosynthese",
+    "nodes": [
+      {
+        "id": "concept:c-bilan",
+        "node_kind": "concept",
+        "title": "Le bilan global de la photosynthèse",
+        "bloom_level": "remember",
+        "description": "Le bilan global : 6 CO2 + 6 H2O + lumière donnent un glucide (C6H12O6) et du dioxygène, dans les chloroplastes."
+      },
+      {
+        "id": "concept:c-phase-photochimique",
+        "node_kind": "concept",
+        "title": "La phase photochimique",
+        "bloom_level": "understand",
+        "description": "Dans la membrane des thylakoïdes : la photolyse de l'eau libère O2, protons et électrons ; la chaîne de transporteurs pompe des protons qui alimentent l'ATP synthase ; le photosystème I réduit NADP+ en NADPH."
+      },
+      {
+        "id": "concept:c-cycle-calvin",
+        "node_kind": "concept",
+        "title": "Le cycle de Calvin",
+        "bloom_level": "understand",
+        "description": "Dans le stroma : la RuBisCO fixe le CO2 sur le ribulose-1,5-bisphosphate, le 3-phosphoglycérate est réduit en glycéraldéhyde-3-phosphate grâce à l'ATP et au NADPH, qui servent à produire des glucides et à régénérer le RuBP."
+      },
+      {
+        "id": "concept:c-facteurs",
+        "node_kind": "concept",
+        "title": "Les facteurs limitants",
+        "bloom_level": "apply",
+        "description": "L'intensité de la photosynthèse dépend de l'éclairement, de la concentration en CO2 et de la température ; à faible éclairement la lumière limite, à fort éclairement c'est le CO2."
+      }
+    ],
+    "edges": [
+      {
+        "id": "prerequisite:c-phase-photochimique:c-bilan",
+        "relation": "prerequisite_for",
+        "source": "concept:c-phase-photochimique",
+        "target": "concept:c-bilan"
+      },
+      {
+        "id": "prerequisite:c-cycle-calvin:c-phase-photochimique",
+        "relation": "prerequisite_for",
+        "source": "concept:c-cycle-calvin",
+        "target": "concept:c-phase-photochimique"
+      },
+      {
+        "id": "prerequisite:c-facteurs:c-phase-photochimique",
+        "relation": "prerequisite_for",
+        "source": "concept:c-facteurs",
+        "target": "concept:c-phase-photochimique"
+      },
+      {
+        "id": "prerequisite:c-facteurs:c-cycle-calvin",
+        "relation": "prerequisite_for",
+        "source": "concept:c-facteurs",
+        "target": "concept:c-cycle-calvin"
+      }
+    ]
+  }
+}

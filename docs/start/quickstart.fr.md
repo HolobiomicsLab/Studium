@@ -117,10 +117,11 @@ prochaine révision change ; votre maîtrise mesurée ne bouge pas. Voir
 
 ## Préférer un panneau visuel
 
-Pour jouer les mêmes leçons dans VS Code, installez l'extension (voir [VS Code](vscode.fr.md)), puis
-lancez **Studium : Choisir un cours**, ou faites un clic droit sur un `lesson.json` et choisissez
-**Studium : Ouvrir cette leçon**. Votre assistant peut aussi vous transmettre une leçon par un lien
-`vscode://`.
+Pour jouer les mêmes leçons dans VS Code, installez l'extension (voir [VS Code](vscode.fr.md)). Une leçon
+construite par votre assistant apparaît dans sa vue **Leçons** dès qu'elle est prête, quelques minutes après
+votre demande, et VS Code vous prévient. Vous pouvez aussi lancer **Studium : Choisir un cours**, ou faire un
+clic droit sur un `lesson.json` d'un dossier ouvert et choisir **Studium : Ouvrir cette leçon**. Votre
+assistant peut aussi vous transmettre une leçon par un lien `vscode://`.
 
 ## Et ensuite
 

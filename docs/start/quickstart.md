@@ -112,9 +112,10 @@ date moves; your measured mastery does not. See [Review over time](../learn/revi
 
 ## Prefer a visual pane
 
-To play the same lessons in VS Code, install the extension (see [VS Code](vscode.md)), then run
-**Studium: Pick a course** or right-click a `lesson.json` and choose **Studium: Open this lesson**. Your
-assistant can also hand a lesson over with a `vscode://` link.
+To play the same lessons in VS Code, install the extension (see [VS Code](vscode.md)). A lesson your
+assistant builds appears in its **Lessons** view when it is ready, a few minutes after you ask, and VS Code
+tells you. You can also run **Studium: Pick a course**, or right-click a `lesson.json` in an open folder and
+choose **Studium: Open this lesson**. Your assistant can also hand a lesson over with a `vscode://` link.
 
 ## Next steps
 

@@ -20,13 +20,13 @@ listed in [Where the packages are](installation.md#where-the-packages-are).
 ## Get your first lesson
 
 The extension shows lessons; it does not build them. Right after installation the **Lessons** view says
-"No lesson found yet" and offers **Try the demo lesson**. Pick the line that matches what you have:
+"No lesson of your own yet" and offers **Try the demo lesson**. Pick the line that matches what you have:
 
 | You have | Do this |
 |---|---|
 | Nothing yet, and you want to see how Studium works | **Try the demo lesson** in the empty **Lessons** view, or **Studium: Try the demo lesson**: « Discover Studium », about ten minutes, in VS Code's display language (English or French). It ships with the extension; an AI agent drafted it from Studium's documentation and no teacher has checked it yet, as its first screen says. It is not saved as your course and never replaces a lesson of yours |
-| Copilot in VS Code 1.101 or later | Nothing to connect: the extension offers its own Studium server to Copilot (see [Connect Copilot](copilot.md)). In Copilot Chat's agent mode, ask "I want to learn … with Studium" and name your sources. The lesson is written to your personal library and appears in the **Lessons** view after a refresh |
-| Another AI assistant (Claude Code, Codex, Cursor) | Connect it to Studium with [one command](installation.md#add-the-server-to-your-assistant), then ask "I want to learn … with Studium" and name your sources. The lesson is written to your personal library, `~/.studium/library`, and appears in the **Lessons** view after a refresh |
+| Copilot in VS Code 1.101 or later | Nothing to connect: the extension offers its own Studium server to Copilot (see [Connect Copilot](copilot.md)). In Copilot Chat's agent mode, ask "I want to learn … with Studium" and name your sources. Building the lesson takes a few minutes: the status bar says **Studium · preparing a lesson…**, then VS Code tells you the lesson is ready, with **Open**, and it appears in the **Lessons** view. At the first Studium tool, allow Studium's tools for the session (see [Connect Copilot](copilot.md)) |
+| Another AI assistant (Claude Code, Codex, Cursor) | Connect it to Studium with [one command](installation.md#add-the-server-to-your-assistant), then ask "I want to learn … with Studium" and name your sources. The lesson is written to your personal library, `~/.studium/library`; VS Code tells you when it is ready, and it appears in the **Lessons** view |
 | A lesson a teacher gave you | **Studium: Pick a course**, **Choose another course folder…**, then choose its folder; or right-click its `lesson.json` and choose **Studium: Open this lesson** |
 | The demo lessons, without a checkout | download the [repository archive](https://github.com/HolobiomicsLab/studium/archive/refs/heads/main.zip) and unzip it, then **Studium: Pick a course**, **Choose another course folder…**, and choose its `fixtures` folder |
 | A checkout of the repository | **Studium: Pick a course**, then choose `fixtures` for the demo lessons |
@@ -48,7 +48,10 @@ assistant does, step by step, is in [Learn with your assistant](../learn/learn-w
 
 When `studium.bundlesRoot` is empty, the lessons folder is the checkout's `fixtures/` if the extension runs
 from a Studium checkout, and otherwise your personal library, `~/.studium/library` (or
-`<STUDIUM_HOME>/library`), where the lessons an assistant builds for you are written.
+`<STUDIUM_HOME>/library`), where the lessons an assistant builds for you are written. The extension creates
+that library at startup if it is missing, and watches it: a lesson written there is listed and announced
+with **Open**, **Later** and **Don't show again**. If `studium.bundlesRoot` names another folder, the
+library's lessons are listed apart, under **Your library**.
 
 ### From a conversation to the pane
 
@@ -137,7 +140,16 @@ review groups move into its tooltip.
 Clicking it opens the Studium sidebar, whose **Reviews** entry lists the concepts by group (to review, to
 take up again, not measured yet), or the date of the next review.
 The count is refreshed at startup, when a lesson closes or completes, and with the refresh button of the
-Lessons view. With no history, nothing is shown.
+Lessons view.
+
+When nothing is due, the bar offers the lesson you were playing instead, for example
+**Studium · continue Discover Studium**; clicking it reopens that lesson at the step where you stopped. The
+**Lessons** view shows the same lesson first, as **Continue: …**, with the next step and, when the lesson
+gives its duration, the minutes left; each lesson in the list shows its progress (**6/12**, or **done**).
+This is the progress VS Code keeps under `studium.learnerId`, in the pane and `@studium`. Lessons played
+with Copilot's Studium tools, another assistant or the browser player keep their progress elsewhere and do
+not show here. A lesson being prepared and a due review come first. With no history and no lesson in
+progress, nothing is shown.
 
 ## Chat and notebook
 

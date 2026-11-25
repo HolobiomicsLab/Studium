@@ -96,8 +96,8 @@ Si chaque réponse tarde, jouez la leçon dans une session neuve et courte, sur 
 assistant (dans Claude Code, `claude --agent studium-lesson`) : voir
 [Garder des réponses rapides](../start/fast-answers.fr.md).
 
-Pour jouer dans VS Code, faites un clic droit sur le `lesson.json` de la leçon et choisissez **Studium : Ouvrir
-cette leçon**, ou suivez le lien donné par l'assistant
+Pour jouer dans VS Code, ouvrez la leçon depuis la vue **Leçons** de l'extension Studium : elle y apparaît dès
+qu'elle est prête, et VS Code vous prévient. Vous pouvez aussi suivre le lien donné par l'assistant
 (`vscode://holobiomicslab.studium-vscode/open?bundle=<chemin absolu>`). Voir [VS Code](../start/vscode.fr.md).
 Le panneau garde sa propre progression dans le stockage de VS Code : les réponses données là n'apparaissent
 pas dans le plan d'étude que lit votre assistant, et inversement.

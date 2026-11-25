@@ -30,6 +30,12 @@ décrit dans [VS Code](vscode.fr.md).
 2. Ouvrez Copilot Chat et choisissez le mode agent.
 3. Dans la palette de commandes, lancez **MCP: List Servers**. **Studium** figure dans la liste, fourni par
    l'extension. Démarrez-le s'il est arrêté ; VS Code peut d'abord vous demander de lui faire confiance.
+4. La première fois que Copilot appelle un outil Studium, VS Code vous demande de l'autoriser. Ouvrez la
+   flèche à côté de **Autoriser une fois** (**Allow Once** si VS Code est en anglais) et choisissez
+   **Autoriser les outils de Studium dans cette session** (**Allow Tools from Studium in this Session**), ou
+   **Toujours autoriser les outils de Studium** (**Always Allow Tools from Studium**) si vous comptez revenir.
+   Sinon VS Code redemande à chaque outil, et une leçon en construction ou en cours attend votre clic. Ce
+   sont les libellés de VS Code 1.139 ; un serveur ajouté à la main s'appelle `studium`.
 
 L'extension lance le serveur qu'elle embarque avec le moteur de VS Code lui-même, le même serveur que son
 panneau de leçon : aucune installation de Node, aucun terminal. Ce serveur lit le dossier de leçons du
@@ -74,6 +80,7 @@ Un serveur ajouté dans un autre profil VS Code n'est pas vu.
 
 2. Dans la palette de commandes, lancez **MCP: List Servers**, sélectionnez `studium` et démarrez-le. Son
    journal montre les erreurs.
+3. Au premier appel d'outil, autorisez les outils du serveur pour la session, comme à l'étape 4 ci-dessus.
 
 VS Code utilise la clé `servers`, pas la clé `mcpServers` de Claude Code et de Cursor. Référence :
 [serveurs MCP dans VS Code](https://code.visualstudio.com/docs/agent-customization/mcp-servers).
@@ -84,6 +91,19 @@ VS Code utilise la clé `servers`, pas la clé `mcpServers` de Claude Code et de
 d'exécution. Pour prouver la connexion, faites la vérification de
 [Connecter votre assistant](harnesses.fr.md#vérifier-la-connexion), puis demandez « je veux apprendre …
 avec Studium » en nommant vos sources.
+
+Construire la leçon prend quelques minutes ; c'est fait une fois, et vous pouvez ensuite la jouer autant de
+fois que vous voulez. Avec l'extension Studium installée, VS Code montre où en est la construction :
+
+| Quand | Ce que VS Code affiche |
+|---|---|
+| L'assistant a préparé ses sources | la barre d'état indique **Studium · leçon en préparation…** ; son info-bulle nomme la source et dit de répondre à l'assistant dans le chat s'il demande d'autoriser une étape |
+| La leçon est écrite dans votre bibliothèque | **Studium : ta leçon « … » est prête (n étapes).** avec **Ouvrir**, **Plus tard** et **Ne plus afficher** ; la leçon apparaît dans la vue **Leçons**. Si vous étiez dans une autre fenêtre, l'avis attend votre retour dans VS Code |
+
+En attendant, vous pouvez essayer la leçon de démonstration (**Studium : Essayer la leçon de
+démonstration**). L'extension surveille votre bibliothèque, `~/.studium/library` (ou
+`<STUDIUM_HOME>/library`), le dossier où le serveur Studium écrit les leçons ; elle crée ce dossier au
+démarrage s'il manque. **Ouvrir** joue la leçon dans le panneau et ne modifie aucun réglage.
 
 ## Limites
 
@@ -104,4 +124,10 @@ avec Studium » en nommant vos sources.
 - **Studium : Oublier mes données** ferme les serveurs que l'extension a lancés pour le panneau, la
   conversation et le notebook, pas celui que VS Code a lancé pour Copilot. Arrêtez d'abord **Studium** dans
   **MCP: List Servers**.
+- L'état « en préparation » et l'avis de leçon prête ont été vérifiés face à une imitation de VS Code, avec le
+  vrai serveur qui écrit les fichiers. Que VS Code signale les écritures dans `~/.studium/library` quand ce
+  dossier n'est pas ouvert dans la fenêtre n'a pas été vu dans une vraie session. Sans avis, la vue
+  **Leçons** est relue quand vous l'affichez ou revenez à la fenêtre.
+- L'état « en préparation » prend fin quand arrive la leçon construite à partir de ces sources, ou au bout de
+  20 minutes. Si l'assistant s'est arrêté, la leçon peut ne pas venir.
 - Offres, modèles et limites sont fixés par GitHub et évoluent.

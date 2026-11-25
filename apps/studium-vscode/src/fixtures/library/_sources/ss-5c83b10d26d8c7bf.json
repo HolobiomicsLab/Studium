@@ -1,0 +1,37 @@
+{
+ "schema": "studium-source-set/1",
+ "source_set_id": "ss-5c83b10d26d8c7bf",
+ "goal": "Comprendre la photosynthèse : bilan global, phase photochimique et cycle de Calvin, facteurs limitants",
+ "language": "fr",
+ "min_chars": 200,
+ "max_chars": 1200,
+ "sources": [
+  {
+   "source_id": "la-photosynthese-notes-de-cours-l1",
+   "title": "La photosynthèse : notes de cours (L1)",
+   "url": null,
+   "license": "unknown",
+   "sha256": "082535f2de08ac709167a1192f1482bdd8108a03dcfd812a6fc55746b3ffa1da",
+   "chars": 1987,
+   "passages": 6,
+   "file": {
+    "path": "notes/photosynthese.md",
+    "bytes": 2050,
+    "sha256": "082535f2de08ac709167a1192f1482bdd8108a03dcfd812a6fc55746b3ffa1da"
+   }
+  }
+ ],
+ "passages": [
+  {
+   "id": "p:la-photosynthese-notes-de-cours-l1:1",
+   "source_id": "la-photosynthese-notes-de-cours-l1",
+   "text": "# La photosynthèse : notes de cours (L1)\n\nLa photosynthèse est le processus par lequel les plantes, les algues et les cyanobactéries convertissent l'énergie lumineuse en énergie chimique. Elle se déroule dans les chloroplastes des cellules végétales. Le bilan global s'écrit : 6 CO2 + 6 H2O + lumière → C6H12O6 + 6 O2."
+  },
+  {
+   "id": "p:la-photosynthese-notes-de-cours-l1:2",
+   "source_id": "la-photosynthese-notes-de-cours-l1",
+   "text": "## La phase photochimique\n\nLa phase photochimique a lieu dans la membrane des thylakoïdes. Les pigments, principalement la chlorophylle a, absorbent la lumière dans le bleu et le rouge. L'énergie absorbée par le photosystème II sert à oxyder l'eau : c'est la photolyse de l'eau, qui libère le dioxygène, des protons et des électrons. Le dioxygène dégagé par la plante provient donc de l'eau et non du dioxyde de carbone."
+  }
+ ],
+ "dropped_short": 0
+}

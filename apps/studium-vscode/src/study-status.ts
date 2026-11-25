@@ -73,9 +73,95 @@ const TOOLTIP_PHRASE = {
   unmeasured: ["status_tooltip_unmeasured_one", "status_tooltip_unmeasured"],
 } as const;
 
+/** BN-4: what the assistant is preparing a lesson from (library-watch.ts), shown while the lesson is not there yet. */
+export interface Preparing { title: string }
+
+/** BN-7: where list_lessons says a lesson lives: the lessons folder, the learner's library, or Studium's shipped lessons. */
+export type ProgressSource = "bundles" | "library" | "shipped";
+/** BN-7: one lesson's progress as list_lessons reports it for the learner (a new lesson has none). */
+export interface LessonProgress { state: "in_progress" | "completed"; done: number; total: number }
+/** BN-7: the lesson to continue: get_study_plan's newest in_progress entry that list_lessons still lists, with the root it
+ * opens from and the minutes left (null when the lesson gives no duration). */
+export interface ContinueLesson { ref: string; title: string; done: number; total: number; source: ProgressSource; minutesLeft: number | null }
+/** BN-7: Continue, and the progress of each listed lesson keyed `<source>:<ref>` (progressKey). */
+export interface StudyProgress { continueWith: ContinueLesson | null; lessons: Record<string, LessonProgress> }
+
+const SOURCES: ReadonlySet<string> = new Set<ProgressSource>(["bundles", "library", "shipped"]);
+const count = (v: unknown): number | null => (typeof v === "number" && Number.isInteger(v) && v >= 0 ? v : null);
+
+export function progressKey(source: ProgressSource, ref: string): string {
+  return `${source}:${ref}`;
+}
+
+/** Minutes left in a lesson: its duration (metadata.duration_minutes) times the share of steps not done, rounded up and
+ * at least 1; null when the duration is unknown or every step is done. */
+export function minutesLeft(durationMinutes: unknown, done: number, total: number): number | null {
+  if (typeof durationMinutes !== "number" || !Number.isFinite(durationMinutes) || durationMinutes <= 0) return null;
+  if (total <= 0 || done >= total) return null;
+  return Math.max(1, Math.ceil((durationMinutes * (total - Math.max(0, done))) / total));
+}
+
+/** Read get_study_plan (`in_progress`, newest first) and list_lessons (`lessons`, `shipped_lessons`, each with `source` and
+ * `status`) for one learner. A lesson list_lessons does not list (a community bundle, a deleted lesson) or whose steps
+ * are all done is not offered to continue. Anything unrecognised gives no progress: never a throw. */
+export function parseStudyProgress(
+  plan: unknown, listing: unknown,
+  durationOf: (ref: string, source: ProgressSource) => number | undefined = () => undefined,
+): StudyProgress {
+  const lessons: Record<string, LessonProgress> = {};
+  const sourceOf = new Map<string, ProgressSource>();
+  const l = listing && typeof listing === "object" ? listing as Record<string, unknown> : {};
+  const listed = [...(Array.isArray(l["lessons"]) ? l["lessons"] : []), ...(Array.isArray(l["shipped_lessons"]) ? l["shipped_lessons"] : [])];
+  for (const entry of listed) {
+    const e = entry && typeof entry === "object" ? entry as Record<string, unknown> : {};
+    const ref = typeof e["bundle_ref"] === "string" ? e["bundle_ref"] : "";
+    const source = typeof e["source"] === "string" && SOURCES.has(e["source"]) ? e["source"] as ProgressSource : null;
+    if (!ref || !source) continue;
+    if (!sourceOf.has(ref)) sourceOf.set(ref, source);
+    const s = e["status"] && typeof e["status"] === "object" ? e["status"] as Record<string, unknown> : {};
+    const done = count(s["scenes_completed"]);
+    const total = count(s["total_scenes"]);
+    if ((s["state"] === "in_progress" || s["state"] === "completed") && done !== null && total !== null) {
+      lessons[progressKey(source, ref)] = { state: s["state"], done, total };
+    }
+  }
+  const p = plan && typeof plan === "object" ? plan as Record<string, unknown> : {};
+  for (const item of Array.isArray(p["in_progress"]) ? p["in_progress"] : []) {
+    const i = item && typeof item === "object" ? item as Record<string, unknown> : {};
+    const ref = typeof i["bundle_ref"] === "string" ? i["bundle_ref"] : "";
+    const done = count(i["scenes_completed"]);
+    const total = count(i["total_scenes"]);
+    const source = sourceOf.get(ref);
+    if (!ref || !source || done === null || total === null || done >= total) continue;
+    const title = typeof i["title"] === "string" && i["title"].trim() ? i["title"].trim() : ref;
+    let duration: number | undefined;
+    try { duration = durationOf(ref, source); } catch { duration = undefined; }
+    return { continueWith: { ref, title, done, total, source, minutesLeft: minutesLeft(duration, done, total) }, lessons };
+  }
+  return { continueWith: null, lessons };
+}
+
+/** The command arguments that open the lesson to continue from its own root (studium.openLesson). */
+export function continueArgs(c: Pick<ContinueLesson, "ref" | "source">): unknown[] {
+  return c.source === "bundles" ? [c.ref] : [c.ref, c.source];
+}
+
+/** What the Continue entry and the status bar say on hover: the next step, the minutes left when known, and whose
+ * progress this is (VS Code's own: progress made with other assistants is not in it). */
+export function continueTooltip(c: Pick<ContinueLesson, "title" | "done" | "total" | "minutesLeft">, locale: Locale): string {
+  return [
+    hostPhrase("status_tooltip_continue", { title: c.title, step: c.done + 1, total: c.total }, locale),
+    c.minutesLeft === null ? "" : hostPhrase("continue_minutes_left", { minutes: c.minutesLeft }, locale),
+    hostPhrase("continue_scope", {}, locale),
+  ].filter(Boolean).join(" ");
+}
+
+const STATUS_TITLE_MAX = 40;
+
 export function statusBarText(
-  status: StudyStatus | null, locale: Locale, lessonLine?: string | null,
-): { text: string; tooltip: string } | null {
+  status: StudyStatus | null, locale: Locale, lessonLine?: string | null, preparing?: Preparing | null,
+  continueWith?: Pick<ContinueLesson, "title" | "done" | "total" | "minutesLeft"> | null,
+): { text: string; tooltip: string; resume?: true } | null {
   // INT-STUDIUM-058: while a lesson plays, the bar shows the lesson's own status line (the view's
   // status_line); what is due moves to the tooltip. One line, no control character (\p{Cc}: U+0000 to
   // U+001F and U+007F to U+009F).
@@ -84,7 +170,26 @@ export function statusBarText(
     const due = statusBarText(status, locale);
     return { text: line, tooltip: due ? due.tooltip : hostPhrase("status_tooltip_lesson", {}, locale) };
   }
-  if (!status || status.dueCount === 0) return null;
+  // BN-4: a lesson being prepared outranks the review count while it lasts (minutes); the count moves to the tooltip.
+  if (preparing) {
+    const source = preparing.title.replace(/\p{Cc}/gu, " ").replace(/\s+/g, " ").trim();
+    const lead = source
+      ? hostPhrase("status_tooltip_preparing", { source }, locale)
+      : hostPhrase("status_tooltip_preparing_untitled", {}, locale);
+    const due = statusBarText(status, locale);
+    return {
+      text: hostPhrase("status_preparing", {}, locale),
+      tooltip: [`${lead} ${hostPhrase("status_tooltip_preparing_wait", {}, locale)}`, due?.tooltip].filter(Boolean).join("\n"),
+    };
+  }
+  if (!status || status.dueCount === 0) {
+    // BN-7: with nothing due, the rule « no news is not shown » gives way to one piece of news: the lesson in progress.
+    // Clicking the item then resumes it (resume).
+    if (!continueWith) return null;
+    const title = continueWith.title.replace(/\p{Cc}/gu, " ").replace(/\s+/g, " ").trim();
+    const short = title.length > STATUS_TITLE_MAX ? `${title.slice(0, STATUS_TITLE_MAX - 1).trimEnd()}…` : title;
+    return { text: hostPhrase("status_continue", { title: short }, locale), tooltip: continueTooltip({ ...continueWith, title }, locale), resume: true };
+  }
   const counts = status.counts;
   const groups = GROUPS.filter((group) => counts[group] > 0)
     .map((group) => hostPhrase(TOOLTIP_PHRASE[group][counts[group] === 1 ? 0 : 1], { count: counts[group] }, locale));

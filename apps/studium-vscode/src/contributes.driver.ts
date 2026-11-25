@@ -240,6 +240,33 @@ const hasCmd = (id: string) => commandIds.includes(id);
   expect(/shipped-lessons/.test(pkg.scripts?.vendor ?? ""), "the vendor script copies the shipped lessons into dist/shipped-lessons");
 }
 
+// 13) BN-3 and the critic's approval point: what a learner waiting for their first lesson reads. The empty Lessons view
+//     and the self-study step of the walkthrough say that the lesson the assistant writes appears here when it is
+//     ready, after a few minutes, and that the demo can be tried meanwhile; they no longer send the learner to
+//     right-click a lesson.json in a folder that is not open. The walkthrough tells a Copilot user to allow Studium's
+//     tools for the session at the first prompt (VS Code 1.139 labels), else each tool call waits for a click.
+{
+  const words = {
+    en: { few: /a few minutes/, ready: /appears here when it is ready|appears in the Lessons view/, rightClick: /right-click/i,
+      allow: /Allow Tools from Studium in this Session/, always: /Always Allow Tools from Studium/, oldEmpty: /No lesson found yet/ },
+    fr: { few: /quelques minutes/, ready: /apparaît ici dès qu'elle est prête|apparaît dans la vue Leçons/, rightClick: /clic droit/i,
+      allow: /Autoriser les outils de Studium dans cette session/, always: /Toujours autoriser les outils de Studium/, oldEmpty: /Aucune leçon trouvée/ },
+  } as const;
+  for (const [file, md, w] of [["package.nls.json", "self-study.md", words.en], ["package.nls.fr.json", "self-study.nls.fr.md", words.fr]] as const) {
+    const nls = JSON.parse(readFileSync(resolve(root, file), "utf8"));
+    const empty = String(nls["viewsWelcome.empty"]);
+    expect(w.few.test(empty) && w.ready.test(empty) && /assistant/.test(empty), `${file}: the empty Lessons view says the assistant's lesson appears there when ready, in a few minutes`);
+    expect(!w.oldEmpty.test(empty), `${file}: the empty Lessons view no longer opens with « no lesson found »`);
+    const step = String(nls["walkthrough.step.selfStudy.description"]);
+    expect(w.few.test(step) && !w.rightClick.test(step), `${file}: the self-study step gives the build time and no right-click advice`);
+    expect(w.allow.test(step) && w.always.test(step), `${file}: the self-study step says how to allow Studium's tools at the first prompt`);
+    expect(step.includes("(command:studium.openDemoLesson)"), `${file}: the self-study step offers the demo to try while waiting`);
+    const page = readFileSync(resolve(root, "media/walkthrough", md), "utf8");
+    expect(w.few.test(page) && w.ready.test(page) && !w.rightClick.test(page), `${md}: build time, where the lesson appears, no right-click advice`);
+    expect(w.allow.test(page) && w.always.test(page), `${md}: how to allow Studium's tools at the first prompt`);
+  }
+}
+
 if (failures.length) {
   console.error(`FAIL — ${failures.length}/${checks} contributes assertions failed:`);
   for (const f of failures) console.error("  - " + f);

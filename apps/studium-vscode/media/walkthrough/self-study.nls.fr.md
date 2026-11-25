@@ -6,13 +6,19 @@ Vous n'avez pas à écrire la leçon vous-même.
    Copilot dans VS Code 1.101 ou plus récent reçoit le serveur de cette extension, sans Node ni commande
    dans un terminal (lancez **MCP: List Servers** pour voir **Studium**). Codex et Claude Code
    demandent Node et une commande.
-2. Votre assistant rassemble des sources sur X et en tire une leçon. Chaque question cite le passage dont
+2. Dans Copilot, la première fois qu'il appelle un outil Studium, VS Code vous demande de l'autoriser.
+   Ouvrez la flèche à côté de **Autoriser une fois** et choisissez
+   **Autoriser les outils de Studium dans cette session**, ou **Toujours autoriser les outils de Studium**.
+   Sinon VS Code redemande à chaque outil, et la leçon attend votre clic.
+3. Votre assistant rassemble des sources sur X et en tire une leçon. Chaque question cite le passage dont
    elle provient, et la leçon est enregistrée dans votre bibliothèque personnelle, `~/.studium/library`.
-3. Ouvrez-la ici :
-   - clic droit sur son `lesson.json` dans l'explorateur, puis **Studium : Ouvrir cette leçon**, ou
-   - suivez le lien `vscode://holobiomicslab.studium-vscode/open?bundle=<chemin de lesson.json>` que votre
-     assistant vous donne (il peut lancer `code --open-url` pour vous), ou
-   - lancez **Studium : Choisir un cours**.
+   La construire prend quelques minutes ; c'est fait une fois, et vous pouvez ensuite jouer la leçon autant
+   de fois que vous voulez. Pendant ce temps, la barre d'état indique **Studium · leçon en préparation…**, et
+   vous pouvez essayer la leçon de démonstration.
+4. Quand la leçon est prête, VS Code vous prévient, avec **Ouvrir**, et la leçon apparaît dans la vue Leçons.
+   Si vous étiez dans une autre fenêtre, l'avis attend votre retour. Vous pouvez aussi suivre le lien
+   `vscode://holobiomicslab.studium-vscode/open?bundle=<chemin de lesson.json>` que votre assistant vous
+   donne, ou lancer **Studium : Choisir un cours**.
 
 Si vous fermez VS Code en pleine leçon, le panneau revient à la réouverture de la fenêtre et reprend là
 où vous vous étiez arrêté·e.
