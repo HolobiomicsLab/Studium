@@ -18,6 +18,7 @@ import {
   AuthoringInputError, GUIDE_VERSION, LessonDraftSchema, SOURCE_KINDS, authoringGuide, authoringOf, createLesson, guideLanguageOf,
   prepareSources, type SourceFilePolicy,
 } from "@studium/lesson-session-host";
+import { READ_ONLY } from "./operations.js";
 
 export const AUTHORING_TOOL_NAMES = ["create_lesson", "get_authoring_guide", "prepare_sources"] as const;
 
@@ -66,6 +67,7 @@ export function registerAuthoringTools(server: McpServer, ctx: AuthoringToolsCon
       "(markdown, French for a fr-* language, English otherwise), draft_schema (the JSON Schema of a LessonDraft) and a " +
       "minimal valid example. mode: self_study (default) or teacher (says where the teacher route starts).",
     inputSchema: { language: z.string().min(2).max(35).optional(), mode: z.enum(["self_study", "teacher"]).optional() },
+    annotations: READ_ONLY,
   }, async ({ language, mode }) => {
     const guide = authoringGuide({ language, mode });
     return reply({

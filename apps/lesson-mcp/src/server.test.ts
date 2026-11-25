@@ -140,6 +140,38 @@ describe("lesson-mcp tools", () => {
     expect(description("list_community_bundles")).toContain("start_lesson_session");
     expect(description("start_lesson_session")).toContain("authoring.notice");
   });
+
+  // Waiting review 2026-11-25, critic point 1: VS Code asks the person to allow every MCP tool call
+  // unless the tool says it is read-only. Only the tools that write nothing (no file, no learner state,
+  // no telemetry, no change to a session) say so; a write tool never does. Left out on purpose although
+  // they read: get_current_scene and get_panel_view feed the session's proposals and log them (and
+  // get_panel_view may move the session to another surface), get_operator_context marks proposals as
+  // said, get_companion_brief moves its cursor. The MCP Apps tool metadata added for a UI client keeps them.
+  it("marks read-only exactly the tools that write nothing, for a plain client and an MCP Apps client", async () => {
+    const READ_ONLY = [
+      "class_report", "explain_last_adaptation", "get_authoring_guide", "get_experiment_journal", "get_next_reinforcement",
+      "get_peer_room_state", "get_run_manifest", "get_scene_artifacts", "get_server_info", "get_session_state",
+      "get_study_plan", "get_workflow_graph", "list_community_bundles", "list_lessons", "review_lesson",
+    ];
+    const UI = { extensions: { "io.modelcontextprotocol/ui": { mimeTypes: ["text/html;profile=mcp-app"] } } };
+    for (const capabilities of [{}, UI]) {
+      const server = buildMcpServer(new SessionHost({ bundlesRoot: bundlesDir(), live: false, dataDir: null }));
+      const [clientT, serverT] = InMemoryTransport.createLinkedPair();
+      await server.connect(serverT);
+      const client = new Client({ name: "annotations", version: "1.0.0" }, { capabilities });
+      await client.connect(clientT);
+      try {
+        const tools = (await client.listTools()).tools;
+        expect(tools).toHaveLength(40);
+        const marked = tools.filter((tool) => tool.annotations?.readOnlyHint === true).map((tool) => tool.name).sort();
+        expect(marked).toEqual(READ_ONLY);
+        for (const name of ["submit_response", "prepare_sources", "create_lesson", "forget_session", "export_concept_map",
+          "get_current_scene", "get_panel_view", "get_operator_context", "get_companion_brief"]) {
+          expect(tools.find((tool) => tool.name === name)?.annotations?.readOnlyHint).not.toBe(true);
+        }
+      } finally { await client.close(); await server.close(); }
+    }
+  });
   it("get_next_reinforcement distinguishes no history, nothing due, and due", async () => {
     const client = await connect(bundlesDir());
     const started = parse(await client.callTool({ name: "start_lesson_session", arguments: { bundle_ref: "mini.json", learner_id: "you" } }) as never);

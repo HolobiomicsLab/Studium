@@ -19,7 +19,7 @@ import {
   SessionHost, NowMsSchema, publicPresentation, operatorContext, type SelfRating, type PromptSurface, type SourceFilePolicy,
 } from "@studium/lesson-session-host";
 import {
-  CONVERSATION, lessonOperations, TOOL_NAMES as LESSON_TOOL_NAMES, type Operation, type SurfaceRank, type ToolResult,
+  CONVERSATION, READ_ONLY, lessonOperations, TOOL_NAMES as LESSON_TOOL_NAMES, type Operation, type SurfaceRank, type ToolResult,
 } from "./operations.js";
 import { AUTHORING_TOOL_NAMES, registerAuthoringTools } from "./authoring-tools.js";
 import { TEACHER_TOOL_NAMES, registerTeacherTools } from "./teacher-tools.js";
@@ -104,6 +104,9 @@ const languageArg = z.enum(["fr", "en"], { errorMap: () => ({ message: "language
   .describe("fr or en: the language of display_markdown and of the next step; defaults to the language of the " +
     "learner's last lesson, else the server's");
 
+/** `op`, annotated as a tool that writes nothing (READ_ONLY). */
+const readOnly = (op: Operation): Operation => ({ ...op, annotations: READ_ONLY });
+
 /** The C1 study tools, transport-independent like lessonOperations (an HTTP surface can add them as is). */
 export function studyOperations(
   host: SessionHost, opts: { formsAvailable?: () => boolean; surfaceRankOf?: (sessionId: string) => SurfaceRank } = {},
@@ -113,7 +116,7 @@ export function studyOperations(
   // The conversation tools log the rank the session is played on, not always the conversation's own.
   const rankOf = (sessionId: string): SurfaceRank => opts.surfaceRankOf?.(sessionId) ?? 1;
   return [
-    operation("list_lessons",
+    readOnly(operation("list_lessons",
       "List the lessons this server can start, from BUNDLES_ROOT and the learner's library, read afresh (a lesson " +
       "written a moment ago is listed): bundle_ref (pass it to start_lesson_session), title, language, concepts, who " +
       "wrote it (authoring.mode, drafted_by), and with learner_id the learner's status (new | in_progress | completed). " +
@@ -124,9 +127,9 @@ export function studyOperations(
       async ({ query, learner_id, language }) => host.listLessons({
         ...(query === undefined ? {} : { query }), ...(learner_id === undefined ? {} : { learnerId: learner_id }),
         ...(language === undefined ? {} : { language }),
-      })),
+      }))),
 
-    operation("get_study_plan",
+    readOnly(operation("get_study_plan",
       "Start here: what the learner should do now. Reviews due (with dates), concepts to relearn, lessons in progress, " +
       "the next lesson, and next_step {action: review|continue|start|author|wait, tool, arguments, text} naming the " +
       "call to make with its arguments (language included where the tool takes one). With the minutes a day the " +
@@ -136,7 +139,7 @@ export function studyOperations(
       { learner_id: learnerIdArg, now_ms: nowMsArg, language: languageArg },
       async ({ learner_id, now_ms, language }) => host.studyPlan(learner_id, {
         ...(now_ms === undefined ? {} : { nowMs: now_ms }), ...(language === undefined ? {} : { language }),
-      })),
+      }))),
 
     operation("start_review_session",
       "Start a review session: one retrieval scene per concept due, taken from the lessons the learner studied — " +
@@ -301,7 +304,9 @@ export function buildMcpServer(host: SessionHost): McpServer {
     ...lessonOperations(host, { toolNames: () => registered, formsAvailable, surfaceRankOf }),
     ...studyOperations(host, { formsAvailable, surfaceRankOf }),
   ]) {
-    const registeredTool = server.registerTool(op.name, { description: op.description, inputSchema: op.inputSchema }, async (args) => {
+    const registeredTool = server.registerTool(op.name, {
+      description: op.description, inputSchema: op.inputSchema, ...(op.annotations ? { annotations: op.annotations } : {}),
+    }, async (args) => {
       const result = await op.invoke(args);
       await panels.observe(op.name, args, result);
       return result;
