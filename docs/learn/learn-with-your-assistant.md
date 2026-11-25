@@ -132,8 +132,9 @@ leave the question; a retry of the same question keeps them back. More in
 Open a new conversation and ask "What should I study with Studium today?". The assistant calls
 `get_study_plan` in your language, which lists the reviews due, the lessons in progress and the next lesson, and names the one
 step to take now. `start_review_session` then plays every review due, across all your lessons. See
-[review over time](review-over-time.md). If building a lesson stopped before it was written, the plan offers to
-finish it, for 14 days; say you no longer want it and it is not offered again.
+[review over time](review-over-time.md). If Studium refused a draft of your lesson and no lesson was written for
+you since, the plan offers to finish it, after a lesson you have in progress, for 14 days, and only to you (the
+assistant passes your learner id); say you no longer want it and it is not offered again.
 
 If you simply take a lesson up again, its first screen says so, and when reviews are due it proposes them at the start
 of the session, or at the first pause after it when the session started on a question, once per session:
@@ -155,7 +156,7 @@ your first name) on every call.
 |---|---|---|
 | "Stop here for today." | `end_session` | Closes the session and keeps your progress. Starting the lesson again resumes it. |
 | "Erase my data for this lesson." | `forget_session {session_id}` | Erases your progress in this lesson, its experiment journal, and your cross-lesson profile and study record. Cannot be undone. |
-| "Erase all my Studium data." | `forget_session {learner_id}` | The same, plus your progress in every other lesson and the drafts of unfinished lessons, without a lesson open. Cannot be undone. |
+| "Erase all my Studium data." | `forget_session {learner_id}` | The same, plus your progress in every other lesson and the drafts Studium kept for you, without a lesson open. Cannot be undone. |
 
 The assistant then shows what was erased and what stays. Forgetting does not delete the lessons in your library
 (`~/.studium/library/<course>/`) or the prepared sources (`~/.studium/library/_sources/`), nor the conversation

@@ -37,13 +37,17 @@ Call `get_study_plan {learner_id, language}` with the learner's language (`fr` o
 `review`, `finish`, `continue`, `start`, `author` or `wait`; `tool` and `arguments` name the
 call).
 
-`finish` means a lesson build stopped before its lesson was written; `unfinished_build`
-says from which sources. If the learner wants it, read the brief (`get_authoring_guide`),
-call `prepare_sources` with `unfinished_build.prepare_sources` (or the sources again when it
-is null), then `create_lesson`: with `draft_id` and only the scenes in `fix_scenes` when
-there is a `draft_id` (its keyless `outline` says what each scene was), else a whole draft.
-If they do not want it, `create_lesson {source_set_id, discard: true}`: it is not offered again. If the learner names a topic, `list_lessons {query, learner_id, language}`
-shows whether a lesson already covers it; offer that lesson before building a new one.
+`finish` means Studium refused a draft of this learner's lesson and kept it, and no lesson
+was written for them since; `unfinished_build` says from which sources. It comes after a
+lesson in progress. If the learner wants it, read the brief (`get_authoring_guide`), call
+`prepare_sources` with `unfinished_build.prepare_sources` (or the sources again when it is
+null), then `create_lesson` with `learner_id`: with `draft_id` and only the scenes in
+`fix_scenes` when there is a `draft_id` (its keyless `outline` says what each scene was),
+else a whole draft. If they do not want it, `create_lesson {source_set_id, learner_id,
+discard: true}`: it is not offered again.
+
+If the learner names a topic, `list_lessons {query, learner_id, language}` shows whether a
+lesson already covers it; offer that lesson before building a new one.
 
 ## 2. Gather the goal and the sources
 
@@ -123,7 +127,8 @@ The draft validates against `draft_schema`. The brief's main rules:
 
 ## 5. Create the lesson and show what changed
 
-Call `create_lesson {source_set_id, draft, course_id?, overwrite?}`.
+Call `create_lesson {source_set_id, draft, learner_id, course_id?, overwrite?}`: with `learner_id`,
+a refused draft is kept for this learner and offered to them alone later.
 
 - On `{ok: false, errors: [{path, message, hint}]}` nothing is written. Fix only what the
   errors name; fix a refused quote by quoting what the passage says, never by bending the
@@ -179,8 +184,8 @@ study plan the MCP server reads.
   lesson again resumes it.
 - "Erase my data": `forget_session`, only on that explicit request, irreversibly.
   `{session_id}` erases this lesson's progress, the cross-lesson profile and the review
-  schedule; `{learner_id}` erases every lesson's progress too, and the drafts Studium kept of
-  unfinished lessons, with no live session.
+  schedule; `{learner_id}` erases every lesson's progress too, and the drafts Studium kept for
+  them, with no live session.
   Show its `display_markdown`: it lists what stays, the lessons of the library and the
   prepared sources (`<STUDIUM_HOME>/library/<course_id>/` and
   `<STUDIUM_HOME>/library/_sources/`), which the learner deletes by hand if they want
