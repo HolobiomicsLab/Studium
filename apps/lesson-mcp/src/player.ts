@@ -148,18 +148,19 @@ export function createPlayer(options: { host: SessionHost; token?: string; keys?
     const { learner_id: _ignored, ...rest } = args;
     if (name === 'list_lessons') return { ...rest, learner_id: learner };
     await checkSession(rest.session_id, learner);
-    if (name === 'open_lesson_panel') {
-      if (rest.bundle_ref !== undefined) {
-        const catalog = await options.host.listLessons();
-        const listed = [...catalog.lessons, ...catalog.shipped_lessons].map(lesson => lesson.bundle_ref);
-        if (typeof rest.bundle_ref !== 'string' || !listed.includes(rest.bundle_ref)) {
-          throw new PlayerError(400, 'invalid_bundle', 'Open a lesson the list shows');
-        }
+    // A lesson is opened from the list only, whatever the route names it (review of decision 4, finding 2):
+    // get_panel_view is read through open_lesson_panel, which opens the bundle_ref it is given.
+    if (rest.bundle_ref !== undefined) {
+      const catalog = await options.host.listLessons();
+      const listed = [...catalog.lessons, ...catalog.shipped_lessons].map(lesson => lesson.bundle_ref);
+      if (typeof rest.bundle_ref !== 'string' || !listed.includes(rest.bundle_ref)) {
+        throw new PlayerError(400, 'invalid_bundle', 'Open a lesson the list shows');
       }
-      // The page is a native pane, as the VS Code pane is: no client capability can declare it.
-      return { ...rest, learner_id: learner, surface: 'pane' };
     }
-    if (name === 'get_panel_view') return { ...rest, surface: 'pane' };
+    // The page is a native pane, as the VS Code pane is: no client capability can declare it.
+    if (name === 'open_lesson_panel') return { ...rest, learner_id: learner, surface: 'pane' };
+    // get_panel_view reads a session and takes nothing else: open_lesson_panel, which reads it, would take more.
+    if (name === 'get_panel_view') return { session_id: rest.session_id, surface: 'pane' };
     const action = rest.action as { type?: unknown } | undefined;
     if (typeof action?.type === 'string' && NO_ASSISTANT.has(action.type)) {
       throw new PlayerError(400, 'action_unavailable', 'There is no assistant on this page');
