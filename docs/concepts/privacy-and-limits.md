@@ -13,6 +13,7 @@ The MCP server (`apps/lesson-mcp`) uses these defaults. Each can be changed with
 | Root of your library and data | `~/.studium` | `STUDIUM_HOME` |
 | Lessons written for you | `<STUDIUM_HOME>/library/<course>/lesson.json`, whatever `BUNDLES_ROOT` names | `STUDIUM_HOME`; `BUNDLES_ROOT` only adds a folder searched first |
 | Sources prepared for those lessons (their passages, and for a file read by path its full path, size and SHA-256) | `<STUDIUM_HOME>/library/_sources/` | `STUDIUM_HOME` |
+| A draft Studium refused, kept so the assistant resends only the faulty scenes (without what you already know or like), until the lesson is written, you discard it, or 14 days pass | `<STUDIUM_HOME>/library/_drafts/` | `STUDIUM_HOME` |
 | Your progress | `<STUDIUM_HOME>/data` | `STUDIUM_DATA_DIR` |
 | Nothing on disk, memory only | off | `STUDIUM_EPHEMERAL=1` |
 | Learner id when the assistant gives none | `anonymous` | `STUDIUM_LEARNER_ID` |
@@ -67,10 +68,10 @@ Scenes are served without their keys, and `lesson-server` redacts keys over HTTP
 |---|---|---|
 | `end_session` | nothing | lesson state and cross-lesson memory |
 | `forget_session {session_id}` | this learner's durable state for the lesson (answers, lesson state, experiment journal), their cross-lesson profile, study record and status file; irreversible | their progress in other lessons, which it names |
-| `forget_session {learner_id}` | the same for every lesson the learner opened, with no session needed; their live sessions close; irreversible | nothing of the learner's progress |
+| `forget_session {learner_id}` | the same for every lesson the learner opened, with no session needed, and the drafts of unfinished lessons; their live sessions close; irreversible | nothing of the learner's progress |
 | VS Code "Studium: Forget my data" | the extension's storage, its run-trust memory and last lesson, after closing every lesson server the extension started and a confirmation | an assistant's data in `<STUDIUM_HOME>/data`, which it names and does not touch |
 
-`forget_session` answers with what it erased and what stays on disk: the lessons of the learner's library (`<STUDIUM_HOME>/library/<course>/`) and the sources prepared for them (`<STUDIUM_HOME>/library/_sources/`). The assistant shows that list; delete those folders by hand to remove them too. The install's pseudonym secret also stays: it holds no learner data.
+`forget_session` answers with what it erased and what stays on disk: the lessons of the learner's library (`<STUDIUM_HOME>/library/<course>/`) and the sources prepared for them (`<STUDIUM_HOME>/library/_sources/`), and for one lesson the drafts of unfinished lessons (`<STUDIUM_HOME>/library/_drafts/`). The assistant shows that list; delete those folders by hand to remove them too. The install's pseudonym secret also stays: it holds no learner data.
 
 No forget command reaches the assistant's history, experiment folders, exported files or copies kept elsewhere. Closing a window is not an erasure request. Check the result in the storage actually configured.
 

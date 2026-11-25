@@ -7,6 +7,7 @@ import { buildStudyPlan, scheduleFromMemory, type StudyPlanInput } from "./study
 import { emptyStudyRecord, type StudyRecord } from "./study-record.js";
 import type { Catalog, CatalogLesson } from "./lesson-catalog.js";
 import type { ConceptMemoryState } from "./fsrs-memory.js";
+import type { UnfinishedBuild } from "./authoring-draft/draft-store.js";
 
 const DAY = 86_400_000;
 const NOW = Date.parse("2026-11-20T09:00:00Z");
@@ -192,5 +193,48 @@ describe("buildStudyPlan", () => {
     const plan = buildStudyPlan(input({ memory: { "c-a": mem("c-a", NOW - 30 * DAY) }, mastery: { "c-a": 0.9 }, record, catalog }));
     expect(plan.due_reviews[0]).toMatchObject({ concept_id: "c-a", playable: true });
     expect(plan.display_markdown).not.toContain("aucune question de révision");
+  });
+});
+
+// D4 (waiting review 2026-11-25): a lesson build that stopped (its draft refused and kept, or its sources
+// prepared and nothing written) is offered again, after the reviews due and before anything else.
+describe("buildStudyPlan: an unfinished build (D4)", () => {
+  const build: UnfinishedBuild = {
+    source_set_id: "ss-1111111111111111", draft_id: "dr-2222222222222222", resend: "scenes", fix_scenes: [8],
+    sources: ["La photosynthèse : notes de cours (L1)"], left_at: "2026-11-19T10:00:00.000Z", outline: null, prepare_sources: null,
+  };
+  const inProgress: StudyRecord = {
+    ...emptyStudyRecord(),
+    lessons: {
+      "lesson-b": { bundle_ref: "b/lesson.json", bundle_id: "lesson-b", title: "Liaisons", language: "fr",
+        scenes_completed: 1, total_scenes: 3, completed: false, updated_at: "2026-11-19T10:00:00Z" },
+    },
+  };
+  const catalog = catalogOf(lessonEntry("b/lesson.json", "lesson-b", "Liaisons", ["c-b"]));
+
+  it.each(["fr", "en"] as const)("offers to finish it before a lesson in progress, starting from the guide (%s)", (locale) => {
+    const plan = buildStudyPlan(input({ locale, record: inProgress, catalog, unfinishedBuild: build }));
+    expect(plan.unfinished_build).toEqual(build);
+    expect(plan.next_step).toMatchObject({ action: "finish", tool: "get_authoring_guide", arguments: { language: locale } });
+    // French typography puts no-break spaces before « : » and inside « » (L-5).
+    const text = plan.next_step.text.replace(/[\u00a0\u202f]/g, " ");
+    expect(text).toContain(locale === "fr" ? "« La photosynthèse : notes de cours (L1) »" : "“La photosynthèse : notes de cours (L1)”");
+    expect(text).toMatch(locale === "fr" ? /n'a pas été terminée[^]*plus proposée/ : /was not finished[^]*not be offered again/);
+    expect(plan.display_markdown).toContain(plan.next_step.text);
+  });
+
+  it("lists it under its own heading when a review comes first", () => {
+    const plan = buildStudyPlan(input({
+      memory: { "c-b": mem("c-b", NOW - 30 * DAY) }, mastery: { "c-b": 0.9 }, catalog, unfinishedBuild: build, locale: "en",
+    }));
+    expect(plan.next_step.action).toBe("review");
+    expect(plan.display_markdown).toContain("**Unfinished lesson**");
+    expect(plan.display_markdown).toContain("- a lesson from “La photosynthèse : notes de cours (L1)”");
+  });
+
+  it("has no unfinished build and no finish step without one", () => {
+    const plan = buildStudyPlan(input({ record: inProgress, catalog }));
+    expect(plan.unfinished_build).toBeNull();
+    expect(plan.next_step.action).toBe("continue");
   });
 });

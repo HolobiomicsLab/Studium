@@ -222,6 +222,8 @@ const PHRASES = {
     forget_library_unnamed: "les leçons de ta bibliothèque, dans {path}",
     forget_sources: "le texte des sources préparées pour elles, dans {path}",
     forget_exports: "les cartes de notions que tu as exportées, dans {path}",
+    forget_drafts: "les brouillons de leçons inachevées, dans {path}",
+    forget_drafts_erased: "les brouillons de leçons inachevées que Studium avait gardés",
     map_export_saved: "Carte des notions exportée dans `{path}`. Elle contient tes résultats de séance, sans identifiant ni texte de réponse, et reste sur cette machine tant que tu ne la partages pas.",
     map_export_unsaved: "Carte des notions exportée (champ `record`). Ce serveur n'a pas de bibliothèque où l'écrire : enregistre `record` tel quel dans un fichier pour en faire une page.",
     forget_delete_yourself: "Supprime ces dossiers toi-même si tu veux qu'ils disparaissent aussi.",
@@ -327,6 +329,8 @@ const PHRASES = {
     forget_library_unnamed: "the lessons in your library, in {path}",
     forget_sources: "the text of the sources prepared for them, in {path}",
     forget_exports: "the concept maps you exported, in {path}",
+    forget_drafts: "the drafts of unfinished lessons, in {path}",
+    forget_drafts_erased: "the drafts of unfinished lessons Studium had kept",
     map_export_saved: "Concept map exported to `{path}`. It holds your session results, with no identifier and none of your answers' text, and stays on this machine until you share it.",
     map_export_unsaved: "Concept map exported (field `record`). This server has no library to write it to: save `record` unchanged to a file to make a page from it.",
     forget_delete_yourself: "Delete those folders yourself if you want them gone too.",
@@ -734,6 +738,7 @@ export function forgetMarkdown(
     if (item.kind === "lesson_progress") return item.lessons?.length ? [say(locale, "forget_lesson_progress", { lessons: lessons(item) })] : [];
     if (item.kind === "learner_profile") return [say(locale, "forget_learner_profile")];
     if (item.kind === "study_record") return [say(locale, "forget_study_record")];
+    if (item.kind === "lesson_drafts") return [say(locale, "forget_drafts_erased")];
     return [];
   });
   const kept = report.kept.flatMap((item) => {
@@ -744,10 +749,11 @@ export function forgetMarkdown(
     }
     if (item.kind === "lesson_sources") return [say(locale, "forget_sources", { path: item.path ?? "" })];
     if (item.kind === "map_exports") return [say(locale, "forget_exports", { path: item.path ?? "" })];
+    if (item.kind === "lesson_drafts") return [say(locale, "forget_drafts", { path: item.path ?? "" })];
     return [];
   });
   const onDisk = report.kept.some((item) => item.kind === "library_lessons" || item.kind === "lesson_sources"
-    || item.kind === "map_exports");
+    || item.kind === "map_exports" || item.kind === "lesson_drafts");
   const separator = locale === "fr" ? " ; " : "; ";
   return [
     say(locale, "forget_done"),

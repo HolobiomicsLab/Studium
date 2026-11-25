@@ -112,12 +112,13 @@ const CONTINUE_ON: Record<1 | 2, string> = {
 const CONTINUE_ON_PANE = "Surface: pane. A native pane adapter shows the lesson and takes the learner's actions; if no pane is " +
   "shown to the learner, call get_panel_view with this session_id and surface: \"text\", then play in the conversation.";
 
-/** The view as its reader needs it. A panel or a pane draws it and takes its labels from `strings`,
- * the interface's phrase catalogue (some 24 kB). Below a panel nothing draws the view: its reader is
- * a model, and the catalogue is left out. */
+/** The view as its reader needs it. A native pane draws it and takes its labels from `strings`, the
+ * interface's phrase catalogue (some 24 kB). An MCP Apps panel draws it with the labels its own app
+ * carries (bridge-mcp-app.js, browserPhrases), and its host may give the model the whole result (VS Code
+ * does). Below a panel nothing draws the view: its reader is a model. Everywhere but on a pane the
+ * catalogue is left empty (BN-8, waiting review 2026-11-25); the key stays, as the view's schema wants. */
 function forSurface(panel: PanelView): PanelView {
-  const rank = panel.surface?.rank;
-  return rank === 1 || rank === 2 ? { ...panel, strings: {} } : panel;
+  return panel.surface?.kind === "pane" ? panel : { ...panel, strings: {} };
 }
 
 function panelResult(view: PanelView, brief?: ReturnType<SessionHost["companionBrief"]>) {
@@ -266,7 +267,7 @@ export function registerPanelTools(server: McpServer, host: SessionHost) {
   const surface = z.enum(SURFACE_KINDS).optional()
     .describe("The surface to play on. Omit it: the server picks the best one this client renders. \"pane\" is for a native pane adapter; \"text\" when the learner prefers the conversation.");
   const openTool = server.registerTool("open_lesson_panel", {
-    description: "Open or resume a lesson by bundle_ref or existing session_id, on the best surface this client renders (a panel, forms, or the conversation). Returns a public PanelView whose `surface` says which, and a short summary that says how to continue; wait for the learner's own actions. Below a panel the view's `strings` (the interface's labels) is empty: nothing draws it.",
+    description: "Open or resume a lesson by bundle_ref or existing session_id, on the best surface this client renders (a panel, forms, or the conversation). Returns a public PanelView whose `surface` says which, and a short summary that says how to continue; wait for the learner's own actions. The view's `strings` (the interface's labels) is empty except on a native pane: a panel's app brings its own, and below a panel nothing draws it.",
     inputSchema: {
       bundle_ref: z.string().min(1).optional(), session_id: z.string().min(1).optional(), learner_id: z.string().min(1).optional(),
       show_mastery: z.boolean().optional(), modality_preference: z.enum(["balanced", "visual", "textual"]).optional(), locale: z.enum(["fr", "en"]).optional(),

@@ -16,7 +16,11 @@ export { checkQuote, MAX_QUOTE_CHARS, MIN_QUOTE_CHARS, normalizeQuoteText, sourc
 export { DraftSceneSchema, LessonDraftSchema, type DraftScene, type LessonDraft } from "./draft-schema.js";
 export { authoringGuide, GUIDE_VERSION, guideLanguageOf, type AuthoringGuide, type GuideLanguage, type GuideMode } from "./guide.js";
 export {
-  createLesson, keyClassesOf, LESSON_FILENAME, SELF_STUDY_VALIDATED_BY,
+  createLesson, keyClassesOf, LESSON_FILENAME, RESEND_DRAFT_HINT, RESEND_SCENES_HINT, SELF_STUDY_VALIDATED_BY,
   type CreateLessonInput, type CreateLessonOptions, type CreateLessonResult, type KeyClasses, type LessonOutline,
 } from "./build.js";
 export { lintBundleData, placeholderPaths, type LintFinding } from "./lint.js";
+export {
+  BUILD_GRACE_MINUTES, discardBuild, DRAFTS_DIR, eraseDrafts, UNFINISHED_BUILD_DAYS, unfinishedBuilds,
+  type KeptDraftOutline, type Resend, type UnfinishedBuild,
+} from "./draft-store.js";

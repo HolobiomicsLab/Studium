@@ -13,6 +13,7 @@ Le serveur MCP (`apps/lesson-mcp`) applique ces valeurs par défaut. Chacune se 
 | Racine de votre bibliothèque et de vos données | `~/.studium` | `STUDIUM_HOME` |
 | Leçons écrites pour vous | `<STUDIUM_HOME>/library/<cours>/lesson.json`, quel que soit `BUNDLES_ROOT` | `STUDIUM_HOME` ; `BUNDLES_ROOT` ne fait qu'ajouter un dossier consulté en premier |
 | Sources préparées pour ces leçons (leurs passages, et pour un fichier lu par son chemin, son chemin complet, sa taille et son SHA-256) | `<STUDIUM_HOME>/library/_sources/` | `STUDIUM_HOME` |
+| Un brouillon refusé par Studium, gardé pour que l'assistant ne renvoie que les scènes fautives (sans ce que vous savez déjà ni ce qui vous intéresse), jusqu'à ce que la leçon soit écrite, que vous l'abandonniez ou que 14 jours passent | `<STUDIUM_HOME>/library/_drafts/` | `STUDIUM_HOME` |
 | Votre progression | `<STUDIUM_HOME>/data` | `STUDIUM_DATA_DIR` |
 | Rien sur disque, mémoire seulement | désactivé | `STUDIUM_EPHEMERAL=1` |
 | Identifiant d'apprenant quand l'assistant n'en donne pas | `anonymous` | `STUDIUM_LEARNER_ID` |
@@ -67,10 +68,10 @@ Les scènes sont servies sans leurs clés, et `lesson-server` les masque en HTTP
 |---|---|---|
 | `end_session` | rien | l'état de la leçon et la mémoire transversale |
 | `forget_session {session_id}` | l'état durable de cet apprenant pour la leçon (réponses, état de la leçon, journal d'expériences), son profil transversal et son relevé d'étude ; irréversible | sa progression dans ses autres leçons, qu'elle nomme |
-| `forget_session {learner_id}` | la même chose pour toutes les leçons que l'apprenant a ouvertes, sans séance nécessaire ; ses séances en cours se ferment ; irréversible | rien de la progression de l'apprenant |
+| `forget_session {learner_id}` | la même chose pour toutes les leçons que l'apprenant a ouvertes, sans séance nécessaire, et les brouillons de leçons inachevées ; ses séances en cours se ferment ; irréversible | rien de la progression de l'apprenant |
 | « Studium : Oublier mes données » dans VS Code | le stockage de l'extension, sa mémoire de confiance des exécutions et la dernière leçon, après la fermeture de tous les serveurs de leçon lancés par l'extension et une confirmation | les données d'un assistant dans `<STUDIUM_HOME>/data`, qu'elle nomme sans y toucher |
 
-`forget_session` répond par ce qu'il a effacé et ce qui reste sur le disque : les leçons de la bibliothèque de l'apprenant (`<STUDIUM_HOME>/library/<cours>/`) et les sources préparées pour elles (`<STUDIUM_HOME>/library/_sources/`). L'assistant montre cette liste ; supprimez ces dossiers à la main pour les effacer aussi. Le secret de pseudonymisation de l'installation reste également : il ne contient aucune donnée d'apprenant.
+`forget_session` répond par ce qu'il a effacé et ce qui reste sur le disque : les leçons de la bibliothèque de l'apprenant (`<STUDIUM_HOME>/library/<cours>/`) et les sources préparées pour elles (`<STUDIUM_HOME>/library/_sources/`), et pour une leçon les brouillons de leçons inachevées (`<STUDIUM_HOME>/library/_drafts/`). L'assistant montre cette liste ; supprimez ces dossiers à la main pour les effacer aussi. Le secret de pseudonymisation de l'installation reste également : il ne contient aucune donnée d'apprenant.
 
 Aucune commande d'oubli n'atteint l'historique de l'assistant, les dossiers d'expérience, les fichiers déjà exportés ni les copies conservées ailleurs. Fermer une fenêtre ne vaut pas demande d'effacement. Vérifiez le résultat dans le stockage réellement configuré.
 

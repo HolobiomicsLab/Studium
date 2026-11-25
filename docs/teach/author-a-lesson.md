@@ -24,12 +24,12 @@ server connected (see [harnesses](../start/harnesses.md)), it calls three tools:
 
 | Tool | What it does |
 |---|---|
-| `get_authoring_guide {language?, mode?}` | Returns the authoring brief, the draft schema and a minimal example. `mode: "teacher"` adds where the teacher route starts. |
+| `get_authoring_guide {language?, mode?}` | Returns the authoring brief, the draft schema, a minimal example and `tell_learner`, one sentence the assistant tells the learner before it prepares the sources: writing the lesson takes a few minutes and is done once. `mode: "teacher"` adds where the teacher route starts and words that sentence neutrally ("the lesson"). |
 | `prepare_sources {sources, goal?, language?}` | Cuts the source texts your assistant fetched, or the local text files it names by path (Studium reads them), into citable passages (up to 20 sources, 200 000 characters in total). |
-| `create_lesson {source_set_id, draft, course_id?, overwrite?}` | Checks the draft (exact quotes, no TODO, a sound concept graph, the linter) and writes the lesson to the library. |
+| `create_lesson {source_set_id, draft, course_id?, overwrite?}` | Checks the draft (exact quotes, no TODO, a sound concept graph, the linter) and writes the lesson to the library. On a refusal nothing is written, but Studium keeps the draft: the assistant then sends `{draft_id, scenes}`, only the scenes the refusal names. |
 
 Both tools write into the library of the person whose assistant runs them,
-`<STUDIUM_HOME>/library/<course_id>/lesson.json` (sources in `_sources/`), never into the server's
+`<STUDIUM_HOME>/library/<course_id>/lesson.json` (sources in `_sources/`, a refused draft in `_drafts/`), never into the server's
 `BUNDLES_ROOT`, so a lesson of yours under `BUNDLES_ROOT` is never replaced; a course id already in
 use there is refused. `overwrite: true` replaces only a self-study lesson that no teacher validated
 or approved. The licence you give each source is copied into the lesson's citations.

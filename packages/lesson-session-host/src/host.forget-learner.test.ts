@@ -146,3 +146,45 @@ describe("forget(session) (L-13): this lesson, the profile and the schedule", ()
     expect(report.display_markdown).toContain("Binary search");
   });
 });
+
+// D4 (waiting review 2026-11-25): the drafts Studium keeps after a refusal are learner data of the library.
+// forgetLearner erases them, even on an install where no learner was ever recorded; forget(session),
+// which erases one lesson, keeps them and says where they are.
+describe("the drafts Studium kept after a refusal (D4)", () => {
+  function keepDraft(library: string): void {
+    mkdirSync(join(library, "_drafts"), { recursive: true });
+    writeFileSync(join(library, "_drafts", "ss-1111111111111111.json"), "{}");
+  }
+
+  it("forgetLearner erases them with the rest, and says so", async () => {
+    const { host, library, play } = await setup();
+    await host.close(await play("atomes/lesson.json", "ana"));
+    keepDraft(library);
+    const report = await host.forgetLearner("ana", "en");
+    expect(report.erased).toContainEqual({ kind: "lesson_drafts" });
+    expect(report.kept.map((item) => item.kind)).not.toContain("lesson_drafts");
+    expect(existsSync(join(library, "_drafts"))).toBe(false);
+    expect(report.display_markdown).toContain("the drafts of unfinished lessons");
+  });
+
+  it("forgetLearner erases them on an install where no learner was ever recorded", async () => {
+    const library = tmp();
+    keepDraft(library);
+    const host = new SessionHost({ bundlesRoot: library, libraryRoot: library, live: false, dataDir: tmp() });
+    const report = await host.forgetLearner("ana", "fr");
+    expect(report.erased).toEqual([{ kind: "lesson_drafts" }]);
+    expect(existsSync(join(library, "_drafts"))).toBe(false);
+    expect(report.display_markdown).toContain("les brouillons de leçons inachevées");
+    expect(report.display_markdown).not.toMatch(/Rien à effacer/);
+  });
+
+  it("forget(session) keeps them, and says where they are", async () => {
+    const { host, library, play } = await setup();
+    const open = await play("atomes/lesson.json", "ana");
+    keepDraft(library);
+    const report = await host.forget(open, "en");
+    expect(report.kept).toContainEqual({ kind: "lesson_drafts", path: join(library, "_drafts") });
+    expect(existsSync(join(library, "_drafts"))).toBe(true);
+    expect(report.display_markdown).toContain(join(library, "_drafts"));
+  });
+});

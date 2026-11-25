@@ -4,11 +4,20 @@ import {
   operatorContext, promptAnswerMarkdown, contestOpenedMarkdown, type ActReceived, type InteractionAct, type PromptSurface,
 } from "@studium/lesson-session-host";
 import type { ResponseInput } from "@studium/lesson-session";
+import type { ToolAnnotations } from "@modelcontextprotocol/sdk/types.js";
 import { getBuildInfo, SERVER_VERSION } from "./build-info.js";
 import { FEEDBACK } from "./feedback.js";
 import { phrase } from "../../../packages/lesson-panel/src/phrases.js";
 
 export type ToolResult = { content: Array<{ type: "text"; text: string }>; isError?: boolean };
+
+/** The MCP annotations of a tool that writes nothing: no file, no learner state, no telemetry, no change
+ * to a session. A client may then run it without asking the person first (VS Code asks for any other
+ * tool). A tool that reads but feeds a session's proposals, marks them said or moves a cursor is not one.
+ * The one write such a tool can cause is the one the first call of a fresh durable server causes, whatever
+ * the tool: creating the data folder's pseudonym key (Studium's own key, no learner data). */
+export const READ_ONLY = { readOnlyHint: true } as const satisfies ToolAnnotations;
+
 type ReinforcementStatus = Awaited<ReturnType<SessionHost["reinforcementStatusForSession"]>>;
 type RoutedReinforcementTarget = ReinforcementStatus["due"][number];
 const text = (data: unknown): ToolResult => ({ content: [{ type: "text", text: JSON.stringify(data) }] });
@@ -171,6 +180,8 @@ export interface Operation {
   name: string;
   description: string;
   inputSchema: z.ZodRawShape;
+  /** READ_ONLY for a tool that writes nothing; absent otherwise. */
+  annotations?: ToolAnnotations;
   invoke: (args: Record<string, unknown>) => Promise<ToolResult>;
 }
 
@@ -194,7 +205,7 @@ export function lessonOperations(host: SessionHost, opts: LessonOperationsOption
   // INT-STUDIUM-058 § 2.6: the screens these tools serve are read in the conversation (rank 1).
   const surface = (): { promptSurface: PromptSurface } => ({ promptSurface: { rank: 1, formsAvailable: opts.formsAvailable?.() ?? false } });
   const server = {
-    registerTool<S extends z.ZodRawShape>(name: string, config: {description: string; inputSchema: S}, callback: (args: z.infer<z.ZodObject<S>>) => Promise<ToolResult>) {
+    registerTool<S extends z.ZodRawShape>(name: string, config: {description: string; inputSchema: S; annotations?: ToolAnnotations}, callback: (args: z.infer<z.ZodObject<S>>) => Promise<ToolResult>) {
       operations.push({name, ...config, invoke: async args => callback(z.object(config.inputSchema).strict().parse(args))});
     },
   };
@@ -212,6 +223,7 @@ export function lessonOperations(host: SessionHost, opts: LessonOperationsOption
     catch (e) { return fail((e as Error).message); }
   });
   server.registerTool("get_experiment_journal", {
+    annotations: READ_ONLY,
     description: "Read this learner's private experiment contributions to resume across harnesses. " +
       "Contains learner text; do not share with teacher analytics or another learner. No grading.",
     inputSchema: { session_id: z.string() },
@@ -233,6 +245,7 @@ export function lessonOperations(host: SessionHost, opts: LessonOperationsOption
   });
 
   server.registerTool("get_server_info", {
+    annotations: READ_ONLY,
     description: "Describe this Studium MCP server build, runtime configuration, and complete tool surface. " +
       "feedback gives where a difficulty with Studium itself is reported (issues, contributing, security) and what a report holds.",
     inputSchema: {},
@@ -269,6 +282,7 @@ export function lessonOperations(host: SessionHost, opts: LessonOperationsOption
   server.registerTool(
     "list_community_bundles",
     {
+      annotations: READ_ONLY,
       description: "List the approved community (learner-authored) bundles under BUNDLES_ROOT as " +
         "{bundles:[{bundle_ref, course_id, item_id}]}. With course_id, only <course_id>/community/; without, " +
         "the legacy root-level community/ (course_id null) plus every course directory's. Each bundle_ref " +
@@ -395,6 +409,7 @@ export function lessonOperations(host: SessionHost, opts: LessonOperationsOption
   server.registerTool(
     "get_scene_artifacts",
     {
+      annotations: READ_ONLY,
       description: "Get the normalized render manifest (scene_assets[]) for the current scene — the " +
         "artifacts a UI pairs with this scene: {kind: image|svg|equation_latex|plot_spec|code|data_csv|" +
         "protocol_md|executed_result, title?, payload?, path?, legend?: [{symbol, meaning}], meta?}. Empty for a plain quiz. A webview " +
@@ -411,6 +426,7 @@ export function lessonOperations(host: SessionHost, opts: LessonOperationsOption
   server.registerTool(
     "get_next_reinforcement",
     {
+      annotations: READ_ONLY,
       description: "FSRS ROUTER: the single most-urgent concept to REINFORCE now (mastered earlier but " +
         "whose recall is decaying), plus every due target in priority order. With session_id it unions " +
         "session and cross-lesson profile memory; learner_id works without a live session. " +
@@ -447,6 +463,7 @@ export function lessonOperations(host: SessionHost, opts: LessonOperationsOption
   server.registerTool(
     "get_run_manifest",
     {
+      annotations: READ_ONLY,
       description: "Get the learner-time RUN manifest for the current scene — the provisioning/run " +
         "instructions {capsule_ref, cmd, working_dir?, timeout_s?, requirements?, expected_outputs[], " +
         "verify_checks[], research_question?} — when the current scene is a reproduction the LEARNER must " +
@@ -527,6 +544,7 @@ export function lessonOperations(host: SessionHost, opts: LessonOperationsOption
   server.registerTool(
     "explain_last_adaptation",
     {
+      annotations: READ_ONLY,
       description: "Explain the last adaptation decision (rule_id + modulator + short explanation), or null.",
       inputSchema: { session_id: z.string() },
     },
@@ -539,6 +557,7 @@ export function lessonOperations(host: SessionHost, opts: LessonOperationsOption
   server.registerTool(
     "get_workflow_graph",
     {
+      annotations: READ_ONLY,
       description: "Get the Learning Workflow Graph for the session as a normalized GraphView with " +
         "LIVE per-concept state (mastered/current/available/locked) from the learner's running mastery. " +
         "Shape: {schema, domain, title?, nodes:[{id,type,label,group?,state?,value?}], edges:[{id,source,target,type}], focus?, legend?}. " +
@@ -558,6 +577,7 @@ export function lessonOperations(host: SessionHost, opts: LessonOperationsOption
   server.registerTool(
     "get_session_state",
     {
+      annotations: READ_ONLY,
       description: "Get the learner state (concept mastery, completed scenes, history) for a session.",
       inputSchema: { session_id: z.string() },
     },
@@ -663,6 +683,7 @@ export function lessonOperations(host: SessionHost, opts: LessonOperationsOption
   server.registerTool(
     "get_peer_room_state",
     {
+      annotations: READ_ONLY,
       description: "Teacher reads the current PeerStudio room state: session count, rating count, and k-suppressed per-target aggregates (passed_rate, avg_rating, avg_helpful). Gated by the teacher_key.",
       inputSchema: { room_id: z.string(), teacher_key: z.string() },
     },

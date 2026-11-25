@@ -59,19 +59,24 @@ the result. The lesson stays in your personal library and
 is never published, but you remain responsible for using the source under its terms. One coherent source
 usually makes a better lesson than many.
 
-## 3. Look at the outline
+## 3. Look at the sketch, then the lesson
 
-The assistant writes the lesson and calls `create_lesson`. Studium checks it before writing anything: every
+Before it writes the lesson, the assistant shows you a short sketch: the goal, the concepts, and the title and
+kind of each step, never an answer. It goes on without waiting for your approval; say what you would change at
+any time. It then writes the lesson once, straight into its `create_lesson` call. Studium checks it before writing anything: every
 quotation must match a passage character for character (only no-break spaces, runs of whitespace and
 typographic apostrophes are folded), nothing may be left unfinished, and the order of ideas must hold together.
-The assistant fixes what Studium refuses. Studium may also warn, for example when the lesson is longer than
+When Studium refuses, nothing is written: it keeps the draft, and the assistant fixes and sends again only the scenes
+the refusal names (the whole draft only when an error concerns the concepts, the goal, the title or the order of
+the scenes). Studium may also warn, for example when the lesson is longer than
 your minutes a day or when a prerequisite has no question that checks it.
 
 The lesson is written to your library, `~/.studium/library/<course>/lesson.json`, whatever lessons folder the
 server also reads.
 
-You then see the outline: scene titles, scene types and concepts, never an answer. If it does not match what
-you wanted, say so; the assistant revises the draft and rebuilds the lesson.
+Once the lesson is written, the assistant shows only what differs from the sketch, never an answer. If it does
+not match what you wanted, say so; the assistant revises the draft and rebuilds the lesson. If your assistant
+keeps a to-do list, it ticks the stages there: sources, sketch, writing, checking.
 
 ## 4. Play it, in the chat or in VS Code
 
@@ -128,7 +133,8 @@ leave the question; a retry of the same question keeps them back. More in
 Open a new conversation and ask "What should I study with Studium today?". The assistant calls
 `get_study_plan` in your language, which lists the reviews due, the lessons in progress and the next lesson, and names the one
 step to take now. `start_review_session` then plays every review due, across all your lessons. See
-[review over time](review-over-time.md).
+[review over time](review-over-time.md). If building a lesson stopped before it was written, the plan offers to
+finish it, for 14 days; say you no longer want it and it is not offered again.
 
 If you simply take a lesson up again, its first screen says so, and when reviews are due it proposes them at the start
 of the session, or at the first pause after it when the session started on a question, once per session:
@@ -150,7 +156,7 @@ your first name) on every call.
 |---|---|---|
 | "Stop here for today." | `end_session` | Closes the session and keeps your progress. Starting the lesson again resumes it. |
 | "Erase my data for this lesson." | `forget_session {session_id}` | Erases your progress in this lesson, its experiment journal, and your cross-lesson profile and study record. Cannot be undone. |
-| "Erase all my Studium data." | `forget_session {learner_id}` | The same, plus your progress in every other lesson, without a lesson open. Cannot be undone. |
+| "Erase all my Studium data." | `forget_session {learner_id}` | The same, plus your progress in every other lesson and the drafts of unfinished lessons, without a lesson open. Cannot be undone. |
 
 The assistant then shows what was erased and what stays. Forgetting does not delete the lessons in your library
 (`~/.studium/library/<course>/`) or the prepared sources (`~/.studium/library/_sources/`), nor the conversation

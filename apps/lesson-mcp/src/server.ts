@@ -19,7 +19,7 @@ import {
   SessionHost, NowMsSchema, publicPresentation, operatorContext, type SelfRating, type PromptSurface, type SourceFilePolicy,
 } from "@studium/lesson-session-host";
 import {
-  CONVERSATION, lessonOperations, TOOL_NAMES as LESSON_TOOL_NAMES, type Operation, type SurfaceRank, type ToolResult,
+  CONVERSATION, READ_ONLY, lessonOperations, TOOL_NAMES as LESSON_TOOL_NAMES, type Operation, type SurfaceRank, type ToolResult,
 } from "./operations.js";
 import { AUTHORING_TOOL_NAMES, registerAuthoringTools } from "./authoring-tools.js";
 import { TEACHER_TOOL_NAMES, registerTeacherTools } from "./teacher-tools.js";
@@ -50,13 +50,13 @@ export const SERVER_INSTRUCTIONS = [
   "Studium teaches through the learner's own answers: you relay, the learner answers.",
   "- Start with get_study_plan: its next_step names the call to make and its arguments (start_review_session, start_lesson_session, or the authoring tools). To a learner with no lesson yet it proposes the demo lesson shipped with Studium (about 10 minutes, on how Studium works): offer it before building a lesson, unless they came with a topic of their own.",
   "- Pass one stable learner_id per person on every call; without one, persistence.learner_id_default (get_server_info) applies.",
-  "- Pass the learner's language (fr or en) to get_study_plan, list_lessons and start_review_session.",
+  "- Pass the learner's language (fr or en) to get_study_plan, list_lessons, start_review_session and get_authoring_guide.",
   "- Show display_markdown as it is and add nothing of your own unless the learner asks (they wait on every word): on a presentation; after an answer, verdict.display_markdown first, then the transition's.",
   "- On the first screen, relay the authoring notice; if persistence.durable is false, tell the learner progress is lost at restart.",
   `- Wait for the learner's answer and send their words with ${REPLY_CALL}; never answer, choose or rate for them.`,
   "- When a transition carries self_rating, ask the learner to rate their recall and call rate_recall: it schedules reviews, never mastery.",
   "- start_review_session plays every review due, across lessons; list_lessons shows what can be started.",
-  "- To learn from new sources: get_authoring_guide, prepare_sources, create_lesson, then start_lesson_session. In prepare_sources, name a file on this computer by its path (Studium reads it: do not copy its text) and pass the text of what you fetched from the web.",
+  "- To learn from new sources: get_authoring_guide, prepare_sources, create_lesson, then start_lesson_session. Writing a lesson takes minutes: relay get_authoring_guide's tell_learner as it is, with your prepare_sources call, and go on without waiting for a reply. In prepare_sources, name a file on this computer by its path (Studium reads it: do not copy its text) and pass the text of what you fetched from the web. Then show a short sketch (goal, concepts, step titles; never a key) and go on; write the draft once, in the create_lesson call; after a refusal, resend only the scenes it names, with draft_id.",
   "- When the learner asks where they are, show the map (get_workflow_graph). Offer once, at a pause, never between a question and its answer: at the end, the map as a page on the learner's yes (export_concept_map); in a working conversation, a short lesson from it when the person wants to understand it (prepare_sources, kind \"conversation\"). When the learner says they already know a concept of the map, or doubt one they got, relay it with submit_response {kind: \"contest\", concept_id, claim}, the id as the map names it; never contest for them.",
   "- Never call forget_session unless the learner asks to erase their data: it deletes their progress for good.",
   "- When Studium itself fails, contradicts its documentation or cannot do what the person asks, say so plainly and help them on; then offer once, at a pause, to report it or propose a change (get_server_info.feedback gives the addresses and what a report holds). The person posts it, or asks you to once they have read the final text; a lesson's content goes to its teacher or author.",
@@ -104,6 +104,9 @@ const languageArg = z.enum(["fr", "en"], { errorMap: () => ({ message: "language
   .describe("fr or en: the language of display_markdown and of the next step; defaults to the language of the " +
     "learner's last lesson, else the server's");
 
+/** `op`, annotated as a tool that writes nothing (READ_ONLY). */
+const readOnly = (op: Operation): Operation => ({ ...op, annotations: READ_ONLY });
+
 /** The C1 study tools, transport-independent like lessonOperations (an HTTP surface can add them as is). */
 export function studyOperations(
   host: SessionHost, opts: { formsAvailable?: () => boolean; surfaceRankOf?: (sessionId: string) => SurfaceRank } = {},
@@ -113,7 +116,7 @@ export function studyOperations(
   // The conversation tools log the rank the session is played on, not always the conversation's own.
   const rankOf = (sessionId: string): SurfaceRank => opts.surfaceRankOf?.(sessionId) ?? 1;
   return [
-    operation("list_lessons",
+    readOnly(operation("list_lessons",
       "List the lessons this server can start, from BUNDLES_ROOT and the learner's library, read afresh (a lesson " +
       "written a moment ago is listed): bundle_ref (pass it to start_lesson_session), title, language, concepts, who " +
       "wrote it (authoring.mode, drafted_by), and with learner_id the learner's status (new | in_progress | completed). " +
@@ -124,19 +127,24 @@ export function studyOperations(
       async ({ query, learner_id, language }) => host.listLessons({
         ...(query === undefined ? {} : { query }), ...(learner_id === undefined ? {} : { learnerId: learner_id }),
         ...(language === undefined ? {} : { language }),
-      })),
+      }))),
 
-    operation("get_study_plan",
+    readOnly(operation("get_study_plan",
       "Start here: what the learner should do now. Reviews due (with dates), concepts to relearn, lessons in progress, " +
-      "the next lesson, and next_step {action: review|continue|start|author|wait, tool, arguments, text} naming the " +
-      "call to make with its arguments (language included where the tool takes one). With the minutes a day the " +
+      "the next lesson, and next_step {action: review|finish|continue|start|author|wait, tool, arguments, text} naming the " +
+      "call to make with its arguments (language included where the tool takes one). finish: a lesson build stopped " +
+      "before its lesson was written; unfinished_build gives its sources, prepare_sources (the arguments that prepare " +
+      "them again, or null for a source given as text) and, for a draft Studium refused and kept, draft_id, fix_scenes " +
+      "and a keyless outline. If the learner wants it, read the guide, prepare the sources again and call create_lesson " +
+      "(with draft_id and only the scenes in fix_scenes when there is a draft_id); if not, create_lesson " +
+      "{source_set_id, discard: true}. With the minutes a day the " +
       "learner gave, minutes_per_day and next_step.estimated_minutes size the step. display_markdown is the plan in " +
       "`language`, ready to show. A learner with no lesson of their own gets the demo lesson shipped with Studium as the " +
       "step to start (before authoring). Dates (due_date, next_review_date) are days in get_server_info.time_zone.",
       { learner_id: learnerIdArg, now_ms: nowMsArg, language: languageArg },
       async ({ learner_id, now_ms, language }) => host.studyPlan(learner_id, {
         ...(now_ms === undefined ? {} : { nowMs: now_ms }), ...(language === undefined ? {} : { language }),
-      })),
+      }))),
 
     operation("start_review_session",
       "Start a review session: one retrieval scene per concept due, taken from the lessons the learner studied — " +
@@ -301,7 +309,9 @@ export function buildMcpServer(host: SessionHost): McpServer {
     ...lessonOperations(host, { toolNames: () => registered, formsAvailable, surfaceRankOf }),
     ...studyOperations(host, { formsAvailable, surfaceRankOf }),
   ]) {
-    const registeredTool = server.registerTool(op.name, { description: op.description, inputSchema: op.inputSchema }, async (args) => {
+    const registeredTool = server.registerTool(op.name, {
+      description: op.description, inputSchema: op.inputSchema, ...(op.annotations ? { annotations: op.annotations } : {}),
+    }, async (args) => {
       const result = await op.invoke(args);
       await panels.observe(op.name, args, result);
       return result;

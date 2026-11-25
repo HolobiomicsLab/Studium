@@ -32,6 +32,20 @@ test("tool results render; actions round-trip, resize, localize and open links t
   assert.ok(m.sizes.length >= 4);
   m.dom.window.close();
 });
+// BN-8 (waiting review 2026-11-25): the MCP server sends an MCP Apps panel its view with an empty phrase
+// catalogue. A guard: the panel's labels come from its own app (browserPhrases), in the host's language.
+test("a view sent with an empty phrase catalogue is painted with the panel's own labels", async () => {
+  const phrases = await build({ stdin: { contents: 'export { browserPhrases } from "../../../packages/lesson-panel/src/phrases.ts";', resolveDir: new URL(".", import.meta.url).pathname, loader: "js" }, bundle: true, write: false, format: "esm", platform: "browser" });
+  const { browserPhrases } = await import(`data:text/javascript;base64,${Buffer.from(phrases.outputFiles[0].text).toString("base64")}`);
+  const m = setup();
+  await connectMcpApp(m.app, m.env);
+  m.app.ontoolresult({ structuredContent: { panel: { ...initial, strings: {} } } });
+  const labels = () => [...m.dom.window.document.querySelectorAll("button")].map(button => button.textContent.trim());
+  assert.ok(labels().includes(browserPhrases("en").pane_continue));
+  m.app.onhostcontextchanged({ locale: "fr-FR" });
+  assert.ok(labels().includes(browserPhrases("fr").pane_continue));
+  m.dom.window.close();
+});
 test("an in-flight action cannot be sent twice and settles after rejection", async () => {
   let reject;
   const m = setup({ callServerTool: () => new Promise((_, rejectCall) => { reject = rejectCall; }) });

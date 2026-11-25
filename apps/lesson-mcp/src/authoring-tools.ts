@@ -11,13 +11,19 @@
 //   registerAuthoringTools(server, { libraryRoot, onLessonWritten, judge? })
 //
 // Results never carry a key: create_lesson returns a keyless outline, not the bundle.
+//
+// D4 (waiting review 2026-11-25): a refused draft is kept, and create_lesson takes either the whole draft
+// or {draft_id, scenes: [{at, ...scene}]}, the scenes its refusal named (a zod raw shape cannot say « one
+// of the two »: createLesson refuses both or neither). discard: true drops an unfinished build that
+// get_study_plan offers, when the learner does not want it. No tool is added.
 import { z } from "zod";
 import { zodToJsonSchema } from "zod-to-json-schema";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import {
-  AuthoringInputError, GUIDE_VERSION, LessonDraftSchema, SOURCE_KINDS, authoringGuide, authoringOf, createLesson, guideLanguageOf,
-  prepareSources, type SourceFilePolicy,
+  AuthoringInputError, GUIDE_VERSION, LessonDraftSchema, SOURCE_KINDS, authoringGuide, authoringOf, createLesson, discardBuild,
+  guideLanguageOf, prepareSources, type SourceFilePolicy,
 } from "@studium/lesson-session-host";
+import { READ_ONLY } from "./operations.js";
 
 export const AUTHORING_TOOL_NAMES = ["create_lesson", "get_authoring_guide", "prepare_sources"] as const;
 
@@ -62,14 +68,17 @@ function draftSchema(): unknown {
 /** Register get_authoring_guide, prepare_sources and create_lesson on `server`; returns their names. */
 export function registerAuthoringTools(server: McpServer, ctx: AuthoringToolsContext): string[] {
   server.registerTool("get_authoring_guide", {
-    description: "Start here to create a Studium lesson from sources the learner chose. Returns the authoring brief " +
+    description: "Start here to create a Studium lesson from sources the learner chose. Returns tell_learner, one " +
+      "sentence saying that writing the lesson takes a few minutes: tell it to the learner as it is, with your " +
+      "prepare_sources call, and go on without waiting for a reply. Then the authoring brief " +
       "(markdown, French for a fr-* language, English otherwise), draft_schema (the JSON Schema of a LessonDraft) and a " +
       "minimal valid example. mode: self_study (default) or teacher (says where the teacher route starts).",
     inputSchema: { language: z.string().min(2).max(35).optional(), mode: z.enum(["self_study", "teacher"]).optional() },
+    annotations: READ_ONLY,
   }, async ({ language, mode }) => {
     const guide = authoringGuide({ language, mode });
     return reply({
-      version: guide.version, language: guide.language, mode: guide.mode, guide: guide.markdown,
+      version: guide.version, language: guide.language, mode: guide.mode, tell_learner: guide.tell_learner, guide: guide.markdown,
       draft_schema: draftSchema(), example: guide.example,
     });
   });
@@ -106,23 +115,39 @@ export function registerAuthoringTools(server: McpServer, ctx: AuthoringToolsCon
   });
 
   server.registerTool("create_lesson", {
-    description: "Check a complete LessonDraft (see get_authoring_guide) against its source set — every quote to the " +
-      "character, no TODO, a sound concept graph — then build the lesson and write it to the learner's library. Returns " +
-      "{ok: true, course_ref, outline, key_classes, findings: [{level, code, message, hint?}], notice} or {ok: false, " +
-      "errors: [{path, message, hint}]}: fix " +
-      "the draft and call again (errors may quote the draft's own keys: keep them from the learner). The outline holds " +
-      "no key; show it to the learner and never show a key. Then start the " +
-      "lesson with start_lesson_session {bundle_ref: course_ref} and relay the notice. An existing lesson is replaced only " +
-      "with overwrite: true, and only a self-study lesson no teacher validated or approved.",
+    description: "Check a LessonDraft (see get_authoring_guide) against its source set — every quote to the " +
+      "character, no TODO, a sound concept graph — then build the lesson and write it to the learner's library. Send the " +
+      "whole draft as draft, written once, in this call; or, after a refusal that returned draft_id, draft_id with " +
+      "scenes: [{at, ...scene}], only the scenes the refusal named, each the whole corrected scene at that index (never " +
+      "draft and draft_id together). Returns {ok: true, course_ref, outline, key_classes, findings: [{level, code, message, " +
+      "hint?}], notice} or {ok: false, errors: [{path, message, hint}], resend?, draft_id?, fix_scenes?, hint?}: no lesson " +
+      "is written. When the errors are about the draft, Studium keeps it: resend \"scenes\" means fix only the scenes " +
+      "in fix_scenes and send them with draft_id; resend \"draft\" means fix every error and send the whole draft " +
+      "again (an error concerns the concepts, goal, title, course_id or the order of the scenes). Errors may quote the draft's own keys: keep " +
+      "them from the learner. The outline holds no key: show the learner only what differs from the sketch you showed " +
+      "before writing, never a key. Then start the lesson with start_lesson_session {bundle_ref: course_ref} and relay " +
+      "the notice. An existing lesson is replaced only with overwrite: true, and only a self-study lesson no teacher " +
+      "validated or approved. {source_set_id, discard: true} drops the unfinished build get_study_plan offers, when the " +
+      "learner does not want it finished: it is not offered again.",
     inputSchema: {
       source_set_id: z.string(),
-      draft: z.record(z.string(), z.unknown()),
+      draft: z.record(z.string(), z.unknown()).optional(),
+      draft_id: z.string().optional(),
+      scenes: z.array(z.record(z.string(), z.unknown())).optional(),
       course_id: z.string().optional(),
       overwrite: z.boolean().optional(),
+      discard: z.boolean().optional(),
     },
-  }, async ({ source_set_id, draft, course_id, overwrite }) => {
+  }, async ({ source_set_id, draft, draft_id, scenes, course_id, overwrite, discard }) => {
     try {
-      const result = await createLesson(ctx.libraryRoot(), { source_set_id, draft, course_id, overwrite },
+      if (discard === true) {
+        if (draft !== undefined || draft_id !== undefined || scenes !== undefined) {
+          return refuse({ ok: false, errors: [{ path: "discard", message: "discard takes only source_set_id", hint: "send discard: true alone to drop the unfinished build, or a draft to build it" }] });
+        }
+        await discardBuild(ctx.libraryRoot(), source_set_id, new Date());
+        return reply({ ok: true, discarded: source_set_id });
+      }
+      const result = await createLesson(ctx.libraryRoot(), { source_set_id, draft, draft_id, scenes, course_id, overwrite },
         ctx.servedElsewhere ? { servedElsewhere: (id) => ctx.servedElsewhere!(id) } : {});
       if (!result.ok) return refuse(result);
       ctx.onLessonWritten(result.course_ref);
