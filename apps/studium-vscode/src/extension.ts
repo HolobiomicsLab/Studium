@@ -39,7 +39,10 @@ import {
 import { readConceptTitles } from "./bundle-titles.js";
 import { parseRateRecall } from "./pane-messages.js";
 import { sessionLostReason } from "./session-lost.js";
-import { DEBOUNCE_MS, LibraryWatch, readLessonFacts, readSourceSetFacts, type LibraryWatchAction } from "./library-watch.js";
+import {
+  DEBOUNCE_MS, LibraryWatch, dontShowLessonReadyAgain, lessonReadyMuted, migrateLessonReadyMute, readLessonFacts, readSourceSetFacts,
+  type LessonReadySetting, type LibraryWatchAction,
+} from "./library-watch.js";
 
 type Json = Record<string, any>;
 
@@ -89,8 +92,11 @@ let lessonsFolderWatcher: vscode.Disposable | undefined;
 
 const TRUSTED_RUNS_KEY = "studium.trustedRuns";
 const LAST_LESSON_KEY = "studium.lastLesson";
-/** BN-1: the learner chose « Don't show again » on a lesson-ready notice. */
+/** BN-1: the learner chose « Don't show again » on a lesson-ready notice, before studium.notifyLessonReady existed (or
+ * when the user settings could not be written): moved into that setting at start. */
 const LESSON_READY_MUTED_KEY = "studium.lessonReadyMuted";
+/** Review finding 4: the setting « Don't show again » turns off, so the learner can turn the notices back on. */
+const NOTIFY_LESSON_READY = "notifyLessonReady";
 /** BN-1: the lesson versions already announced, shared by every window (each runs its own watcher). */
 const LESSON_READY_SHOWN_KEY = "studium.lessonReadyShown";
 const LESSON_VIEW_TYPE = "studiumLesson";
@@ -269,6 +275,15 @@ function sameFolder(a: string, b: string): boolean {
  * bar. Nothing here starts a server: refreshStudyStatus is not called on file events. */
 function setUpLibraryWatch(context: vscode.ExtensionContext, library: string) {
   const shownKeys = () => context.globalState.get<string[]>(LESSON_READY_SHOWN_KEY) ?? [];
+  // « Don't show again » is the user setting studium.notifyLessonReady; the flag of earlier versions is moved into it now.
+  const noticeSetting: LessonReadySetting = {
+    enabled: () => cfg<boolean>(NOTIFY_LESSON_READY, true) !== false,
+    userValue: () => vscode.workspace.getConfiguration("studium").inspect<boolean>(NOTIFY_LESSON_READY)?.globalValue,
+    setUserValue: (on) => vscode.workspace.getConfiguration("studium").update(NOTIFY_LESSON_READY, on, vscode.ConfigurationTarget.Global),
+    legacyMuted: () => context.globalState.get<boolean>(LESSON_READY_MUTED_KEY) === true,
+    setLegacyMuted: (muted) => context.globalState.update(LESSON_READY_MUTED_KEY, muted ? true : undefined),
+  };
+  void migrateLessonReadyMute(noticeSetting);
   const watch = new LibraryWatch({
     library,
     readLesson: readLessonFacts,
@@ -277,7 +292,7 @@ function setUpLibraryWatch(context: vscode.ExtensionContext, library: string) {
     setTimer: (fn, ms) => setTimeout(fn, ms),
     clearTimer: (handle) => clearTimeout(handle as ReturnType<typeof setTimeout>),
     focused: () => vscode.window.state?.focused !== false,
-    muted: () => context.globalState.get<boolean>(LESSON_READY_MUTED_KEY) === true,
+    muted: () => lessonReadyMuted(noticeSetting),
     shown: {
       has: (key) => shownKeys().includes(key),
       add: (key) => { void context.globalState.update(LESSON_READY_SHOWN_KEY, [...shownKeys().filter((k) => k !== key), key].slice(-20)); },
@@ -285,7 +300,7 @@ function setUpLibraryWatch(context: vscode.ExtensionContext, library: string) {
     act: (action) => {
       if (action.kind === "refresh") treeProvider?.refresh();
       else if (action.kind === "status") applyStudyStatus();
-      else void announceLesson(context, library, action);
+      else void announceLesson(context, library, action, noticeSetting);
     },
   });
   libraryWatch = watch;
@@ -337,9 +352,12 @@ function watchLessonsFolder(context: vscode.ExtensionContext, library: string) {
 }
 
 /** BN-1: « Your lesson … is ready »: Open plays it from the library (no setting is written), Later does nothing, Don't
- * show again is kept in the global state. Lessons that landed together share one notice, whose Show opens the Studium
- * view, where they are listed. The pane is never opened unasked: it would take the focus from the chat. */
-async function announceLesson(context: vscode.ExtensionContext, library: string, notice: Extract<LibraryWatchAction, { kind: "notify" }>) {
+ * show again turns off the user setting studium.notifyLessonReady, which the learner can turn back on. Lessons that
+ * landed together share one notice, whose Show opens the Studium view, where they are listed. The pane is never opened
+ * unasked: it would take the focus from the chat. */
+async function announceLesson(
+  context: vscode.ExtensionContext, library: string, notice: Extract<LibraryWatchAction, { kind: "notify" }>, setting: LessonReadySetting,
+) {
   const locale = extensionLocale;
   const [first] = notice.lessons;
   if (!first) return;
@@ -350,7 +368,7 @@ async function announceLesson(context: vscode.ExtensionContext, library: string,
   const choice = await vscode.window.showInformationMessage(lessonReadyMessage(notice.lessons, locale), open, later, never);
   if (choice === open && several) await vscode.commands.executeCommand("workbench.view.extension.studium");
   else if (choice === open) await openLesson(context, first.ref, "lesson", { bundlesRoot: library });
-  else if (choice === never) await context.globalState.update(LESSON_READY_MUTED_KEY, true);
+  else if (choice === never) await dontShowLessonReadyAgain(setting);
 }
 
 function applyStudyStatus() {

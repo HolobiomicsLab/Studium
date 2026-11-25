@@ -10,7 +10,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
-  DEBOUNCE_MS, LibraryWatch, OWN_MS, PREPARING_MAX_MS, readLessonFacts, readSourceSetFacts, type LibraryWatchAction,
+  DEBOUNCE_MS, LibraryWatch, OWN_MS, PREPARING_MAX_MS, dontShowLessonReadyAgain, lessonReadyMuted, migrateLessonReadyMute, readLessonFacts,
+  readSourceSetFacts, type LessonReadySetting, type LibraryWatchAction,
 } from "./library-watch.js";
 
 const failures: string[] = [];
@@ -345,9 +346,76 @@ function harness(opts: { focused?: boolean; muted?: boolean; shown?: Set<string>
   expect(h.kinds() === "status", `after dispose, nothing more happens (got ${h.kinds()})`);
 }
 
-if (failures.length) {
-  console.error(`FAIL — ${failures.length}/${checks} library-watch assertions failed:`);
-  for (const f of failures) console.error("  - " + f);
-  process.exit(1);
+// Review finding 4: « Don't show again » turns off the user setting studium.notifyLessonReady, so the learner can turn the
+// notice back on. Before the setting, the choice was a global-state flag nothing could undo: it is moved into the setting
+// once, at start, and then forgotten. The setting and the flag are faked here; extension.ts maps them onto VS Code.
+function noticeSetting(init: { user?: boolean; legacy?: boolean; unwritable?: boolean } = {}) {
+  const state = { user: init.user, legacy: init.legacy ?? false, unwritable: init.unwritable ?? false, writes: [] as boolean[] };
+  const setting: LessonReadySetting = {
+    enabled: () => state.user !== false,
+    userValue: () => state.user,
+    setUserValue: async (on) => {
+      if (state.unwritable) throw new Error("Unable to write into user settings.");
+      state.writes.push(on);
+      state.user = on;
+    },
+    legacyMuted: () => state.legacy,
+    setLegacyMuted: async (muted) => { state.legacy = muted; },
+  };
+  return { state, setting };
 }
-console.log(`OK — library-watch (lesson ready, preparing) passed all ${checks} assertions.`);
+/** These cases await the setting's writes; the package is CommonJS, so no top-level await. */
+async function lessonReadySettingCases() {
+  {
+    const { state, setting } = noticeSetting();
+    expect(!lessonReadyMuted(setting), "by default, lesson-ready notices are on");
+    await dontShowLessonReadyAgain(setting);
+    expect(JSON.stringify(state.writes) === "[false]" && !state.legacy && lessonReadyMuted(setting),
+      `Don't show again writes false to the user setting, not the old flag (got ${JSON.stringify(state)})`);
+    state.user = true; // the learner turns the setting back on in the Settings editor
+    expect(!lessonReadyMuted(setting), "turning the setting back on brings the notices back");
+    await migrateLessonReadyMute(setting);
+    expect(!lessonReadyMuted(setting) && state.writes.length === 1, "and the next start does not mute them again");
+  }
+  {
+    const { state, setting } = noticeSetting({ legacy: true });
+    expect(lessonReadyMuted(setting), "the flag of an earlier version still mutes before it is moved");
+    await migrateLessonReadyMute(setting);
+    expect(state.user === false && !state.legacy && lessonReadyMuted(setting),
+      `at start the flag becomes the user setting, and is forgotten (got ${JSON.stringify(state)})`);
+    state.user = true;
+    expect(!lessonReadyMuted(setting), "so turning the setting back on is enough");
+  }
+  {
+    const { state, setting } = noticeSetting({ legacy: true, user: true });
+    await migrateLessonReadyMute(setting);
+    expect(state.writes.length === 0 && !state.legacy && !lessonReadyMuted(setting),
+      `a learner who already set the setting keeps their choice; the flag is forgotten (got ${JSON.stringify(state)})`);
+  }
+  {
+    const { state, setting } = noticeSetting();
+    await migrateLessonReadyMute(setting);
+    expect(state.writes.length === 0 && state.user === undefined, "without the flag, the start writes no setting");
+  }
+  {
+    // A settings.json VS Code cannot write (one with a syntax error, say): the choice is kept in the flag meanwhile.
+    const { state, setting } = noticeSetting({ unwritable: true });
+    let threw = false;
+    try { await dontShowLessonReadyAgain(setting); } catch { threw = true; }
+    expect(!threw && state.legacy && lessonReadyMuted(setting), `unwritable settings: Don't show again still holds, in the flag (got ${JSON.stringify(state)})`);
+    await migrateLessonReadyMute(setting);
+    expect(state.legacy && lessonReadyMuted(setting), "a start that still cannot write keeps the flag");
+    state.unwritable = false;
+    await migrateLessonReadyMute(setting);
+    expect(state.user === false && !state.legacy, `the first start that can write moves it into the setting (got ${JSON.stringify(state)})`);
+  }
+}
+
+void lessonReadySettingCases().catch((error) => { failures.push(`the lesson-ready setting cases threw: ${error}`); }).finally(() => {
+  if (failures.length) {
+    console.error(`FAIL — ${failures.length}/${checks} library-watch assertions failed:`);
+    for (const f of failures) console.error("  - " + f);
+    process.exit(1);
+  }
+  console.log(`OK — library-watch (lesson ready, preparing) passed all ${checks} assertions.`);
+});

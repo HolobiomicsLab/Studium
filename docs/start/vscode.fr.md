@@ -54,8 +54,9 @@ tourne depuis un clone de Studium, sinon votre bibliothèque personnelle, `~/.st
 cette bibliothèque au démarrage si elle manque, et la surveille : une leçon qu'un assistant y écrit est listée
 et annoncée, avec **Ouvrir**, **Plus tard** et **Ne plus afficher**. Des leçons arrivées ensemble partagent
 une seule notification, dont **Afficher** ouvre la vue Studium. Une leçon que vous y copiez vous-même est
-listée mais pas annoncée. Si `studium.bundlesRoot` désigne un autre dossier, les leçons de la bibliothèque
-sont listées à part, sous **Ta bibliothèque**.
+listée mais pas annoncée. **Ne plus afficher** désactive le réglage `studium.notifyLessonReady` :
+réactivez-le dans l'éditeur de réglages pour revoir les notifications. Si `studium.bundlesRoot` désigne
+un autre dossier, les leçons de la bibliothèque sont listées à part, sous **Ta bibliothèque**.
 
 ### De la conversation au panneau
 
@@ -195,6 +196,7 @@ contrôle la sortie s'exécute sous une limite de 50 ms : une leçon défectueu
 | `studium.assets` | `vendor` | charger KaTeX et Vega hors ligne (`vendor`) ou depuis un CDN (`cdn`) |
 | `studium.learnerId` | `vscode-learner` | votre identifiant d'apprenant ; il sale votre pseudonyme sur le disque |
 | `studium.registerMcpServer` | `true` | proposer le serveur de l'extension au mode agent de Copilot (VS Code 1.101 ou plus récent) ; aucun n'est proposé si vous avez déjà ajouté vous-même un serveur Studium |
+| `studium.notifyLessonReady` | `true` | vous prévenir quand une leçon construite par votre assistant est prête ; **Ne plus afficher** sur cette notification le désactive, et le réactiver fait revenir les notifications. Un réglage utilisateur, pour toutes les fenêtres |
 | `studium.telemetryConsent` | `false` | consentir à l'enregistrement d'une télémétrie de classe pseudonymisée dans le dossier de données de l'extension (rien n'est envoyé) |
 | `studium.modalityPreference` | `balanced` | `visual` ou `textual` réordonne le contenu de chaque étape ; rien n'est retiré |
 | `studium.showGraph` | `true` | ouvrir un panneau compagnon avec le graphe d'apprentissage en direct |

@@ -10,6 +10,7 @@
 //   - <library>/_sources/<id>.json written (prepare_sources): "preparing a lesson" until a lesson whose top-level
 //     source_plan_id is that id, or the id of a set prepared after it, lands, or for PREPARING_MAX_MS at most (a build
 //     the assistant abandoned).
+//   - "Don't show again" turns off the user setting studium.notifyLessonReady (LessonReadySetting, below).
 // Pure apart from the two readers at the bottom: no VS Code import; the clock, the timers, the window focus and the
 // host's actions are injected, so library-watch.driver.ts drives it with a manual clock.
 import { readFileSync, statSync } from "node:fs";
@@ -48,7 +49,7 @@ export interface LibraryWatchDeps {
   clearTimer: (handle: unknown) => void;
   /** Whether this window is in front. */
   focused: () => boolean;
-  /** Whether the learner chose "Don't show again". */
+  /** Whether the learner chose "Don't show again" (lessonReadyMuted). */
   muted: () => boolean;
   /** Which lesson versions were already announced, shared by every window. */
   shown: { has: (key: string) => boolean; add: (key: string) => void };
@@ -191,6 +192,48 @@ export class LibraryWatch {
 
   private safe<T>(read: () => T | null): T | null {
     try { return read(); } catch { return null; }
+  }
+}
+
+/** Where « Don't show again » is kept: the user setting studium.notifyLessonReady, so the learner can turn the notice
+ * back on in the Settings editor. Before the setting existed it was a global-state flag that nothing could undo; that
+ * flag is moved into the setting at start. The accessors are injected, as for LibraryWatch; extension.ts maps them. */
+export interface LessonReadySetting {
+  /** The setting as VS Code resolves it: false once the learner turned the notice off. */
+  enabled: () => boolean;
+  /** Its value in the user settings, undefined when the learner never set it there. */
+  userValue: () => boolean | undefined;
+  /** Write it to the user settings: the choice applies to every window. */
+  setUserValue: (on: boolean) => PromiseLike<void>;
+  /** The global-state flag of versions before the setting (or of a choice the settings could not take). */
+  legacyMuted: () => boolean;
+  setLegacyMuted: (muted: boolean) => PromiseLike<void>;
+}
+
+/** Whether lesson-ready notices are off: the setting, or the old flag until it is moved into the setting. */
+export function lessonReadyMuted(setting: LessonReadySetting): boolean {
+  return !setting.enabled() || setting.legacyMuted();
+}
+
+/** « Don't show again »: turn the setting off. If the user settings cannot be written (a settings.json with a syntax
+ * error, say), keep the choice in the flag, which a later start moves into the setting. */
+export async function dontShowLessonReadyAgain(setting: LessonReadySetting): Promise<void> {
+  try {
+    await setting.setUserValue(false);
+  } catch {
+    await setting.setLegacyMuted(true);
+  }
+}
+
+/** At start: move the flag into the setting, unless the learner already set it in their user settings (their choice
+ * wins), then forget the flag, so that turning the setting back on is enough. A failed write keeps the flag. */
+export async function migrateLessonReadyMute(setting: LessonReadySetting): Promise<void> {
+  if (!setting.legacyMuted()) return;
+  try {
+    if (setting.userValue() === undefined) await setting.setUserValue(false);
+    await setting.setLegacyMuted(false);
+  } catch {
+    // The flag still mutes; the next start tries again.
   }
 }
 

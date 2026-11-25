@@ -51,8 +51,10 @@ from a Studium checkout, and otherwise your personal library, `~/.studium/librar
 `<STUDIUM_HOME>/library`), where the lessons an assistant builds for you are written. The extension creates
 that library at startup if it is missing, and watches it: a lesson an assistant writes there is listed and
 announced with **Open**, **Later** and **Don't show again**. Lessons that land together share one notice,
-whose **Show** opens the Studium view. A lesson you copy there yourself is listed but not announced. If
-`studium.bundlesRoot` names another folder, the library's lessons are listed apart, under **Your library**.
+whose **Show** opens the Studium view. A lesson you copy there yourself is listed but not announced.
+**Don't show again** turns off the `studium.notifyLessonReady` setting: turn it back on in the Settings
+editor to see the notices again. If `studium.bundlesRoot` names another folder, the library's lessons are
+listed apart, under **Your library**.
 
 ### From a conversation to the pane
 
@@ -185,6 +187,7 @@ faulty lesson cannot freeze the editor. **Studium: Run reproduction** starts the
 | `studium.assets` | `vendor` | load KaTeX and Vega offline (`vendor`) or from a CDN (`cdn`) |
 | `studium.learnerId` | `vscode-learner` | your learner id; it salts your on-disk pseudonym |
 | `studium.registerMcpServer` | `true` | offer the extension's own server to Copilot's agent mode (VS Code 1.101 or later); none is offered when you already added a Studium server yourself |
+| `studium.notifyLessonReady` | `true` | tell you when a lesson your assistant built is ready; **Don't show again** on that notice turns it off, and turning it back on brings the notices back. A user setting, for every window |
 | `studium.telemetryConsent` | `false` | opt in to recording pseudonymised class telemetry in the extension's data folder (nothing is sent) |
 | `studium.modalityPreference` | `balanced` | `visual` or `textual` reorders each step's material; nothing is removed |
 | `studium.showGraph` | `true` | open a companion pane with the live learning graph |
