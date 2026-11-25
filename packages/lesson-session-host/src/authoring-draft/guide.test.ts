@@ -213,13 +213,18 @@ describe("authoringGuide", () => {
   it("says, in both languages, to show create_lesson's display_markdown first when its result carries open_link", () => {
     for (const language of ["en", "fr"] as const) {
       const step = authoringGuide({ language }).markdown.split("\n").find((line) => line.startsWith("6. "))!;
-      for (const named of ["`open_link`", "`display_markdown`", "`start_lesson_session {bundle_ref: course_ref}`"]) expect(step).toContain(named);
+      // Changed (follow-up to decision 4, owner 2026-11-25): the step names offer_first, which says what the result
+      // offers first — the client's panel, the chat, or a link (was `open_link`).
+      for (const named of ["`offer_first`", "`display_markdown`", "`start_lesson_session {bundle_ref: course_ref}`"]) expect(step).toContain(named);
     }
     // Changed (D4, owner decision 4): open_link leads to the Studium pane or to the server's browser player, so the
     // step says « the link first », the words of the server's instructions (was « the Studium pane first »); the
     // display_markdown it shows names the pane or the browser.
-    expect(authoringGuide({ language: "en" }).markdown).toMatch(/\(the link first; start here only on the learner's “here”\)/);
-    expect(authoringGuide({ language: "fr" }).markdown).toMatch(/\(le lien d'abord ; ici seulement sur son « ici »\)/);
+    // Changed (follow-up to decision 4, owner 2026-11-25): the assistant does what the offer puts first (the panel: it
+    // opens it; the chat: it starts here), and a link first keeps the chat on « here » (was « (the link first; start
+    // here only on the learner's “here”) » and « (le lien d'abord ; ici seulement sur son « ici ») »).
+    expect(authoringGuide({ language: "en" }).markdown).toMatch(/do what it offers first \(a link: start here only on “here”\)/);
+    expect(authoringGuide({ language: "fr" }).markdown).toMatch(/suivez son offre \(lien : ici seulement sur « ici »\)/);
   });
 
   it("says in teacher mode that this route writes self-study lessons and names the teacher route", () => {

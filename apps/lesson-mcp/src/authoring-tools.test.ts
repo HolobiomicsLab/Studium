@@ -11,7 +11,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { LessonSession } from "@studium/lesson-session";
 import { loadBundleJson } from "@studium/lesson-session/node";
 import { buildTestDeps } from "@studium/lesson-session/testing";
-import { authoringGuide, publicPresentation, type SourceFilePolicy } from "@studium/lesson-session-host";
+import { authoringGuide, paneLink, publicPresentation, type SourceFilePolicy, type SurfaceOffer } from "@studium/lesson-session-host";
 import { lintBundleData } from "../../../packages/lesson-session-host/src/authoring-draft/index.js";
 import { FRENCH_SOURCE } from "../../../packages/lesson-session-host/src/authoring-draft/test-fixtures.js";
 import { AUTHORING_TOOL_NAMES, registerAuthoringTools, type AuthoringToolsContext } from "./authoring-tools.js";
@@ -23,15 +23,28 @@ afterEach(() => { for (const root of roots.splice(0)) rmSync(root, { recursive: 
 
 interface Passage { id: string; source_id: string; text: string }
 
-async function connected(judge = false, files?: SourceFilePolicy, openLink?: string, browserLink?: AuthoringToolsContext["browserLink"]) {
+/** The address of a browser player for the learner of the call, as SessionHost.browserLinkFor gives it. */
+type BrowserLink = (learnerId: string | undefined, courseRef: string) => Promise<string | null>;
+
+async function connected(judge = false, files?: SourceFilePolicy, openLink?: string, browserLink?: BrowserLink) {
   const library = mkdtempSync(join(tmpdir(), "mcp-authoring-"));
   roots.push(library);
   const written: string[] = [];
   const ctx: AuthoringToolsContext = {
     libraryRoot: () => library, onLessonWritten: (ref) => { written.push(ref); }, judge: () => judge,
     ...(files ? { sourceFiles: () => files } : {}),
-    ...(openLink ? { openLink: () => openLink } : {}),
-    ...(browserLink ? { browserLink } : {}),
+    // The offer SessionHost.lessonOffer makes to a client that draws no panel, the learner having answered nowhere yet:
+    // the VS Code pane first on the extension's server, else the browser player's address (surface-offer.ts).
+    ...(openLink || browserLink ? {
+      offer: async (learnerId: string | undefined, courseRef: string): Promise<SurfaceOffer | null> => {
+        if (openLink) {
+          const pane = paneLink(openLink, join(library, courseRef));
+          return pane ? { first: "vscode_pane", order: ["vscode_pane", "chat"], ...pane } : null;
+        }
+        const link = await browserLink!(learnerId, courseRef);
+        return link ? { first: "browser", order: ["browser", "chat"], open_link: link } : null;
+      },
+    } : {}),
   };
   const server = new McpServer({ name: "authoring-test", version: "0" });
   const names = registerAuthoringTools(server, ctx);

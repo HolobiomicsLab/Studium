@@ -8,6 +8,7 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import type { SessionHost } from '@studium/lesson-session-host';
 import { buildMcpServer } from './server.js';
+import { BROWSER_PLAYER_CLIENT } from './panel-tools.js';
 import { SERVER_VERSION } from './build-info.js';
 import { browserHtml } from '../../lesson-panel-ui/dist/resources.js';
 import { phrase } from '../../../packages/lesson-panel/src/phrases.js';
@@ -94,7 +95,8 @@ export function createPlayer(options: { host: SessionHost; token?: string; keys?
     const server = buildMcpServer(options.host);
     const [serverSide, clientSide] = InMemoryTransport.createLinkedPair();
     await server.connect(serverSide);
-    const mcp = new Client({ name: 'studium-browser-player', version: SERVER_VERSION });
+    // Its name says to the panel tools that the answers come from the browser (follow-up to decision 4, B).
+    const mcp = new Client({ name: BROWSER_PLAYER_CLIENT, version: SERVER_VERSION });
     await mcp.connect(clientSide);
     return mcp;
   })());

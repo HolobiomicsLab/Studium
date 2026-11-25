@@ -25,6 +25,10 @@
 // (review of D4, M1: never sources prepared with nothing kept) — is offered again (action finish), after
 // the reviews due and a lesson in progress (M2: it never pushes that lesson aside), before a lesson to
 // start. The host finds it (draft-store.ts unfinishedBuilds).
+//
+// Owner follow-up to decision 4 (2026-11-25): the lesson to start or continue is offered on the surfaces the host gives,
+// in the order surface-offer.ts sets (the client's native surface first, else the learner's last one; the chat first
+// after answers there). The host builds the offer (SessionHost.lessonOffer); the plan says it.
 import { nextCourseLesson } from "@studium/lesson-bundle-schema";
 import { dueAt, dueForReinforcement, isDue, retrievability, type ConceptMemoryState } from "./fsrs-memory.js";
 import { formatReviewDate, type DisplayLocale } from "./chat-display.js";
@@ -34,7 +38,7 @@ import type { Catalog, CatalogLesson } from "./lesson-catalog.js";
 import type { StudyRecord } from "./study-record.js";
 import type { UnfinishedBuild } from "./authoring-draft/draft-store.js";
 import { frenchSpacing } from "../../lesson-session/src/phrases.js";
-import { browserOffer, paneOffer, type PaneLink } from "./open-link.js";
+import { offerSentences, type AnswerSurface, type SurfaceOffer } from "./surface-offer.js";
 
 /** FSRS reinforcement's mastery gate (dueForReinforcement's default minMastery). */
 export const REVIEW_MIN_MASTERY = 0.6;
@@ -123,10 +127,14 @@ export interface StudyPlan {
      * progress; a review as cut by max_items). */
     estimated_minutes?: number;
     /** D2: on start and continue, when the Studium VS Code extension serves Studium (STUDIUM_OPEN_LINK): the lesson
-     * file and the link that opens it in the pane, which `text` offers first (open-link.ts). D4: otherwise, open_link
-     * alone, the address of the server's browser player for this learner and lesson, which `text` offers first. */
+     * file and the link that opens it in the pane (open-link.ts). D4: otherwise, open_link alone, the address of the
+     * server's browser player for this learner and lesson. Follow-up to decision 4: offer_first, the surface `text`
+     * offers first (the chat when the learner last answered there), and open_panel, the arguments of open_lesson_panel
+     * when the client draws Studium's panel. */
     lesson_path?: string;
     open_link?: string;
+    offer_first?: AnswerSurface;
+    open_panel?: { bundle_ref: string; learner_id?: string };
   };
   display_markdown: string;
 }
@@ -160,12 +168,10 @@ export interface StudyPlanInput {
   reviewSeconds?: ReadonlyMap<string, number>;
   /** D4: the most recent lesson build that stopped (draft-store.ts unfinishedBuilds), if any. */
   unfinishedBuild?: UnfinishedBuild | null;
-  /** D2: when the Studium VS Code extension serves Studium, the pane link of a lesson on disk (null when none can
-   * open it). Absent ⇒ no link: the plan is the same as before. */
-  paneLinkFor?: (lesson: CatalogLesson) => PaneLink | null;
-  /** D4 (owner decision 4): when no pane is offered, the address of the server's browser player that plays the lesson
-   * as this learner (null when there is none). Absent ⇒ no address. */
-  browserLinkFor?: (lesson: CatalogLesson) => string | null;
+  /** D2, D4 and their follow-up: how the lesson to start or continue is offered outside the chat (the VS Code pane, the
+   * server's browser player, the client's panel or pane), or null when it is not. Absent ⇒ no offer: the plan is the
+   * same as before D2. */
+  offerFor?: (lesson: CatalogLesson) => SurfaceOffer | null;
 }
 
 /** What a review scene takes when nothing says (RFR-06's estimate of a review session). */
@@ -342,21 +348,16 @@ export function offeredOutsideChat(lesson: Pick<CatalogLesson, "root" | "bundle_
   return lesson.root !== "shipped" && !lesson.bundle_ref.toLowerCase().endsWith(".zip");
 }
 
-/** D2: a lesson to start or continue, offered in the Studium pane first when a link can open it there; D4: else in the
- * server's browser player when it gives an address. */
+/** D2, D4 and their follow-up: a lesson to start or continue, offered on the surfaces the host gives, in its order. */
 function offerLink(step: StudyPlan["next_step"], lesson: CatalogLesson | undefined, input: StudyPlanInput): void {
   if (!lesson || !offeredOutsideChat(lesson)) return;
-  const pane = input.paneLinkFor?.(lesson) ?? null;
-  if (pane) {
-    step.lesson_path = pane.lesson_path;
-    step.open_link = pane.open_link;
-    step.text = `${step.text} ${paneOffer(input.locale, pane.open_link)}`;
-    return;
-  }
-  const browser = input.browserLinkFor?.(lesson) ?? null;
-  if (!browser) return;
-  step.open_link = browser;
-  step.text = `${step.text} ${browserOffer(input.locale, browser)}`;
+  const offer = input.offerFor?.(lesson) ?? null;
+  if (!offer) return;
+  if (offer.lesson_path !== undefined) step.lesson_path = offer.lesson_path;
+  if (offer.open_link !== undefined) step.open_link = offer.open_link;
+  if (offer.open_panel !== undefined) step.open_panel = offer.open_panel;
+  step.offer_first = offer.first;
+  step.text = `${step.text} ${offerSentences(input.locale, offer)}`;
 }
 
 export function buildStudyPlan(input: StudyPlanInput): StudyPlan {
