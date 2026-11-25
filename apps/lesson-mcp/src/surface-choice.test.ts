@@ -21,6 +21,7 @@ import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { SessionHost, authoringGuide } from "@studium/lesson-session-host";
 import { buildMcpServer, SERVER_INSTRUCTIONS } from "./server.js";
 import { servedPlayer, type ServedPlayer } from "./served-player.js";
+import { answerSurfaceOf, CLAUDE_CODE_CLIENT } from "./panel-tools.js";
 
 const dirs: string[] = [];
 const players: ServedPlayer[] = [];
@@ -184,6 +185,45 @@ describe("the Claude Code mod: known once its pane has played the learner on thi
     expect(step).toMatchObject({ action: "continue", offer_first: "assistant_pane" });
     expect(step.text).toMatch(/Open it in the Studium pane: type `\/studium photo\/lesson\.json`/);
     expect((await call("get_study_plan", { learner_id: "ana", language: "en" })).next_step).toMatchObject({ offer_first: "browser" });
+  });
+
+  // Review G, finding 1: a model in a client with no pane asks for one too (CONTINUE_ON_PANE then sends it back to the
+  // chat), so a pane asked once is the mod's only from Claude Code's own client (clientInfo.name "claude-code", read in
+  // Claude Code 2.1.332; the mod's $.mcp.call goes through that client's connection).
+  it("counts only Claude Code's client: a model elsewhere that asks for a pane is no pane", async () => {
+    expect(CLAUDE_CODE_CLIENT).toBe("claude-code");
+    for (const [client, first] of [[OPENCODE, "browser"], [CODEX, "panel"]] as const) {
+      const { host } = serve();
+      const call = await connect(host, client[0], client[1]);
+      await call("open_lesson_panel", { bundle_ref: REF, surface: "pane" });
+      await call("open_lesson_panel", { bundle_ref: REF, learner_id: "ana", surface: "pane" });
+      for (const learner of [{}, { learner_id: "ana" }]) {
+        const step = (await call("get_study_plan", { ...learner, language: "en" })).next_step;
+        expect(step, client[0]).toMatchObject({ offer_first: first });
+        expect(String(step.text), client[0]).not.toMatch(/\/studium /);
+      }
+    }
+    // Answers given on a "pane" such a model asked for are relayed in its chat.
+    expect(answerSurfaceOf({ rank: 3, kind: "pane", available: ["text", "pane"] }, "opencode")).toBe("chat");
+    expect(answerSurfaceOf({ rank: 3, kind: "pane", available: ["text", "pane"] }, CLAUDE_CODE_CLIENT)).toBe("assistant_pane");
+  });
+
+  it("forgets the pane once its session is taken up off it", async () => {
+    const { host } = serve();
+    const call = await connect(host, CLAUDE_CODE_CLIENT);
+    const opened = await call("open_lesson_panel", { bundle_ref: REF, surface: "pane" });
+    expect((await call("get_study_plan", { language: "en" })).next_step).toMatchObject({ offer_first: "assistant_pane" });
+    // What CONTINUE_ON_PANE tells a model to do when no pane is shown.
+    await call("get_panel_view", { session_id: opened.panel.session_id, surface: "text" });
+    expect((await call("get_study_plan", { language: "en" })).next_step).toMatchObject({ offer_first: "browser" });
+  });
+
+  it("is offered to the default learner only: /studium <bundle_ref> opens for that learner", async () => {
+    const { host } = serve();
+    const call = await connect(host, CLAUDE_CODE_CLIENT);
+    await call("open_lesson_panel", { bundle_ref: REF, learner_id: "ana", surface: "pane" });
+    expect((await call("get_study_plan", { learner_id: "ana", language: "en" })).next_step).toMatchObject({ offer_first: "browser" });
+    expect((await call("get_study_plan", { language: "en" })).next_step).toMatchObject({ offer_first: "browser" });
   });
 });
 

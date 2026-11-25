@@ -31,7 +31,7 @@ Le même moteur d'affichage dessine le panneau dans VS Code et dans MCP Apps. Le
 
 Quand une leçon est prête à jouer (celle que l'assistant vient de construire, ou celle que le plan d'étude dit de commencer ou de reprendre), Studium la propose sur les surfaces que votre assistant et son serveur offrent, dans cet ordre :
 
-1. La surface que votre assistant dessine lui-même : le volet du mod Claude Code, une fois que le mod a ouvert une leçon pour vous dans cette session ; le panneau Studium, quand le client annonce `io.modelcontextprotocol/ui` (l'assistant l'ouvre alors avec `open_lesson_panel`) ; le panneau VS Code, sur le serveur de l'extension Studium.
+1. La surface que votre assistant dessine lui-même : le volet du mod Claude Code, une fois que le mod a ouvert une leçon dans cette session, pour l'apprenant que le serveur joue par défaut (celui pour qui `/studium` ouvre les leçons) ; le panneau Studium, quand le client annonce `io.modelcontextprotocol/ui` (l'assistant l'ouvre alors avec `open_lesson_panel`) ; le panneau VS Code, sur le serveur de l'extension Studium.
 2. Le [lecteur dans le navigateur](browser.fr.md#depuis-votre-assistant), quand aucune extension VS Code ne sert Studium.
 3. La conversation : dites « ici ».
 
@@ -45,9 +45,9 @@ Une leçon que l'assistant commence dans la conversation finit sa première éta
 | VS Code, avec Copilot et Studium ajouté à la main | le navigateur : VS Code 1.139 annonce MCP Apps, mais le panneau dans Copilot attend un essai |
 | VS Code avec l'extension Studium | le panneau Studium |
 | OpenCode (la 1.19.6 n'annonce pas MCP Apps), Mistral Vibe | le navigateur |
-| Claude Code avec le mod | le navigateur, puis le volet du mod (`/studium <leçon>`) une fois que le mod a ouvert une leçon pour vous dans cette session |
+| Claude Code avec le mod | le navigateur, puis le volet du mod (`/studium <leçon>`) une fois que le mod a ouvert une leçon dans cette session, pour l'apprenant par défaut |
 
-Claude Code ne donne au serveur aucun signe du mod : le même nom et les mêmes capacités avec ou sans lui, et le mod n'appelle le serveur que quand vous tapez `/studium`. D'où le navigateur d'abord jusque-là. Cet ordre n'a que des tests automatisés ; il n'a pas été essayé dans Codex Desktop, Copilot ni Claude Code.
+Claude Code ne donne au serveur aucun signe du mod : le même nom et les mêmes capacités avec ou sans lui, et le mod n'appelle le serveur que quand vous tapez `/studium`. D'où le navigateur d'abord jusque-là. Studium prend pour le mod un volet demandé par le client de Claude Code (nommé `claude-code`), et l'oublie quand cette leçon revient à la conversation ; un volet demandé par un autre client ne compte pas, car un modèle sans volet peut en demander un avant de jouer dans la conversation. Cet ordre n'a que des tests automatisés ; il n'a pas été essayé dans Codex Desktop, Copilot ni Claude Code.
 
 ## La surface sur laquelle la leçon se joue
 

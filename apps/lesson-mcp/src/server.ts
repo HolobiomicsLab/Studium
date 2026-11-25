@@ -349,7 +349,7 @@ export function buildMcpServer(host: SessionHost): McpServer {
   const formsAvailable = () => Boolean(server.server.getClientCapabilities()?.elicitation);
   const surfaceRankOf = (id: string) => panels.surfaceRankOf(id);
   // Follow-up to decision 4 (A): what this client gives beside the chat — Studium's panel when it announced MCP Apps
-  // (decision 1's exception aside), its own app's pane once that pane has played the learner here.
+  // (decision 1's exception aside), the Claude Code mod's pane once it has played the default learner here.
   const offerClient = (): OfferClient => ({
     panel: Boolean(server.server.getClientCapabilities()?.extensions?.[UI_EXTENSION])
       && !panelAwaitsCopilotTrial(server.server.getClientVersion()?.name),

@@ -144,17 +144,23 @@ function toolError(error: unknown) {
   return { content: [{ type: "text" as const, text: JSON.stringify({ error: error instanceof Error ? error.message : String(error) }) }], isError: true as const };
 }
 
-/** Follow-up to decision 4: the clients of Studium's own that ask for a pane, by the name they give at initialize. The
- * browser player's page (player.ts) and the VS Code extension's pane (apps/studium-vscode/src/mcp-connect.ts); any
- * other client that asks for a pane is a native pane of the assistant's own app (the Claude Code mod). */
+/** Follow-up to decision 4: the clients that ask for a pane and draw one, by the name they give at initialize. The
+ * browser player's page (player.ts) and the VS Code extension's pane (apps/studium-vscode/src/mcp-connect.ts) are
+ * Studium's own. The Claude Code mod (apps/claude-code-mod) calls the server through Claude Code's own MCP client
+ * ($.mcp.call finds the tool among the session's connected ones), which names itself "claude-code" (read in Claude
+ * Code 2.1.332: new Client({name: "claude-code", title: "Claude Code", version})). Claude Code's model shares that
+ * client and its name, so the server cannot tell the mod from a model asking for a pane there. Any other client that
+ * asks for a pane has none (review G, finding 1): a model there asks for one, then plays in the chat (CONTINUE_ON_PANE). */
 export const BROWSER_PLAYER_CLIENT = "studium-browser-player";
 export const VSCODE_PANE_CLIENT = "studium-vscode";
+export const CLAUDE_CODE_CLIENT = "claude-code";
 
 /** Where the answers of a session played on `surface` arrive, for a client named `clientName`. */
 export function answerSurfaceOf(surface: Surface | undefined, clientName: string | undefined): AnswerSurface {
   if (surface?.kind === "panel") return "panel";
   if (surface?.kind !== "pane") return "chat";
-  return clientName === BROWSER_PLAYER_CLIENT ? "browser" : clientName === VSCODE_PANE_CLIENT ? "vscode_pane" : "assistant_pane";
+  return clientName === BROWSER_PLAYER_CLIENT ? "browser" : clientName === VSCODE_PANE_CLIENT ? "vscode_pane"
+    : clientName === CLAUDE_CODE_CLIENT ? "assistant_pane" : "chat";
 }
 
 /** Per-server contexts retain earned feedback, including transitions from the native run protocol. */
@@ -162,9 +168,10 @@ class Panels {
   readonly contexts = new Map<string, PanelContext>();
   readonly busy = new Set<PanelContext>();
   readonly backend: PanelBackend;
-  /** Follow-up to decision 4 (A): the learners a native pane of the assistant's own app (the Claude Code mod) has
-   * played on this connection. A pane cannot be detected; once one asked for a lesson, it is known to be there. */
-  readonly nativePaneLearners = new Set<string>();
+  /** Follow-up to decision 4 (A): whether the Claude Code mod's pane has played the default learner on this connection.
+   * A pane cannot be detected: Claude Code's client asked for one for that learner, the only one /studium opens for
+   * (apps/claude-code-mod/hooks/register.tsx), and no call has taken that session up off the pane since. */
+  modPane = false;
   /** `client` reads what the connected client declared it can render (see negotiateSurface) and its name. */
   constructor(readonly host: SessionHost, private readonly client: () => { ui: boolean; forms: boolean; name?: string }) {
     this.backend = hostBackend(host, host.bundlesRoot, (id) => {
@@ -173,9 +180,12 @@ class Panels {
     });
   }
 
-  /** A context negotiated on a pane, for a client that is not one of Studium's own: the assistant's app has a pane. */
-  private notePane(ctx: PanelContext): void {
-    if (ctx.surface?.kind === "pane" && answerSurfaceOf(ctx.surface, this.client().name) === "assistant_pane") this.nativePaneLearners.add(ctx.learnerId);
+  /** A context of the default learner negotiated on a pane by Claude Code's client: the mod's pane is there. Taken up
+   * off the pane (`was` a pane), as CONTINUE_ON_PANE tells a model with no pane to do: it is not, or no longer. */
+  private notePane(ctx: PanelContext, was?: SurfaceKind): void {
+    if (ctx.learnerId !== this.host.learnerFor() || this.client().name !== CLAUDE_CODE_CLIENT) return;
+    if (ctx.surface?.kind === "pane") this.modPane = true;
+    else if (was === "pane") this.modPane = false;
   }
 
   /** The session's panel context. Its surface is negotiated when the context is created, and again
@@ -185,11 +195,11 @@ class Panels {
     const existing = this.contexts.get(id);
     if (existing) {
       if (options.surface !== undefined) {
-        const was = existing.surface?.rank;
+        const was = existing.surface;
         existing.surface = negotiateSurface(this.client(), options.surface);
         // The lesson is taken up on a surface of another rank: the interaction log says so.
-        if (was !== undefined && existing.surface.rank !== was) this.host.surfaceChanged(id);
-        this.notePane(existing);
+        if (was !== undefined && existing.surface.rank !== was.rank) this.host.surfaceChanged(id);
+        this.notePane(existing, was?.kind);
       }
       return existing;
     }
@@ -334,8 +344,8 @@ export function registerPanelTools(server: McpServer, host: SessionHost) {
     /** The rank of the surface the session was negotiated on; 1 when no panel context holds it (a
      * session the panel tools never saw). The conversation tools log their acts on that rank. */
     surfaceRankOf: (id: string): Surface["rank"] => panels.contexts.get(id)?.surface?.rank ?? 1,
-    /** Follow-up to decision 4 (A): whether a native pane of the assistant's own app has played `learnerId` here. */
-    nativePane: (learnerId: string): boolean => panels.nativePaneLearners.has(learnerId),
+    /** Follow-up to decision 4 (A): whether the Claude Code mod's pane plays `learnerId` here: the default learner only. */
+    nativePane: (learnerId: string): boolean => panels.modPane && learnerId === host.learnerFor(),
     observe: async (name: string, args: Payload, result: ToolResult) => {
       try { await panels.observe(name, args, result); }
       catch { /* Panel bookkeeping must not change legacy replies. */ }

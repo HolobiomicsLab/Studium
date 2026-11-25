@@ -6,7 +6,7 @@
 // A lesson ready to play (create_lesson's, the study plan's lesson to start or continue) is offered on the surfaces this
 // host gives, in one order:
 //   A  the surface the client draws natively first: a pane its own app draws (the Claude Code mod, once it has played
-//      the learner on this connection), an MCP Apps panel (the client announced io.modelcontextprotocol/ui; the
+//      the default learner on this connection), an MCP Apps panel (the client announced io.modelcontextprotocol/ui; the
 //      assistant calls open_lesson_panel), the VS Code pane (the extension's server); then the server's browser player;
 //      the chat last, on « here ».
 //   B  the surface where the learner last answered a step (study-record.ts answered_on) first, when this host gives it;
@@ -31,7 +31,7 @@ const NATIVE_FIRST: readonly OfferedSurface[] = ["assistant_pane", "panel", "vsc
 export interface OfferClient {
   /** It draws Studium's lesson panel: it announced io.modelcontextprotocol/ui (the decision-1 exception aside). */
   panel?: boolean;
-  /** Whether a native pane of the client's own app (the Claude Code mod) has played `learnerId` on this connection. */
+  /** Whether a native pane of the client's own app (the Claude Code mod) plays `learnerId` on this connection. */
   nativePane?: (learnerId: string) => boolean;
 }
 

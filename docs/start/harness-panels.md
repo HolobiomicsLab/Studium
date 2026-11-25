@@ -31,7 +31,7 @@ The same renderer draws the panel in VS Code and in MCP Apps. The Claude Code mo
 
 When a lesson is ready to play (one the assistant has just built, or the one the study plan says to start or continue), Studium offers it on the surfaces your assistant and its server give, in this order:
 
-1. The surface your assistant draws itself: the Claude Code mod's pane, once the mod has opened a lesson for you in this session; Studium's panel, when the client announces `io.modelcontextprotocol/ui` (the assistant then opens it with `open_lesson_panel`); the VS Code pane, on the Studium extension's server.
+1. The surface your assistant draws itself: the Claude Code mod's pane, once the mod has opened a lesson in this session, for the learner the server plays by default (the one `/studium` opens lessons for); Studium's panel, when the client announces `io.modelcontextprotocol/ui` (the assistant then opens it with `open_lesson_panel`); the VS Code pane, on the Studium extension's server.
 2. The [browser player](browser.md#from-your-assistant), when no VS Code extension serves Studium.
 3. The conversation: say "here".
 
@@ -45,9 +45,9 @@ A lesson the assistant starts in the conversation ends its first step, and its f
 | VS Code, with Copilot and Studium added by hand | the browser: VS Code 1.139 announces MCP Apps, but the panel inside Copilot waits for a trial |
 | VS Code with the Studium extension | the Studium pane |
 | OpenCode (1.19.6 announces no MCP Apps), Mistral Vibe | the browser |
-| Claude Code with the mod | the browser, then the mod's pane (`/studium <lesson>`) once the mod has opened a lesson for you in this session |
+| Claude Code with the mod | the browser, then the mod's pane (`/studium <lesson>`) once the mod has opened a lesson in this session, for the default learner |
 
-Claude Code gives the server no sign of the mod: the same name and capabilities with it or without it, and the mod calls the server only when you type `/studium`. Hence the browser first until then. This order has automated tests only; it has not been tried in Codex Desktop, Copilot or Claude Code.
+Claude Code gives the server no sign of the mod: the same name and capabilities with it or without it, and the mod calls the server only when you type `/studium`. Hence the browser first until then. Studium takes a pane asked for by Claude Code's client (named `claude-code`) for the mod, and forgets it when that lesson is taken back to the conversation; a pane asked for by any other client is not counted, since a model with no pane may ask for one before it plays in the conversation. This order has automated tests only; it has not been tried in Codex Desktop, Copilot or Claude Code.
 
 ## The surface a lesson plays on
 
