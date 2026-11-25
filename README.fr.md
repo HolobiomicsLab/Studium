@@ -52,7 +52,7 @@ redémarrez-le :
 |---|---|
 | Claude Code | `claude mcp add --scope user studium -e LITELLM_BASE_URL= -- npx -y studium-mcp` |
 | Codex | `codex mcp add studium --env LITELLM_BASE_URL= -- npx -y studium-mcp` |
-| Copilot dans VS Code, mode agent | `code --add-mcp '{"name":"studium","command":"npx","args":["-y","studium-mcp"],"env":{"LITELLM_BASE_URL":""}}'` |
+| Copilot dans VS Code, mode agent | rien, si l'extension Studium est installée (VS Code 1.101 ou plus récent) : elle propose son propre serveur à Copilot, sans Node ; voir [Connecter Copilot](docs/start/copilot.fr.md). Sans l'extension : `code --add-mcp '{"name":"studium","command":"npx","args":["-y","studium-mcp"],"env":{"LITELLM_BASE_URL":""}}'` |
 
 Cursor, OpenCode et Claude Desktop, ainsi que le plugin Claude Code qui apporte aussi les skills, sont sur
 la page [Installation](docs/start/installation.fr.md). `LITELLM_BASE_URL=` (vide) empêche Studium

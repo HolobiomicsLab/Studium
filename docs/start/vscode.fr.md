@@ -24,12 +24,14 @@ indique « Aucune leçon trouvée pour l'instant ». Prenez la ligne qui corre
 
 | Vous avez | Faites ceci |
 |---|---|
-| Un assistant IA (Copilot dans VS Code, Claude Code, Codex, Cursor) | Reliez-le à Studium par [une commande](installation.fr.md#ajouter-le-serveur-à-votre-assistant), puis demandez « je veux apprendre … avec Studium » en indiquant vos sources. La leçon est écrite dans votre bibliothèque personnelle, `~/.studium/library`, et apparaît dans la vue **Leçons** après un rafraîchissement |
+| Copilot dans VS Code 1.101 ou plus récent | Rien à relier : l'extension propose son propre serveur Studium à Copilot (voir [Connecter Copilot](copilot.fr.md)). En mode agent de Copilot Chat, demandez « je veux apprendre … avec Studium » en indiquant vos sources. La leçon est écrite dans votre bibliothèque personnelle et apparaît dans la vue **Leçons** après un rafraîchissement |
+| Un autre assistant IA (Claude Code, Codex, Cursor) | Reliez-le à Studium par [une commande](installation.fr.md#ajouter-le-serveur-à-votre-assistant), puis demandez « je veux apprendre … avec Studium » en indiquant vos sources. La leçon est écrite dans votre bibliothèque personnelle, `~/.studium/library`, et apparaît dans la vue **Leçons** après un rafraîchissement |
 | Une leçon donnée par un enseignant | **Studium : Choisir un cours**, **Choisir un autre dossier de cours…**, puis choisissez son dossier ; ou clic droit sur son `lesson.json`, puis **Studium : Ouvrir cette leçon** |
 | Les leçons de démonstration, sans clone | téléchargez l'[archive du dépôt](https://github.com/HolobiomicsLab/studium/archive/refs/heads/main.zip) et décompressez-la, puis **Studium : Choisir un cours**, **Choisir un autre dossier de cours…**, et choisissez son dossier `fixtures` |
 | Un clone du dépôt | **Studium : Choisir un cours**, puis choisissez `fixtures` pour les leçons de démonstration |
 
-Avec Copilot en mode agent, tout reste dans VS Code : voir [Connecter Copilot](copilot.fr.md). Ce que fait
+Avec Copilot en mode agent, tout reste dans VS Code, sans terminal : voir [Connecter Copilot](copilot.fr.md),
+qui dit aussi ce qui n'a pas été essayé. Ce que fait
 l'assistant, étape par étape, est dans
 [Apprendre avec votre assistant](../learn/learn-with-your-assistant.fr.md).
 
@@ -154,9 +156,9 @@ historique, rien n'est affiché.
 - **Studium : Ouvrir la leçon en notebook** joue la leçon dans un notebook : exécutez la cellule de pilotage
   avec `next`, une lettre de choix, `0`–`4`, un texte libre, `hint` ou `forget`.
 
-Le panneau et un client MCP que vous avez configuré vous-même (Copilot en mode agent, par exemple) lancent
-chacun leur propre serveur et ne partagent pas l'étape courante. Pilotez une leçon depuis l'un des deux à
-la fois.
+Le panneau et le mode agent de Copilot lancent chacun leur propre serveur, que Copilot utilise celui que
+propose l'extension ou un serveur que vous avez configuré vous-même, et ne partagent pas l'étape courante.
+Pilotez une leçon depuis l'un des deux à la fois.
 
 ## Exécuter une reproduction
 
@@ -177,6 +179,7 @@ contrôle la sortie s'exécute sous une limite de 50 ms : une leçon défectueu
 | `studium.communityBundlesRoot` | vide (comme `bundlesRoot`) | où **Contributions de la classe** trouve les leçons d'apprenants approuvées |
 | `studium.assets` | `vendor` | charger KaTeX et Vega hors ligne (`vendor`) ou depuis un CDN (`cdn`) |
 | `studium.learnerId` | `vscode-learner` | votre identifiant d'apprenant ; il sale votre pseudonyme sur le disque |
+| `studium.registerMcpServer` | `true` | proposer le serveur de l'extension au mode agent de Copilot (VS Code 1.101 ou plus récent) ; aucun n'est proposé si vous avez déjà ajouté vous-même un serveur Studium |
 | `studium.telemetryConsent` | `false` | consentir à l'enregistrement d'une télémétrie de classe pseudonymisée dans le dossier de données de l'extension (rien n'est envoyé) |
 | `studium.modalityPreference` | `balanced` | `visual` ou `textual` réordonne le contenu de chaque étape ; rien n'est retiré |
 | `studium.showGraph` | `true` | ouvrir un panneau compagnon avec le graphe d'apprentissage en direct |
@@ -205,5 +208,6 @@ menu du panneau, efface votre état enregistré pour la leçon courante. **Studi
 efface, après confirmation, tout ce que garde l'extension (progression, révisions, cours auxquels vous avez
 fait confiance, dernière leçon) ; elle ferme d'abord chaque séance de leçon, de chat ou de notebook ouverte
 par l'extension, pour que rien ne réécrive son état. Elle ne touche pas aux données que le serveur Studium d'un assistant garde
-dans `~/.studium/data` ; la confirmation nomme ce dossier. Voir
+dans `~/.studium/data` ; la confirmation nomme ce dossier. Elle n'arrête pas le serveur que VS Code a lancé pour
+Copilot, qui garde sa progression dans le même stockage : arrêtez d'abord **Studium** dans **MCP: List Servers**. Voir
 [Vie privée et limites](../concepts/privacy-and-limits.fr.md).

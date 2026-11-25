@@ -17,8 +17,12 @@ l'extension Studium depuis la vue Extensions, lancez **Studium : Choisir un cou
 autre dossier de cours…** et sélectionnez le dossier de leçons ; les leçons de démonstration sont le dossier
 `fixtures` de l'[archive du dépôt](https://github.com/HolobiomicsLab/studium/archive/refs/heads/main.zip). Ni Node, ni terminal, ni compte d'assistant IA n'interviennent.
 Détails : [VS Code](vscode.fr.md#obtenir-votre-première-leçon) ; pour une salle d'enseignement,
-[Postes de salle de TP](classroom-workstations.fr.md). La suite de cette page construit une leçon à partir
-de vos propres sources, ce qui demande un terminal.
+[Postes de salle de TP](classroom-workstations.fr.md). Pour construire une leçon à partir de vos propres
+sources sans terminal, utilisez Copilot dans VS Code 1.101 ou plus récent : l'extension propose son propre
+serveur Studium au mode agent de Copilot, vous n'installez donc ni Node ni rien d'autre, et vous demandez à
+Copilot Chat « je veux apprendre … avec Studium ». Il vous faut un abonnement Copilot. Cette voie n'a pas été essayée dans une vraie session Copilot ; voir
+[Connecter Copilot](copilot.fr.md). La suite de cette page construit une leçon avec n'importe quel
+assistant, depuis un clone, ce qui demande un terminal.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="../assets/diagrams/self-learner-journey-dark.svg">

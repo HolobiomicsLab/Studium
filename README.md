@@ -49,7 +49,7 @@ You need Node 20 or later (`node --version`). Run the line for your assistant on
 |---|---|
 | Claude Code | `claude mcp add --scope user studium -e LITELLM_BASE_URL= -- npx -y studium-mcp` |
 | Codex | `codex mcp add studium --env LITELLM_BASE_URL= -- npx -y studium-mcp` |
-| Copilot in VS Code, agent mode | `code --add-mcp '{"name":"studium","command":"npx","args":["-y","studium-mcp"],"env":{"LITELLM_BASE_URL":""}}'` |
+| Copilot in VS Code, agent mode | nothing, if the Studium extension is installed (VS Code 1.101 or later): it offers its own server to Copilot, without Node; see [Connect Copilot](docs/start/copilot.md). Without the extension: `code --add-mcp '{"name":"studium","command":"npx","args":["-y","studium-mcp"],"env":{"LITELLM_BASE_URL":""}}'` |
 
 Cursor, OpenCode and Claude Desktop, and the Claude Code plugin that also brings the skills, are on the
 [Installation](docs/start/installation.md) page. `LITELLM_BASE_URL=` (empty) keeps Studium from calling

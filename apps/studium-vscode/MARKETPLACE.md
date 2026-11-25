@@ -16,7 +16,7 @@ Knowing this saves the first ten minutes:
 
 | Part | What it does | What it does not do |
 |---|---|---|
-| **An AI assistant** connected to the Studium server (Copilot in VS Code, Claude Code, Codex, Cursor) | builds a lesson from the sources you name, and can play it with you in the conversation | answer for you |
+| **An AI assistant** connected to the Studium server (Copilot in VS Code, which this extension connects for you, Claude Code, Codex, Cursor) | builds a lesson from the sources you name, and can play it with you in the conversation | answer for you |
 | **This extension** | shows a lesson in a pane, keeps your progress, tells you when reviews are due | build a lesson: right after installation its **Lessons** view says "No lesson found yet" |
 
 So a new lesson starts in an assistant. A lesson someone already made plays here with nothing else.
@@ -38,12 +38,18 @@ For computers an IT team prepares for a class, see
 
 ### 1. Connect your assistant to Studium
 
-You need Node 20 or later (`node --version`). Run the line for your assistant once, in a terminal, then
-restart the assistant:
+**Copilot in VS Code, agent mode: nothing to do.** From VS Code 1.101, this extension offers its own Studium
+server to Copilot: no Node, no terminal. Run **MCP: List Servers** to see **Studium** in the list. If you
+already added `studium` yourself, the extension adds no second one. The setting
+`studium.registerMcpServer` turns this off. This has not yet been tried in a real Copilot session; see
+[Connect Copilot](https://github.com/HolobiomicsLab/studium/blob/main/docs/start/copilot.md).
+
+**Other assistants.** You need Node 20 or later (`node --version`). Run the line for your assistant once, in
+a terminal, then restart the assistant:
 
 | Assistant | Command |
 |---|---|
-| Copilot in VS Code, agent mode | `code --add-mcp '{"name":"studium","command":"npx","args":["-y","studium-mcp"],"env":{"LITELLM_BASE_URL":""}}'` |
+| Copilot in VS Code, without this extension | `code --add-mcp '{"name":"studium","command":"npx","args":["-y","studium-mcp"],"env":{"LITELLM_BASE_URL":""}}'` |
 | Claude Code | `claude mcp add --scope user studium -e LITELLM_BASE_URL= -- npx -y studium-mcp` |
 | Codex | `codex mcp add studium --env LITELLM_BASE_URL= -- npx -y studium-mcp` |
 
@@ -105,12 +111,15 @@ In Copilot Chat, `@studium` plays the current lesson in the conversation.
   `LITELLM_BASE_URL` is set in the environment VS Code was started from.
 - Class telemetry is off unless you turn on `studium.telemetryConsent`.
 - The pane and an assistant keep separate progress: a lesson started in the conversation starts again
-  from its first step in the pane.
+  from its first step in the pane. The server this extension offers to Copilot keeps its progress in the
+  extension's storage too; **Studium: Forget my data** does not stop it, so stop **Studium** in
+  **MCP: List Servers** first.
 
 ## Requirements
 
 VS Code 1.95 or later. The extension carries its own lesson server and viewer libraries and works offline.
-Connecting an assistant (step 1) needs Node 20 or later.
+Offering that server to Copilot needs version 1.101 or newer; elsewhere, connecting an assistant (step 1)
+needs Node 20 or later.
 
 ## Documentation and help
 
@@ -136,7 +145,7 @@ Le savoir épargne les dix premières minutes :
 
 | Partie | Ce qu'elle fait | Ce qu'elle ne fait pas |
 |---|---|---|
-| **Un assistant IA** relié au serveur Studium (Copilot dans VS Code, Claude Code, Codex, Cursor) | construit une leçon à partir des sources que vous nommez, et peut la jouer avec vous dans la conversation | répondre à votre place |
+| **Un assistant IA** relié au serveur Studium (Copilot dans VS Code, que cette extension relie pour vous, Claude Code, Codex, Cursor) | construit une leçon à partir des sources que vous nommez, et peut la jouer avec vous dans la conversation | répondre à votre place |
 | **Cette extension** | affiche une leçon dans un panneau, garde votre progression, vous dit quand des révisions sont dues | construire une leçon : juste après l'installation, sa vue **Leçons** dit « Aucune leçon trouvée pour l'instant » |
 
 Une nouvelle leçon commence donc dans un assistant. Une leçon déjà faite se joue ici sans rien d'autre.
@@ -158,12 +167,19 @@ Pour des ordinateurs qu'une équipe informatique prépare pour une classe, voir
 
 ### Construire une leçon à partir de vos sources
 
-**1. Reliez votre assistant à Studium.** Il vous faut Node 20 ou plus récent (`node --version`). Lancez une
-fois, dans un terminal, la ligne de votre assistant, puis redémarrez-le :
+**1. Reliez votre assistant à Studium.** **Copilot dans VS Code, mode agent : rien à faire.** Depuis
+VS Code 1.101, cette extension propose son propre serveur Studium à Copilot : ni Node, ni terminal. Lancez
+**MCP: List Servers** pour voir **Studium** dans la liste. Si vous avez déjà ajouté `studium` vous-même,
+l'extension n'en ajoute pas un second. Le réglage `studium.registerMcpServer` le désactive. Cela n'a pas
+encore été essayé dans une vraie session Copilot ; voir
+[Connecter Copilot](https://github.com/HolobiomicsLab/studium/blob/main/docs/start/copilot.fr.md).
+
+**Autres assistants.** Il vous faut Node 20 ou plus récent (`node --version`). Lancez une fois, dans un
+terminal, la ligne de votre assistant, puis redémarrez-le :
 
 | Assistant | Commande |
 |---|---|
-| Copilot dans VS Code, mode agent | `code --add-mcp '{"name":"studium","command":"npx","args":["-y","studium-mcp"],"env":{"LITELLM_BASE_URL":""}}'` |
+| Copilot dans VS Code, sans cette extension | `code --add-mcp '{"name":"studium","command":"npx","args":["-y","studium-mcp"],"env":{"LITELLM_BASE_URL":""}}'` |
 | Claude Code | `claude mcp add --scope user studium -e LITELLM_BASE_URL= -- npx -y studium-mcp` |
 | Codex | `codex mcp add studium --env LITELLM_BASE_URL= -- npx -y studium-mcp` |
 
@@ -226,12 +242,15 @@ Dans Copilot Chat, `@studium` joue la leçon courante dans la conversation.
   désactivé, sauf si `LITELLM_BASE_URL` est défini dans l'environnement d'où VS Code a été lancé.
 - La télémétrie de classe est désactivée tant que vous n'activez pas `studium.telemetryConsent`.
 - Le panneau et un assistant gardent des progressions séparées : une leçon commencée dans la conversation
-  reprend à sa première étape dans le panneau.
+  reprend à sa première étape dans le panneau. Le serveur que cette extension propose à Copilot garde lui
+  aussi sa progression dans l'espace de stockage de l'extension ; **Studium : Oublier mes données** ne
+  l'arrête pas : arrêtez d'abord **Studium** dans **MCP: List Servers**.
 
 ### Prérequis
 
 VS Code 1.95 ou plus récent. L'extension embarque son propre serveur de leçons et ses bibliothèques
-d'affichage, et fonctionne hors ligne. Relier un assistant (étape 1) demande Node 20 ou plus récent.
+d'affichage, et fonctionne hors ligne. Proposer ce serveur à Copilot demande la version 1.101 ou plus
+récente ; ailleurs, relier un assistant (étape 1) demande Node 20 ou plus récent.
 
 ### Documentation et aide
 

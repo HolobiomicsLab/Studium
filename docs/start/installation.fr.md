@@ -11,6 +11,7 @@ aucune clé d'API de modèle.
 
 | Vous voulez | Voie | Il vous faut |
 |---|---|---|
+| Apprendre avec Copilot dans VS Code, sans Node ni terminal | [Installer l'extension VS Code](#installer-lextension-vs-code) ; elle propose son propre serveur à Copilot ([Connecter Copilot](copilot.fr.md)) | VS Code 1.101 ou plus récent, un abonnement Copilot |
 | Apprendre avec un assistant IA (Codex, Claude Code, Copilot, Cursor, OpenCode, Claude Desktop) | [Ajouter le serveur à votre assistant](#ajouter-le-serveur-à-votre-assistant) | Node |
 | Apprendre dans Claude Code, avec les agents de leçon et les skills | [Installer le plugin Claude Code](#installer-le-plugin-claude-code) | Node, Claude Code 2.1.275 ou plus |
 | Jouer les leçons dans un panneau visuel | [Installer l'extension VS Code](#installer-lextension-vs-code) | VS Code |
@@ -74,7 +75,7 @@ définit un.
 |---|---|
 | Claude Code | `claude mcp add --scope user studium -e LITELLM_BASE_URL= -- npx -y studium-mcp` |
 | Codex | `codex mcp add studium --env LITELLM_BASE_URL= -- npx -y studium-mcp` |
-| Copilot dans VS Code | `code --add-mcp '{"name":"studium","command":"npx","args":["-y","studium-mcp"],"env":{"LITELLM_BASE_URL":""}}'` |
+| Copilot dans VS Code | rien avec l'extension Studium dans VS Code 1.101 ou plus récent, qui propose son propre serveur ([Connecter Copilot](copilot.fr.md)) ; sans elle, `code --add-mcp '{"name":"studium","command":"npx","args":["-y","studium-mcp"],"env":{"LITELLM_BASE_URL":""}}'` |
 | Cursor | `.cursor/mcp.json` ou `~/.cursor/mcp.json`, voir [Connecter Cursor](cursor.fr.md) |
 | OpenCode | `opencode.jsonc`, voir [Connecter OpenCode](opencode.fr.md) |
 | Claude Desktop | `claude_desktop_config.json`, voir [Connecter votre assistant](harnesses.fr.md#claude-desktop) |

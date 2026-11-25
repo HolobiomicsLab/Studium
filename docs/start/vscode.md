@@ -24,12 +24,14 @@ The extension shows lessons; it does not build them. Right after installation th
 
 | You have | Do this |
 |---|---|
-| An AI assistant (Copilot in VS Code, Claude Code, Codex, Cursor) | Connect it to Studium with [one command](installation.md#add-the-server-to-your-assistant), then ask "I want to learn … with Studium" and name your sources. The lesson is written to your personal library, `~/.studium/library`, and appears in the **Lessons** view after a refresh |
+| Copilot in VS Code 1.101 or later | Nothing to connect: the extension offers its own Studium server to Copilot (see [Connect Copilot](copilot.md)). In Copilot Chat's agent mode, ask "I want to learn … with Studium" and name your sources. The lesson is written to your personal library and appears in the **Lessons** view after a refresh |
+| Another AI assistant (Claude Code, Codex, Cursor) | Connect it to Studium with [one command](installation.md#add-the-server-to-your-assistant), then ask "I want to learn … with Studium" and name your sources. The lesson is written to your personal library, `~/.studium/library`, and appears in the **Lessons** view after a refresh |
 | A lesson a teacher gave you | **Studium: Pick a course**, **Choose another course folder…**, then choose its folder; or right-click its `lesson.json` and choose **Studium: Open this lesson** |
 | The demo lessons, without a checkout | download the [repository archive](https://github.com/HolobiomicsLab/studium/archive/refs/heads/main.zip) and unzip it, then **Studium: Pick a course**, **Choose another course folder…**, and choose its `fixtures` folder |
 | A checkout of the repository | **Studium: Pick a course**, then choose `fixtures` for the demo lessons |
 
-With Copilot in agent mode everything stays inside VS Code: see [Connect Copilot](copilot.md). What the
+With Copilot in agent mode everything stays inside VS Code, with no terminal: see [Connect Copilot](copilot.md),
+which also says what has not been tried. What the
 assistant does, step by step, is in [Learn with your assistant](../learn/learn-with-your-assistant.md).
 
 ## Open a lesson
@@ -146,8 +148,9 @@ Lessons view. With no history, nothing is shown.
 - **Studium: Open lesson as notebook** plays the lesson in a notebook: run the driver cell with `next`, a
   choice letter, `0`–`4`, free text, `hint`, or `forget`.
 
-The pane and an MCP client you configured yourself (Copilot agent mode, for example) each start their own
-server and do not share the current step. Drive a lesson from one of them at a time.
+The pane and Copilot's agent mode each start their own server, whether Copilot uses the one the extension
+offers or one you configured yourself, and they do not share the current step. Drive a lesson from one of
+them at a time.
 
 ## Running a reproduction
 
@@ -167,6 +170,7 @@ faulty lesson cannot freeze the editor. **Studium: Run reproduction** starts the
 | `studium.communityBundlesRoot` | empty (same as `bundlesRoot`) | where **Community contributions** finds approved learner-written lessons |
 | `studium.assets` | `vendor` | load KaTeX and Vega offline (`vendor`) or from a CDN (`cdn`) |
 | `studium.learnerId` | `vscode-learner` | your learner id; it salts your on-disk pseudonym |
+| `studium.registerMcpServer` | `true` | offer the extension's own server to Copilot's agent mode (VS Code 1.101 or later); none is offered when you already added a Studium server yourself |
 | `studium.telemetryConsent` | `false` | opt in to recording pseudonymised class telemetry in the extension's data folder (nothing is sent) |
 | `studium.modalityPreference` | `balanced` | `visual` or `textual` reorders each step's material; nothing is removed |
 | `studium.showGraph` | `true` | open a companion pane with the live learning graph |
@@ -194,5 +198,6 @@ telemetry is sent. **Forget me** in the pane's menu erases your saved state for 
 **Studium: Forget my data** erases everything the extension keeps (progress, reviews, the courses you chose
 to trust, the last lesson) after a confirmation; it first closes every lesson, chat or notebook session the
 extension opened, so nothing writes its state back. It does not touch the data an assistant's Studium server
-keeps in `~/.studium/data`; the confirmation names that folder. See
+keeps in `~/.studium/data`; the confirmation names that folder. It does not stop the server VS Code started for
+Copilot, which keeps its progress in the same storage: stop **Studium** in **MCP: List Servers** first. See
 [Privacy and limits](../concepts/privacy-and-limits.md).
