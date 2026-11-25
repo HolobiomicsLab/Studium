@@ -30,6 +30,16 @@ describe("authoringGuide", () => {
     for (const rule of rules) expect(markdown).toContain(rule);
   });
 
+  // INT-STUDIUM-064, change 1: naming a local file spares the assistant copying its whole text.
+  it.each(["fr", "en"] as const)("says to name a local file by path and to pass the text of what was fetched from the web (%s)", (language) => {
+    const { markdown } = authoringGuide({ language });
+    const step = markdown.split("\n").find((line) => line.startsWith("2. "))!;
+    expect(step).toContain("`path`");
+    expect(step).toContain("`text`");
+    expect(step).toMatch(language === "fr" ? /fichier/ : /file/);
+    expect(step).toMatch(language === "fr" ? /web/ : /web/);
+  });
+
   it.each(["fr", "en"] as const)("asks for the first question by the second screen, and its example does so (%s)", (language) => {
     // R1: « learn X » reaches a first question in at most 6 Studium calls — get_study_plan,
     // get_authoring_guide, prepare_sources, create_lesson, start_lesson_session, and one

@@ -2,7 +2,7 @@
 // a draft quoting its passages exactly goes through create_lesson, and the written lesson.json
 // validates, lints with no ERROR and plays its first scene in a LessonSession.
 import { afterEach, describe, expect, it } from "vitest";
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
@@ -11,7 +11,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { LessonSession } from "@studium/lesson-session";
 import { loadBundleJson } from "@studium/lesson-session/node";
 import { buildTestDeps } from "@studium/lesson-session/testing";
-import { publicPresentation } from "@studium/lesson-session-host";
+import { publicPresentation, type SourceFilePolicy } from "@studium/lesson-session-host";
 import { lintBundleData } from "../../../packages/lesson-session-host/src/authoring-draft/index.js";
 import { FRENCH_SOURCE } from "../../../packages/lesson-session-host/src/authoring-draft/test-fixtures.js";
 import { AUTHORING_TOOL_NAMES, registerAuthoringTools, type AuthoringToolsContext } from "./authoring-tools.js";
@@ -23,11 +23,14 @@ afterEach(() => { for (const root of roots.splice(0)) rmSync(root, { recursive: 
 
 interface Passage { id: string; source_id: string; text: string }
 
-async function connected(judge = false) {
+async function connected(judge = false, files?: SourceFilePolicy) {
   const library = mkdtempSync(join(tmpdir(), "mcp-authoring-"));
   roots.push(library);
   const written: string[] = [];
-  const ctx: AuthoringToolsContext = { libraryRoot: () => library, onLessonWritten: (ref) => { written.push(ref); }, judge: () => judge };
+  const ctx: AuthoringToolsContext = {
+    libraryRoot: () => library, onLessonWritten: (ref) => { written.push(ref); }, judge: () => judge,
+    ...(files ? { sourceFiles: () => files } : {}),
+  };
   const server = new McpServer({ name: "authoring-test", version: "0" });
   const names = registerAuthoringTools(server, ctx);
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
@@ -230,5 +233,55 @@ describe("authoring over MCP, end to end", () => {
       expect(await call("create_lesson", { ...args, overwrite: true })).toMatchObject({ isError: false, body: { ok: true } });
     }
     expect(notices[0]).not.toBe(notices[1]);
+  });
+});
+
+// INT-STUDIUM-064, change 1: the assistant names a local file instead of copying its text into the call.
+describe("prepare_sources from a local file", () => {
+  function learnerFolder(): string {
+    const dir = realpathSync(mkdtempSync(join(tmpdir(), "mcp-learner-")));
+    roots.push(dir);
+    return dir;
+  }
+
+  it("builds the same lesson from a file path as from its text, and returns what it read", async () => {
+    const folder = learnerFolder();
+    const path = join(folder, "solidarite.md");
+    writeFileSync(path, FRENCH_SOURCE.text, "utf8");
+    const { library, call } = await connected(false, { base: folder, refusedRoots: [] });
+    const fromText = await call("prepare_sources", { sources: [{ title: FRENCH_SOURCE.title, text: FRENCH_SOURCE.text }] });
+    const fromFile = await call("prepare_sources", { sources: [{ path, title: FRENCH_SOURCE.title, license: "CC-BY-4.0" }], language: "fr" });
+    expect(fromFile.isError).toBe(false);
+    expect(fromFile.body["passages"]).toEqual(fromText.body["passages"]);
+    expect(Object.keys(fromFile.body).sort()).toEqual(["dropped_short", "files", "guide_ref", "passages", "source_set_id"]);
+    expect(fromFile.body["files"]).toEqual([{
+      source_id: "deux-formes-de-solidarite", path, bytes: Buffer.byteLength(FRENCH_SOURCE.text, "utf8"),
+      sha256: expect.stringMatching(/^[0-9a-f]{64}$/),
+    }]);
+    // A text source returns what it always did: no files key.
+    expect(fromText.body).not.toHaveProperty("files");
+    const created = await call("create_lesson", { source_set_id: fromFile.body["source_set_id"], draft: draftOver(fromFile.body["passages"] as Passage[]) });
+    expect(created).toMatchObject({ isError: false, body: { ok: true, course_ref: "deux-solidarites/lesson.json" } });
+    const raw = JSON.parse(readFileSync(join(library, "deux-solidarites", "lesson.json"), "utf8")) as {
+      scenes: Array<{ evidence?: { bibliographic_refs: Array<{ license?: string; prov_derived_from: string }> } }>;
+    };
+    // The lesson cites the source as before; the file's path stays in the learner's source set.
+    const refs = raw.scenes.flatMap((scene) => scene.evidence?.bibliographic_refs ?? []);
+    for (const ref of refs) expect(ref).toEqual(expect.objectContaining({ license: "CC-BY-4.0", prov_derived_from: "source:deux-formes-de-solidarite" }));
+    expect(JSON.stringify(raw)).not.toContain(folder);
+  });
+
+  it("refuses a path when the server was given no file policy, and a PDF, in the {path, message, hint} shape", async () => {
+    const folder = learnerFolder();
+    const pdf = join(folder, "cours.pdf");
+    writeFileSync(pdf, "%PDF-1.7\n");
+    const noFiles = await connected();
+    expect(await noFiles.call("prepare_sources", { sources: [{ path: pdf }] })).toMatchObject({
+      isError: true, body: { ok: false, errors: [{ path: "sources.0.path", message: "this server does not read files" }] },
+    });
+    const withFiles = await connected(false, { base: folder, refusedRoots: [] });
+    expect(await withFiles.call("prepare_sources", { sources: [{ path: pdf }] })).toMatchObject({
+      isError: true, body: { ok: false, errors: [{ path: "sources.0.path", message: "is a PDF, not text", hint: expect.stringContaining("pdftotext") }] },
+    });
   });
 });
