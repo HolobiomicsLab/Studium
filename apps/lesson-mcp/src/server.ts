@@ -67,11 +67,23 @@ export const SERVER_INSTRUCTIONS = [
 const EDITOR_LEARNER_LINE = "- The editor names the learner: omit learner_id (an id you pass is ignored; " +
   "persistence.learner_id_default is the learner).";
 
+/** D2: how the authoring line begins in SERVER_INSTRUCTIONS, and how it begins when the Studium VS Code extension
+ * serves Studium (STUDIUM_OPEN_LINK): a lesson ready to play is offered in the pane first. */
+const AUTHORING_START = "- To learn from new sources: get_authoring_guide, prepare_sources, create_lesson, then start_lesson_session.";
+const PANE_FIRST_START = "- To learn from new sources: get_authoring_guide, prepare_sources, create_lesson. When a result or a " +
+  "next_step carries open_link, show its display_markdown as it is (the Studium pane first) and call " +
+  "start_lesson_session only if the learner says “here”.";
+
 /** The instructions of a server over `host`: SERVER_INSTRUCTIONS, with the learner line rewritten when the editor
- * names the learner. Same number of lines (at most 13). */
-export function serverInstructions(host: Pick<SessionHost, "editorNamesLearner">): string {
+ * names the learner (D1) and the authoring line's start when the VS Code extension serves Studium (D2). Same number
+ * of lines (at most 13). */
+export function serverInstructions(host: Pick<SessionHost, "editorNamesLearner" | "openLink">): string {
   const lines = SERVER_INSTRUCTIONS.split("\n");
   if (host.editorNamesLearner) lines[lines.findIndex((line) => line.startsWith("- Pass one stable learner_id"))] = EDITOR_LEARNER_LINE;
+  if (host.openLink) {
+    const at = lines.findIndex((line) => line.startsWith(AUTHORING_START));
+    lines[at] = PANE_FIRST_START + lines[at]!.slice(AUTHORING_START.length);
+  }
   return lines.join("\n");
 }
 
@@ -345,6 +357,7 @@ export function buildMcpServer(host: SessionHost): McpServer {
     onLessonWritten: () => {},
     judge: () => host.judge,
     sourceFiles: () => sourceFilePolicy(host),
+    openLink: () => host.openLink,
   }));
   registered.push(...registerTeacherTools(server, {
     bundlesRoot: host.bundlesRoot, libraryRoot: host.libraryRoot, dataDir: host.persistence().data_dir,

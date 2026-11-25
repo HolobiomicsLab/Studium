@@ -21,7 +21,7 @@ import { zodToJsonSchema } from "zod-to-json-schema";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import {
   AuthoringInputError, GUIDE_VERSION, LessonDraftSchema, SOURCE_KINDS, authoringGuide, authoringOf, createLesson, discardBuild,
-  guideLanguageOf, prepareSources, type SourceFilePolicy,
+  guideLanguageOf, paneLink, paneReady, prepareSources, type SourceFilePolicy,
 } from "@studium/lesson-session-host";
 import { READ_ONLY } from "./operations.js";
 
@@ -44,6 +44,9 @@ export interface AuthoringToolsContext {
   /** How prepare_sources reads a source given by path: the base of a relative path and the folders it
    * refuses (Studium's own data). Absent: a source given by path is refused, only text is taken. */
   sourceFiles?(): SourceFilePolicy;
+  /** D2: the start of a link that opens a lesson in the Studium VS Code pane (STUDIUM_OPEN_LINK), or null. With one,
+   * create_lesson's result carries lesson_path, open_link and display_markdown offering the pane first. Absent: none. */
+  openLink?(): string | null;
 }
 
 type ToolResult = { content: Array<{ type: "text"; text: string }>; isError?: true };
@@ -126,7 +129,9 @@ export function registerAuthoringTools(server: McpServer, ctx: AuthoringToolsCon
       "again (an error concerns the concepts, goal, title, course_id or the order of the scenes). Errors may quote the draft's own keys: keep " +
       "them from the learner. The outline holds no key: show the learner only what differs from the sketch you showed " +
       "before writing, never a key. Then start the lesson with start_lesson_session {bundle_ref: course_ref} and relay " +
-      "the notice. An existing lesson is replaced only with overwrite: true, and only a self-study lesson no teacher " +
+      "the notice; but when the result also carries lesson_path, open_link and display_markdown (the server the Studium " +
+      "VS Code extension offers), show that display_markdown as it is, with the notice: it offers the Studium pane " +
+      "first, and you start the lesson in the chat only if the learner says “here”. An existing lesson is replaced only with overwrite: true, and only a self-study lesson no teacher " +
       "validated or approved. {source_set_id, discard: true} drops the unfinished build get_study_plan offers, when the " +
       "learner does not want it finished: it is not offered again.",
     inputSchema: {
@@ -152,9 +157,19 @@ export function registerAuthoringTools(server: McpServer, ctx: AuthoringToolsCon
       if (!result.ok) return refuse(result);
       ctx.onLessonWritten(result.course_ref);
       const { notice } = authoringOf(result.bundle, { judge: ctx.judge?.() ?? false });
+      // D2: served by the VS Code extension, the lesson is offered in its pane first (open-link.ts).
+      const prefix = ctx.openLink?.() ?? null;
+      const pane = prefix ? paneLink(prefix, result.lesson_path) : null;
+      const metadata = result.bundle.metadata;
       return reply({
         ok: true, course_ref: result.course_ref, outline: result.outline, key_classes: result.key_classes,
         findings: result.findings, notice,
+        ...(pane ? {
+          ...pane,
+          display_markdown: paneReady(metadata.language.trim().toLowerCase().startsWith("fr") ? "fr" : "en", {
+            title: metadata.title, steps: result.bundle.scenes.length, minutes: metadata.duration_minutes, link: pane.open_link,
+          }),
+        } : {}),
       });
     } catch (error) { return failure(error); }
   });

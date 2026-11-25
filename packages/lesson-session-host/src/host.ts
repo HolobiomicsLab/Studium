@@ -66,6 +66,7 @@ import {
   type ReviewSource,
 } from "./review-session.js";
 import { persistenceInfo, DEFAULT_LEARNER_ID, type PersistenceInfo } from "./persistence.js";
+import { paneLink, type PaneLink } from "./open-link.js";
 import { replyToInput, checkDisplayedChoice, ResponseInputError } from "./reply-mapping.js";
 import { expectedKind } from "./operator-context.js";
 import {
@@ -1058,6 +1059,12 @@ export class SessionHost {
     return roots;
   }
 
+  /** D2: the pane link of a lesson of the catalog — its file under the root it was listed from — or null. */
+  private paneLinkOf(lesson: CatalogLesson): PaneLink | null {
+    const root = this.lessonRoots().find((r) => r.kind === lesson.root);
+    return root && this.openLink ? paneLink(this.openLink, resolve(root.dir, lesson.bundle_ref)) : null;
+  }
+
   /** Whether `dir`, a root a lesson was loaded from, is the shipped lessons root. */
   private isShippedRoot(dir: string): boolean {
     return this.lessonRoots().some((root) => root.kind === "shipped" && resolve(root.dir) === resolve(dir));
@@ -1535,6 +1542,7 @@ export class SessionHost {
       timeZone: this.zone,
       reviewSeconds,
       unfinishedBuild: unfinished[0] ?? null,
+      ...(this.openLink ? { paneLinkFor: (lesson: CatalogLesson) => this.paneLinkOf(lesson) } : {}),
     });
   }
 

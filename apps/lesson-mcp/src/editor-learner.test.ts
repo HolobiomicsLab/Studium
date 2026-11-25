@@ -92,6 +92,22 @@ describe("the server the VS Code extension offers: the editor names the learner"
     expect(plan["in_progress"]).toEqual([]);
   });
 
+  // D2: the authoring line, rewritten within the same 13 lines, says to offer the pane first when a result or the
+  // study plan's next step carries open_link, and to start in the chat only on the learner's « here ».
+  it("tells the harness to show display_markdown with open_link first, within 13 lines", async () => {
+    const { client } = await connect(EDITOR);
+    const lines = (client.getInstructions() ?? "").split("\n");
+    expect(lines.length).toBeLessThanOrEqual(13);
+    const authoring = lines.find((line) => line.includes("prepare_sources, create_lesson"))!;
+    expect(authoring).toMatch(/open_link/);
+    expect(authoring).toMatch(/Studium pane first/);
+    expect(authoring).toMatch(/start_lesson_session only if the learner says “here”/);
+    // What the authoring line already asked stays (harness-contract.test.ts pins it on SERVER_INSTRUCTIONS).
+    for (const kept of ["tell_learner", "with your prepare_sources call", "short sketch", "only the scenes it names, with draft_id"]) {
+      expect(authoring).toContain(kept);
+    }
+  });
+
   it("needs both variables: STUDIUM_OPEN_LINK alone leaves the learner to the model", async () => {
     const { client } = await connect({ STUDIUM_OPEN_LINK: OPEN_LINK });
     expect(client.getInstructions()).toContain("Pass one stable learner_id");

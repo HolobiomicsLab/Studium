@@ -33,6 +33,7 @@ import type { Catalog, CatalogLesson } from "./lesson-catalog.js";
 import type { StudyRecord } from "./study-record.js";
 import type { UnfinishedBuild } from "./authoring-draft/draft-store.js";
 import { frenchSpacing } from "../../lesson-session/src/phrases.js";
+import { paneOffer, type PaneLink } from "./open-link.js";
 
 /** FSRS reinforcement's mastery gate (dueForReinforcement's default minMastery). */
 export const REVIEW_MIN_MASTERY = 0.6;
@@ -120,6 +121,10 @@ export interface StudyPlan {
     /** RFR-06, with minutes_per_day: about how long the step takes (what is left of a lesson in
      * progress; a review as cut by max_items). */
     estimated_minutes?: number;
+    /** D2: on start and continue, when the Studium VS Code extension serves Studium (STUDIUM_OPEN_LINK): the lesson
+     * file and the link that opens it in the pane, which `text` offers first (open-link.ts). */
+    lesson_path?: string;
+    open_link?: string;
   };
   display_markdown: string;
 }
@@ -153,6 +158,9 @@ export interface StudyPlanInput {
   reviewSeconds?: ReadonlyMap<string, number>;
   /** D4: the most recent lesson build that stopped (draft-store.ts unfinishedBuilds), if any. */
   unfinishedBuild?: UnfinishedBuild | null;
+  /** D2: when the Studium VS Code extension serves Studium, the pane link of a lesson on disk (null when none can
+   * open it). Absent ⇒ no link: the plan is the same as before. */
+  paneLinkFor?: (lesson: CatalogLesson) => PaneLink | null;
 }
 
 /** What a review scene takes when nothing says (RFR-06's estimate of a review session). */
@@ -323,6 +331,17 @@ function shippedDemo(input: StudyPlanInput, started: ReadonlySet<string>): Catal
   return inLocale ?? shipped[0] ?? null;
 }
 
+/** D2: a lesson to start or continue, offered in the Studium pane first when a link can open it there — never the
+ * demo shipped with Studium (its text says it is played through an assistant), never a .zip bundle. */
+function offerPane(step: StudyPlan["next_step"], lesson: CatalogLesson | undefined, input: StudyPlanInput): void {
+  if (!lesson || !input.paneLinkFor || lesson.root === "shipped" || lesson.bundle_ref.toLowerCase().endsWith(".zip")) return;
+  const pane = input.paneLinkFor(lesson);
+  if (!pane) return;
+  step.lesson_path = pane.lesson_path;
+  step.open_link = pane.open_link;
+  step.text = `${step.text} ${paneOffer(input.locale, pane.open_link)}`;
+}
+
 export function buildStudyPlan(input: StudyPlanInput): StudyPlan {
   const t = PLAN[input.locale];
   const timeZone = input.timeZone ?? localTimeZone();
@@ -381,6 +400,7 @@ export function buildStudyPlan(input: StudyPlanInput): StudyPlan {
       nextStep.estimated_minutes = minutes;
       nextStep.text = `${nextStep.text} ${lessonBudgetText(t, minutes, budget, true)}`;
     }
+    offerPane(nextStep, input.catalog.lessons.find((l) => l.bundle_ref === current.bundle_ref), input);
   } else if (next) {
     nextStep = { action: "start", tool: "start_lesson_session", arguments: { bundle_ref: next.bundle_ref, ...learner },
       text: next === demo && next.duration_minutes !== undefined
@@ -389,6 +409,7 @@ export function buildStudyPlan(input: StudyPlanInput): StudyPlan {
       nextStep.estimated_minutes = next.duration_minutes;
       nextStep.text = `${nextStep.text} ${lessonBudgetText(t, next.duration_minutes, budget, false)}`;
     }
+    offerPane(nextStep, next, input);
   } else if (ownLessons(input).length === 0) {
     nextStep = { action: "author", tool: "get_authoring_guide", arguments: { language: input.locale }, text: t.author };
   } else {
