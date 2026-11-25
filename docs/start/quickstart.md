@@ -16,6 +16,8 @@ extension from the Extensions view, run **Studium: Pick a course**, choose **Cho
 folder…** and select the folder of lessons; the demo lessons are the `fixtures` folder of the
 [repository archive](https://github.com/HolobiomicsLab/studium/archive/refs/heads/main.zip). No Node, terminal or AI account is involved. Details:
 [VS Code](vscode.md#get-your-first-lesson); for a teaching room, [Classroom workstations](classroom-workstations.md).
+Without VS Code, [Play in your browser](browser.md) (experimental) opens a lesson in a web browser; it needs
+Node and one command.
 The rest of this page builds a lesson from your own sources, which needs a terminal.
 
 <picture>

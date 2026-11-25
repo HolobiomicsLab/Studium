@@ -126,6 +126,26 @@ pnpm --silent --filter @studium/lesson-mcp api:call get_experiment_journal conte
 
 See [Learner report](../learn/learner-report.md) for what the report contains.
 
+### Browser player (experimental)
+
+`studium-mcp play` starts this API with the [browser player](../start/browser.md), on 127.0.0.1 and a free
+port, with a token it generates; `pnpm --filter @studium/lesson-mcp api` serves no player. The `/v1` routes
+are unchanged and still refuse every request that carries an `Origin`. The player adds:
+
+| Route | Method | Checks | Purpose |
+|---|---|---|---|
+| `/` | GET | loopback, Host | redirects to `/play` |
+| `/play` | GET | loopback, Host | the page; no token, a `Content-Security-Policy` that allows its own script by hash |
+| `/play/api/tools/<name>` | POST | loopback, Host, `Origin`, bearer token, JSON body | runs `list_lessons`, `open_lesson_panel`, `get_panel_view` or `panel_action` and returns the MCP tool result |
+
+Host must be `127.0.0.1`, `localhost` or `[::1]` with the listening port; `Origin` must be `http://` plus that
+Host, and `Sec-Fetch-Site`, when sent, `same-origin`. No route answers with CORS headers. Every call uses the
+server's default learner whatever `learner_id` it names, `open_lesson_panel` opens only a lesson
+`list_lessons` lists and plays it as a pane, and `ask` is refused (`400 action_unavailable`): the page has no
+assistant. Errors are `{error, code}`: `401 unauthorized`, `403 local_only`, `host_rejected` or
+`origin_rejected`, `400 invalid_bundle`, `404 not_found`, `415 media_type`. The design and its limits are in
+the [design record](../design-records/specs/2026-11-25-browser-player.md).
+
 ## lesson-server
 
 A Fastify server for the teacher dashboard. Replies are `{success, ok, ...}` on success and
