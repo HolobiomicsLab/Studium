@@ -22,7 +22,24 @@ Studium has two parts. Knowing which does what saves the first ten minutes:
 | **Your AI assistant**, connected to the Studium server | builds a lesson from the sources you name, asks you its questions in the conversation, brings the ideas back over the following days | answer for you |
 | **The VS Code extension** | shows a lesson in a pane, with its figures, equations and reviews | build a lesson: on a new machine its **Lessons** view stays empty until an assistant has built one |
 
-So a new lesson always starts in an assistant.
+So a new lesson always starts in an assistant. A lesson someone already made plays in VS Code alone.
+
+### Play a lesson without a terminal
+
+A lesson a teacher gave you, or one of the demo lessons, plays in VS Code with nothing else: no Node, no
+terminal and no AI account.
+
+1. In VS Code, open the Extensions view, search for **Studium** and install the extension published by
+   HolobiomicsLab.
+2. Have a folder of lessons: the one your teacher gave you, or the demo lessons, which are the `fixtures`
+   folder of the [repository archive](https://github.com/HolobiomicsLab/studium/archive/refs/heads/main.zip) (about 30 MB; unzip it first).
+3. Select the **Studium** icon in the activity bar, then **Pick a course**, **Choose another course
+   folder…**, and select that folder.
+4. Choose a course. It opens in a pane, at its first step.
+
+Building a new lesson from your own sources needs an assistant, connected as below: that part needs Node
+and one command in a terminal. For a teaching room where an IT team installs Studium for a class, see
+[Classroom workstations](docs/start/classroom-workstations.md).
 
 ### 1. Connect your assistant
 

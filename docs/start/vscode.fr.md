@@ -25,7 +25,8 @@ indique « Aucune leçon trouvée pour l'instant ». Prenez la ligne qui corre
 | Vous avez | Faites ceci |
 |---|---|
 | Un assistant IA (Copilot dans VS Code, Claude Code, Codex, Cursor) | Reliez-le à Studium par [une commande](installation.fr.md#ajouter-le-serveur-à-votre-assistant), puis demandez « je veux apprendre … avec Studium » en indiquant vos sources. La leçon est écrite dans votre bibliothèque personnelle, `~/.studium/library`, et apparaît dans la vue **Leçons** après un rafraîchissement |
-| Une leçon donnée par un enseignant | **Studium : Choisir un cours**, puis choisissez son dossier ; ou clic droit sur son `lesson.json`, puis **Studium : Ouvrir cette leçon** |
+| Une leçon donnée par un enseignant | **Studium : Choisir un cours**, **Choisir un autre dossier de cours…**, puis choisissez son dossier ; ou clic droit sur son `lesson.json`, puis **Studium : Ouvrir cette leçon** |
+| Les leçons de démonstration, sans clone | téléchargez l'[archive du dépôt](https://github.com/HolobiomicsLab/studium/archive/refs/heads/main.zip) et décompressez-la, puis **Studium : Choisir un cours**, **Choisir un autre dossier de cours…**, et choisissez son dossier `fixtures` |
 | Un clone du dépôt | **Studium : Choisir un cours**, puis choisissez `fixtures` pour les leçons de démonstration |
 
 Avec Copilot en mode agent, tout reste dans VS Code : voir [Connecter Copilot](copilot.fr.md). Ce que fait
@@ -37,7 +38,7 @@ l'assistant, étape par étape, est dans
 | Moyen | Quand l'utiliser |
 |---|---|
 | Icône **Studium** de la barre d'activité, puis la vue **Leçons** | parcourir les leçons de votre dossier de leçons |
-| **Studium : Choisir un cours** | choisir un cours, ou un autre dossier de leçons ; le choix est enregistré dans l'espace de travail, ou dans vos réglages utilisateur quand aucun dossier n'est ouvert |
+| **Studium : Choisir un cours** | choisir un cours, ou un autre dossier de leçons ; le choix est enregistré dans les réglages du dossier ouvert, ou dans vos réglages utilisateur quand aucun dossier n'est ouvert |
 | **Studium : Ouvrir une leçon** | rouvrir le cours courant (propose le sélecteur s'il n'y en a pas) |
 | Clic droit sur un `lesson.json`, **Studium : Ouvrir cette leçon** | ouvrir directement ce fichier, depuis l'explorateur ou l'onglet de l'éditeur, sans changer les réglages |
 | Un lien `vscode://` donné par votre assistant | ouvrir la leçon que votre assistant vient de préparer (ci-dessous) |

@@ -2,7 +2,7 @@
 
 Vous n'avez pas à écrire la leçon vous-même.
 
-1. Dans Codex ou Claude Code, serveur MCP Studium connecté, dites **« je veux apprendre X avec Studium »**.
+1. Dans votre assistant (Copilot en mode agent, Codex ou Claude Code), serveur Studium connecté, dites **« je veux apprendre X avec Studium »**.
 2. Votre assistant rassemble des sources sur X et en tire une leçon. Chaque question cite le passage dont
    elle provient, et la leçon est enregistrée dans votre bibliothèque personnelle, `~/.studium/library`.
 3. Ouvrez-la ici :

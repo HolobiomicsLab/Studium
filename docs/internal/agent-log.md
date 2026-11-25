@@ -24,6 +24,29 @@ leçon »). Le texte de `extension_save_course_failed` le dit (FR et EN). Rien n
 
 ---
 
+## 2026-11-25 — un chemin sans terminal, et les postes de salle de TP
+
+Origine : le retour d'un responsable des outils pédagogiques d'une université, qui a testé Studium :
+l'installation (Node dans un terminal, l'extension, la liaison à un assistant) est hors de portée de beaucoup
+d'enseignants et d'étudiants ; il suggère des postes préconfigurés en salle de TP. Branche
+`docs/2026-11-25-non-developer-onboarding`, depuis `dev` (`84184e1`). Rien n'est poussé.
+
+- Constat vérifié dans le code : l'extension du Marketplace embarque `dist/lesson-mcp.cjs` et le lance avec
+  le moteur de VS Code (`ELECTRON_RUN_AS_NODE`) ; une leçon déjà faite se joue donc sans Node ni terminal ni
+  compte d'IA. Le VSIX ne contient aucune leçon (`unzip -l`) et l'extension ne déclare pas le serveur à
+  Copilot : construire une leçon demande toujours Node et une commande.
+- Défaut corrigé (test d'abord, `extension-host.driver.ts`) : « Choisir un cours » écrivait dans les
+  réglages de l'espace de travail, que VS Code refuse quand aucun dossier n'est ouvert ; le choix va
+  maintenant dans les réglages utilisateur dans ce cas. Le faux `vscode` du pilote refuse désormais cette
+  écriture comme le vrai ; le nouveau bloc échouait (3 assertions), il passe (84).
+- Documentation : le chemin sans terminal en tête du README, du démarrage rapide et de la page du Marketplace ;
+  nouvelle page `docs/start/classroom-workstations` (EN/FR), marquée non essayée en salle ; textes de la vue
+  vide et du parcours de prise en main.
+- Vérifié hors VS Code : le serveur embarqué, construit ici, joue `atomistique-l1` copié hors du clone, et
+  depuis une copie en lecture seule avec la progression écrite seulement dans son dossier de données.
+
+---
+
 ## 2026-11-12 — la version 0.6.3 : le `homepage` du paquet npm
 
 Mots du propriétaire : « Oui, prépare 0.6.3 », après la publication de la 0.6.2.
