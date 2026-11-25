@@ -54,8 +54,8 @@ L'assistant appelle `get_authoring_guide`, qui renvoie la consigne d'auteur dans
 JSON Schema d'un brouillon de leçon et un exemple complet. Il vous demande ce que vous voulez savoir
 faire : cette phrase devient l'objectif de la leçon.
 
-Il récupère ensuite vos sources avec ses propres outils (web ou fichiers) et transmet leur texte
-complet à `prepare_sources`. Studium les découpe en passages citables et les range dans votre
+Il transmet ensuite vos sources à `prepare_sources` : le texte complet d'une page web récupérée avec
+son propre outil web, ou le chemin d'un fichier de votre ordinateur, que Studium lit lui-même. Studium les découpe en passages citables et les range dans votre
 bibliothèque :
 
 ```json

@@ -25,7 +25,7 @@ server connected (see [harnesses](../start/harnesses.md)), it calls three tools:
 | Tool | What it does |
 |---|---|
 | `get_authoring_guide {language?, mode?}` | Returns the authoring brief, the draft schema and a minimal example. `mode: "teacher"` adds where the teacher route starts. |
-| `prepare_sources {sources, goal?, language?}` | Cuts the source texts your assistant fetched into citable passages (up to 20 sources, 200 000 characters in total). |
+| `prepare_sources {sources, goal?, language?}` | Cuts the source texts your assistant fetched, or the local text files it names by path (Studium reads them), into citable passages (up to 20 sources, 200 000 characters in total). |
 | `create_lesson {source_set_id, draft, course_id?, overwrite?}` | Checks the draft (exact quotes, no TODO, a sound concept graph, the linter) and writes the lesson to the library. |
 
 Both tools write into the library of the person whose assistant runs them,

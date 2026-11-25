@@ -12,7 +12,7 @@ The MCP server (`apps/lesson-mcp`) uses these defaults. Each can be changed with
 |---|---|---|
 | Root of your library and data | `~/.studium` | `STUDIUM_HOME` |
 | Lessons written for you | `<STUDIUM_HOME>/library/<course>/lesson.json`, whatever `BUNDLES_ROOT` names | `STUDIUM_HOME`; `BUNDLES_ROOT` only adds a folder searched first |
-| Sources prepared for those lessons | `<STUDIUM_HOME>/library/_sources/` | `STUDIUM_HOME` |
+| Sources prepared for those lessons (their passages, and for a file read by path its full path, size and SHA-256) | `<STUDIUM_HOME>/library/_sources/` | `STUDIUM_HOME` |
 | Your progress | `<STUDIUM_HOME>/data` | `STUDIUM_DATA_DIR` |
 | Nothing on disk, memory only | off | `STUDIUM_EPHEMERAL=1` |
 | Learner id when the assistant gives none | `anonymous` | `STUDIUM_LEARNER_ID` |

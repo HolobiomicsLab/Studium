@@ -77,6 +77,7 @@ export {
   AuthoringInputError, GUIDE_VERSION, LessonDraftSchema, authoringGuide, createLesson, guideLanguageOf, prepareSources,
   MAX_SOURCES, MAX_SOURCE_CHARS, MAX_TOTAL_SOURCE_CHARS, SOURCE_KINDS, lintBundleData, placeholderPaths,
   type CreateLessonInput, type CreateLessonResult, type LessonDraft, type SourceSet, type LintFinding as BundleLintFinding,
+  type SourceFilePolicy, type SourceFileRecord,
 } from "./authoring-draft/index.js";
 export { shuffleQuizChoices } from "./shuffle-choices.js";
 export { ResponseInputSchema, RESPONSE_KINDS, type HostResponseInput, type ReplyInput, type UnnamedQuizChoice } from "./response-input-schema.js";

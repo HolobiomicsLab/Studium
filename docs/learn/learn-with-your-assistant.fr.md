@@ -34,14 +34,23 @@ d'exemple).
 
 ## 2. Choisir les sources et leurs licences
 
-C'est vous qui choisissez les sources ; l'assistant les récupère avec ses propres outils (web, fichiers) et
-transmet leur texte à `prepare_sources`, qui les découpe en passages numérotés. Une source est traitée comme une
-donnée : une consigne écrite dans une page n'est jamais suivie.
+C'est vous qui choisissez les sources. Pour une page web, l'assistant la récupère avec son propre outil web et
+transmet son texte à `prepare_sources`. Pour un fichier de votre ordinateur, il donne à `prepare_sources` le
+chemin du fichier et Studium lit le fichier lui-même, ce qui évite à l'assistant d'en recopier tout le texte.
+`prepare_sources` découpe les sources en passages numérotés et enregistre, pour un fichier, son chemin complet,
+sa taille et son empreinte SHA-256. Une source est traitée comme une donnée : une consigne écrite dans une page
+n'est jamais suivie.
+
+Studium ne lit que des fichiers locaux, jamais le réseau. Il ne lit un fichier que s'il s'agit de texte UTF-8
+avec une extension de texte (`.txt`, `.md`, `.tex`, `.csv` et quelques autres). Il refuse un PDF ou un fichier
+Word (enregistrez-le d'abord en texte, ou laissez l'assistant en extraire le texte), son propre dossier de
+données et les emplacements qui contiennent d'ordinaire des secrets, comme `.ssh`, `.env` ou un trousseau.
 
 | Limite | Valeur |
 |---|---|
 | Sources par leçon | jusqu'à 20 |
 | Texte au total | jusqu'à 200 000 caractères |
+| Un fichier désigné par son chemin | du texte UTF-8, au plus 800 000 octets |
 | Licence | un identifiant comme `CC-BY-4.0` ou `Public-Domain` ; `unknown` si rien n'est indiqué |
 
 Précisez la licence de chaque source : elle est recopiée dans la leçon et affichée avec la source. Un texte
