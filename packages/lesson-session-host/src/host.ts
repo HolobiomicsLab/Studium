@@ -1147,7 +1147,7 @@ export class SessionHost {
       const open = sharedIdentity(learnerId) ? undefined : this.openLessonOf(profilePseudonym, bundle);
       // D1: unless another process saved the lesson since that session loaded it (the learner went on in the pane, or
       // in another chat): that session is set aside, and this one starts from what is saved.
-      if (open && await this.movedOn(open[1])) this.setAsideMovedOn(open[0], open[1]);
+      if (open && await this.movedOn(open[1])) this.setAsideMovedOn(open[0]);
       else if (open) return this.alreadyOpen(open[0], open[1], { presentationLanguage: normalizedPresentationLanguage, promptSurface });
       // C5: the approval record (next to lesson.json, or inside the .zip), bound to the very bytes just loaded.
       const authoring = authoringOf(bundle, {
@@ -2490,7 +2490,7 @@ export class SessionHost {
   }
 
   /** D1: close, without writing anything, a session whose lesson went on in another process. */
-  private setAsideMovedOn(id: string, entry: SessionEntry): void {
+  private setAsideMovedOn(id: string): void {
     this.movedOnIds.add(id);
     this.registry.delete(id);
     this.experiments.delete(id);
@@ -2501,7 +2501,7 @@ export class SessionHost {
    * what is saved. */
   private async assertNotMovedOn(id: string, entry: SessionEntry): Promise<void> {
     if (!await this.movedOn(entry)) return;
-    this.setAsideMovedOn(id, entry);
+    this.setAsideMovedOn(id);
     throw new SessionHostNotFoundError(id, "moved_on");
   }
 
