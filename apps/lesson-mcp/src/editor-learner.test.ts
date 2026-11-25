@@ -108,6 +108,28 @@ describe("the server the VS Code extension offers: the editor names the learner"
     }
   });
 
+  // Review of the waiting branch, finding 1: forget_session is irreversible. Here it takes no learner_id (the editor's
+  // learner) or the editor's own, and refuses another one, naming the editor's learner; the tool says so.
+  it("forget_session erases the editor's learner without learner_id, and refuses another learner_id, erasing nothing", async () => {
+    const { client, call } = await connect(EDITOR);
+    const forget = (await client.listTools()).tools.find((t) => t.name === "forget_session")!;
+    expect(forget.description).toMatch(/editor names the learner/);
+    await startAndAnswer(call);
+    const refused = await call("forget_session", { learner_id: "some-test-learner", language: "en" });
+    expect(refused["error"]).toMatch(/"vscode-learner"/);
+    expect(refused["error"]).toMatch(/without learner_id/);
+    expect((await call("get_study_plan", { language: "en" }))["in_progress"]).toHaveLength(1);
+    const forgotten = await call("forget_session", { language: "en" });
+    expect(forgotten).toMatchObject({ forgotten: true, scope: "learner" });
+    expect(forgotten["display_markdown"]).toContain("Learner: “vscode-learner”.");
+    expect((await call("get_study_plan", { language: "en" }))["in_progress"]).toEqual([]);
+  });
+
+  it("forget_session still needs session_id or learner_id on another harness", async () => {
+    const { call } = await connect({ STUDIUM_LEARNER_ID: "vscode-learner" });
+    expect((await call("forget_session", {}))["error"]).toMatch(/one of session_id or learner_id/);
+  });
+
   it("needs both variables: STUDIUM_OPEN_LINK alone leaves the learner to the model", async () => {
     const { client } = await connect({ STUDIUM_OPEN_LINK: OPEN_LINK });
     expect(client.getInstructions()).toContain("Pass one stable learner_id");

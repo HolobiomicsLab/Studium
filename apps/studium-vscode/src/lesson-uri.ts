@@ -2,7 +2,7 @@
 // ref, whether it comes from vscode://holobiomicslab.studium-vscode/open?bundle=<path of lesson.json>
 // (a harness runs `code --open-url …`) or from the explorer's "Open this lesson" on a lesson.json.
 // Pure: file existence is injected, so a driver can test every refusal without a disk.
-import { basename, dirname, isAbsolute } from "node:path";
+import { basename, dirname, isAbsolute, relative, resolve, sep } from "node:path";
 import type { HostPhraseKey } from "./host-phrases.js";
 
 export interface LessonLocation { bundlesRoot: string; bundleRef: string; }
@@ -22,16 +22,27 @@ export function lessonLocation(lessonPath: string): LessonLocation {
   return { bundlesRoot: folder, bundleRef: basename(lessonPath) };
 }
 
-/** Validate a lesson path from outside the extension: absolute, no `..`, no NUL, a .json file that exists. */
-export function checkLessonPath(lessonPath: string, exists: (path: string) => boolean): OpenLessonResult {
+/** Validate a lesson path from outside the extension: absolute, no `..`, no NUL, a .json file that exists. With
+ * `roots` (a link: review finding 7), it must also lie inside one of them, which is checked before its existence, so
+ * that a link cannot ask whether any other file exists. Without (a file the learner picked), any folder will do. */
+export function checkLessonPath(lessonPath: string, exists: (path: string) => boolean, roots?: readonly string[]): OpenLessonResult {
   if (!isAbsolute(lessonPath) || lessonPath.split(/[\\/]+/).includes("..")) {
     return { ok: false, error: { key: "uri_not_absolute", path: lessonPath } };
   }
   if (lessonPath.includes("\0") || !lessonPath.toLowerCase().endsWith(".json")) {
     return { ok: false, error: { key: "uri_not_lesson", path: lessonPath.replace(/\0/g, "") } };
   }
+  if (roots && !roots.some((root) => insideFolder(root, lessonPath))) {
+    return { ok: false, error: { key: "uri_outside_lessons", path: lessonPath } };
+  }
   if (!exists(lessonPath)) return { ok: false, error: { key: "uri_not_found", path: lessonPath } };
   return { ok: true, ...lessonLocation(lessonPath) };
+}
+
+/** Whether `path` lies inside the folder `root` (at any depth, never the folder itself). */
+export function insideFolder(root: string, path: string): boolean {
+  const rel = relative(resolve(root), resolve(path));
+  return rel !== "" && rel !== ".." && !rel.startsWith(`..${sep}`) && !isAbsolute(rel);
 }
 
 /** The lesson path in the query VS Code hands the URI handler (`uri.query`, decoded once): what follows "bundle=",
@@ -52,11 +63,14 @@ export function bundleOfQuery(query: string): string | null {
 
 /** D2 (owner decision 1): open the lesson of a vscode://<publisher>.studium-vscode/open?bundle=… link from the query
  * VS Code hands the handler (`uri.query`). VS Code decodes the link's query once and `uri.toString()` encodes all of it
- * again, "=" included, so the handler reads the decoded query. Never throws. */
-export function parseOpenLessonLink(query: string, exists: (path: string) => boolean): OpenLessonResult {
+ * again, "=" included, so the handler reads the decoded query. Review finding 7: any page or program can hand VS Code
+ * such a link, so it opens a lesson only from `roots` — the extension's library, studium.bundlesRoot and the lessons
+ * shipped with Studium — and refuses any other file (uri_outside_lessons). Never throws. */
+export function parseOpenLessonLink(query: string, exists: (path: string) => boolean, roots: readonly string[]): OpenLessonResult {
   const bundle = bundleOfQuery(query);
   if (!bundle) return { ok: false, error: { key: "uri_missing_bundle" } };
-  return checkLessonPath(bundle, exists);
+  // No folder given (a caller from plain JavaScript): nothing opens, rather than anything.
+  return checkLessonPath(bundle, exists, roots ?? []);
 }
 
 /** Parse a query string that is still percent-encoded (`bundle=<path of lesson.json>`), as a link is written. Never throws. */

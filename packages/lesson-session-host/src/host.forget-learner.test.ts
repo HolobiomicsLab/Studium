@@ -150,6 +150,61 @@ describe("forget(session) (L-13): this lesson, the profile and the schedule", ()
   });
 });
 
+// Review of the waiting branch, finding 1: when the editor names the learner (the server the Studium VS Code extension
+// offers to Copilot, D1), forget_session {learner_id} played any id as the editor's learner, so a model naming another
+// learner erased the pane's. That call is irreversible: an id that is not the editor's learner is refused, naming that
+// learner and how to forget it, and nothing is erased. No id, or the editor's own, forgets the editor's learner as
+// before; the confirmation names the learner forgotten.
+describe("forgetLearner when the editor names the learner", () => {
+  async function editorSetup() {
+    const library = tmp();
+    const data = tmp();
+    write(library, "atomes/lesson.json", lesson("lesson-atomes", "Les atomes", [quiz("s-a", "c-a"), quiz("s-a2", "c-a")]));
+    const host = new SessionHost({
+      bundlesRoot: library, libraryRoot: library, live: false, dataDir: data, defaultLearnerId: "vscode-learner", editorNamesLearner: true,
+    });
+    const s = await host.create("atomes/lesson.json");
+    await host.respond(s.sessionId, { kind: "quiz_choice", choiceId: idOf(s.presentation) });
+    await host.close(s.sessionId);
+    return { host, data };
+  }
+
+  it("refuses another learner_id, erasing nothing, and names the editor's learner and how to forget it", async () => {
+    const { host, data } = await editorSetup();
+    const before = tree(data);
+    const refused = host.forgetLearner("some-test-learner");
+    await expect(refused).rejects.toThrow(/"some-test-learner"/);
+    await expect(refused).rejects.toThrow(/"vscode-learner"/);
+    await expect(refused).rejects.toThrow(/nothing was erased/);
+    await expect(refused).rejects.toThrow(/call forget_session without learner_id/);
+    expect(tree(data)).toEqual(before);
+    expect((await host.studyPlan()).in_progress).toHaveLength(1);
+  });
+
+  it("forgets the editor's learner with no learner_id, and the confirmation names it", async () => {
+    const { host } = await editorSetup();
+    const report = await host.forgetLearner(undefined, "en");
+    expect(report.erased).toContainEqual({ kind: "lesson_progress", lessons: ["Les atomes"] });
+    expect(report.display_markdown).toMatch(/^\*\*Your data is erased\.\*\*\n\nLearner: “vscode-learner”\./);
+    expect((await host.studyPlan()).in_progress).toHaveLength(0);
+  });
+
+  it("forgets the editor's learner when the learner_id given is the editor's own", async () => {
+    const { host } = await editorSetup();
+    const report = await host.forgetLearner("vscode-learner", "fr");
+    expect(report.erased).toContainEqual({ kind: "lesson_progress", lessons: ["Les atomes"] });
+    expect(report.display_markdown).toMatch(/Apprenant\s?: «\s?vscode-learner\s?»\./u);
+    expect((await host.studyPlan()).in_progress).toHaveLength(0);
+  });
+
+  it("names the learner forgotten on any server, and when there is nothing to erase", async () => {
+    const { host, play } = await setup();
+    await host.close(await play("atomes/lesson.json", "ana"));
+    expect((await host.forgetLearner("ana", "en")).display_markdown).toContain("Learner: “ana”.");
+    expect((await host.forgetLearner("nobody", "en")).display_markdown).toContain("Learner: “nobody”.");
+  });
+});
+
 // D4 (waiting review 2026-11-25): the drafts Studium keeps after a refusal are learner data of the library.
 // forgetLearner erases them, even on an install where no learner was ever recorded; forget(session),
 // which erases one lesson, keeps them and says where they are.

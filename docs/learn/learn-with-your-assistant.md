@@ -100,7 +100,8 @@ To play in VS Code instead, open the lesson from the **Lessons** view of the Stu
 when it is ready, and VS Code tells you. You can also follow the link your assistant gives you
 (`vscode://holobiomicslab.studium-vscode/open?bundle=<absolute path>`).
 See [VS Code](../start/vscode.md). The pane keeps its own progress in VS Code's storage: answers given there do
-not appear in the study plan your assistant reads, and the reverse.
+not appear in the study plan your assistant reads, and the reverse, except for Copilot with the Studium server
+the extension offers, which plays the pane's learner in that storage ([Connect Copilot](../start/copilot.md)).
 
 ## 5. Read the notice
 

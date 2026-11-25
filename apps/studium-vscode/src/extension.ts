@@ -459,9 +459,16 @@ function reportLessonPathError(result: Extract<OpenLessonResult, { ok: false }>)
 async function handleLessonUri(context: vscode.ExtensionContext, uri: vscode.Uri): Promise<void> {
   if (uri.path !== "/open") return;
   // D2: VS Code hands over the query decoded once (uri.query); uri.toString() would encode its "=" again.
-  const result = parseOpenLessonLink(uri.query ?? "", existsSync);
+  const result = parseOpenLessonLink(uri.query ?? "", existsSync, lessonLinkRoots(context));
   if (!result.ok) { reportLessonPathError(result); return; }
   await openLesson(context, result.bundleRef, "lesson", { bundlesRoot: result.bundlesRoot });
+}
+
+/** Review finding 7: the folders a lesson link may open a lesson from — the library, studium.bundlesRoot and the lessons
+ * shipped with Studium — each as configured and as resolved on disk (a folder reached through a link). */
+function lessonLinkRoots(context: vscode.ExtensionContext): string[] {
+  const roots = [libraryRoot, resolveLessonBundlesRoot(context), shippedRootOf(context)].filter((root): root is string => !!root);
+  return [...new Set(roots.flatMap((root) => { try { return [root, realpathSync(root)]; } catch { return [root]; } }))];
 }
 
 /** "Studium : Ouvrir cette leçon" on a lesson.json (explorer or editor tab menu, or the active editor). */

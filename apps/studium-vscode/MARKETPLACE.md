@@ -123,10 +123,12 @@ In Copilot Chat, `@studium` plays the current lesson in the conversation.
 - The extension calls no AI model. A judge model for written answers is optional and off, unless
   `LITELLM_BASE_URL` is set in the environment VS Code was started from.
 - Class telemetry is off unless you turn on `studium.telemetryConsent`.
-- The pane and an assistant keep separate progress: a lesson started in the conversation starts again
-  from its first step in the pane. The server this extension offers to Copilot keeps its progress in the
-  extension's storage too; **Studium: Forget my data** does not stop it, so stop **Studium** in
-  **MCP: List Servers** first.
+- Copilot, with the Studium server this extension offers, plays the pane's learner (`studium.learnerId`) and
+  keeps its progress in the extension's storage: a lesson started in the conversation goes on in the pane at
+  the step you reached, and the reverse (finish or close it in one before going on in the other). Another
+  assistant, or a Studium server added to VS Code by hand, keeps its own progress: a lesson started there
+  starts again from its first step in the pane. **Studium: Forget my data** does not stop the server offered
+  to Copilot, so stop **Studium** in **MCP: List Servers** first.
 
 ## Requirements
 
@@ -269,10 +271,13 @@ Dans Copilot Chat, `@studium` joue la leçon courante dans la conversation.
 - L'extension n'appelle aucun modèle d'IA. Un modèle juge pour les réponses rédigées est facultatif et
   désactivé, sauf si `LITELLM_BASE_URL` est défini dans l'environnement d'où VS Code a été lancé.
 - La télémétrie de classe est désactivée tant que vous n'activez pas `studium.telemetryConsent`.
-- Le panneau et un assistant gardent des progressions séparées : une leçon commencée dans la conversation
-  reprend à sa première étape dans le panneau. Le serveur que cette extension propose à Copilot garde lui
-  aussi sa progression dans l'espace de stockage de l'extension ; **Studium : Oublier mes données** ne
-  l'arrête pas : arrêtez d'abord **Studium** dans **MCP: List Servers**.
+- Copilot, avec le serveur Studium que propose cette extension, joue l'apprenant du panneau
+  (`studium.learnerId`) et garde sa progression dans l'espace de stockage de l'extension : une leçon
+  commencée dans la conversation se poursuit dans le panneau à l'étape où vous en étiez, et inversement
+  (terminez-la ou fermez-la dans l'un avant de continuer dans l'autre). Un autre assistant, ou un serveur
+  Studium ajouté à la main dans VS Code, garde sa propre progression : une leçon commencée là reprend à sa
+  première étape dans le panneau. **Studium : Oublier mes données** n'arrête pas le serveur proposé à
+  Copilot : arrêtez d'abord **Studium** dans **MCP: List Servers**.
 
 ### Prérequis
 

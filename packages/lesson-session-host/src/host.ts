@@ -127,16 +127,17 @@ function escapes(base: string, target: string): boolean {
  * « session not found: », which the HTTP adapter maps to a 404. */
 export class SessionHostNotFoundError extends Error {
   /** `erased` (L-11): the learner's data was erased — by forget_session here or in another server on
-   * the same data folder, or the folder itself — while the session was open. `moved_on` (D1): another process
-   * saved the lesson since this session loaded it, and this session would have saved its older state over it. */
+   * the same data folder, or the folder itself — while the session was open. `moved_on` (D1): another session —
+   * another process, or one started here after the lesson was rewritten — saved the lesson since this session loaded
+   * it, and this session would have saved its older state over it. */
   constructor(id: string, cause: "unknown" | "erased" | "moved_on" = "unknown") {
     super(cause === "erased"
       ? `session not found: ${id} (the learner's data was erased while this session was open): call ` +
         "start_lesson_session with the same bundle_ref and learner_id to start the lesson afresh, or " +
         "start_review_session with the same learner_id for a review"
       : cause === "moved_on"
-      ? `session not found: ${id} (this lesson went on in another session since this one loaded it, in the Studium ` +
-        "pane or another chat, and this one would save over it): call start_lesson_session with the same bundle_ref " +
+      ? `session not found: ${id} (this lesson went on in another session since this one loaded it, or was rewritten ` +
+        "and started again, and this one would save over it): call start_lesson_session with the same bundle_ref " +
         "and learner_id to continue where it is now"
       : `session not found: ${id} (the server may have restarted, or the session was closed): call ` +
         "start_lesson_session with the same bundle_ref and learner_id to resume the lesson where it stopped, or " +
@@ -1023,6 +1024,12 @@ export class SessionHost {
   get editorNamesLearner(): boolean { return this.opts.editorNamesLearner === true; }
   /** D2: the start of a link that opens a lesson in the Studium VS Code pane, or null. */
   get openLink(): string | null { return this.opts.openLink?.trim() || null; }
+  /** D1, review finding 4: whether `learnerId` is one person's — D5 merges their sessions of a lesson and the
+   * stale-answer guard holds. The editor's learner always is, whatever its id ("anonymous" included: the
+   * studium.learnerId of one VS Code user); a shared default identity named by no editor is not. */
+  private onePerson(learnerId: string): boolean {
+    return this.editorNamesLearner || !sharedIdentity(learnerId);
+  }
   /** D1: the learner a call plays: the editor's when it names the learner, else the one named, else the default. */
   learnerFor(requested?: string): string {
     return this.editorNamesLearner ? this.defaultLearnerId : requested ?? this.defaultLearnerId;
@@ -1155,7 +1162,7 @@ export class SessionHost {
       const resolved = await loadResolvedBundle(this.roots(), bundleRef, shuffleSaltFor(learnerId));
       const bundle = resolved.bundle;
       // D5: the learner already plays this lesson in this server — that session goes on.
-      const open = sharedIdentity(learnerId) ? undefined : this.openLessonOf(profilePseudonym, bundle);
+      const open = this.onePerson(learnerId) ? this.openLessonOf(profilePseudonym, bundle) : undefined;
       // D1: unless another process saved the lesson since that session loaded it (the learner went on in the pane, or
       // in another chat): that session is set aside, and this one starts from what is saved.
       if (open && await this.movedOn(open[1])) this.setAsideMovedOn(open[0]);
@@ -1187,8 +1194,8 @@ export class SessionHost {
         // returns null on missing/parse-error, so a fresh learner falls back to defaultLearnerState.
         prior = await deps.stateStore.load(bundle.bundle_id);
         // D1: what was loaded, to tell later that another process saved over it. A shared default identity is
-        // never guarded, as D5 never merges its sessions: several people may share it.
-        if (!sharedIdentity(learnerId)) stateRevision = await deps.stateStore.revision?.(bundle.bundle_id);
+        // never guarded, as D5 never merges its sessions: several people may share it — unless the editor names it.
+        if (this.onePerson(learnerId)) stateRevision = await deps.stateStore.revision?.(bundle.bundle_id);
       } else {
         deps = this.deps(undefined, clock);
       }
@@ -2964,8 +2971,14 @@ export class SessionHost {
   /** forget_session {learner_id} (L-13, R-en-07): erase everything this host keeps of the learner, with
    * no live session needed — every lesson's progress (their live sessions are closed), the
    * cross-lesson profile and the review schedule — and say what stays, as forget does. D10: in
-   * `language` (fr|en) when given, else the learner's last lesson's, else the server default. */
-  async forgetLearner(learnerId: string = this.defaultLearnerId, language?: DisplayLocale): Promise<ForgetReport> {
+   * `language` (fr|en) when given, else the learner's last lesson's, else the server default. The text names
+   * the learner forgotten. When the editor names the learner (D1), no id or the editor's own forgets the editor's
+   * learner, and another id is refused before anything is erased: this cannot be undone, so it is never played as
+   * the editor's learner the way other calls are (review finding 1). */
+  async forgetLearner(learnerId?: string, language?: DisplayLocale): Promise<ForgetReport> {
+    if (this.editorNamesLearner && learnerId !== undefined && learnerId !== this.defaultLearnerId) {
+      throw new Error(otherLearnerRefusal(learnerId, this.defaultLearnerId));
+    }
     learnerId = this.learnerFor(learnerId);
     const requested = language === undefined ? undefined : checkLocale(language);
     const library = this.opts.libraryRoot;
@@ -2973,7 +2986,7 @@ export class SessionHost {
     if (this.holdsNoLearner()) {
       // D4: with no pseudonym key on this install, no kept draft can be matched to a learner: all go.
       const drafts = library && await eraseDrafts(library) ? draftsErased : [];
-      return this.forgetReport("learner", drafts, this.keptOnDisk(await this.catalog(), { drafts: false }), requested ?? DEFAULT_LOCALE);
+      return this.forgetReport("learner", drafts, this.keptOnDisk(await this.catalog(), { drafts: false }), requested ?? DEFAULT_LOCALE, learnerId);
     }
     const pseudonymOf = this.deps().pseudonym;
     const profilePseudonym = await pseudonymOf.get(learnerId, PROFILE_PSEUDONYM_SCOPE);
@@ -3020,7 +3033,7 @@ export class SessionHost {
         ...drafts,
       ];
       this.afterForget();
-      return this.forgetReport("learner", erased, this.keptOnDisk(catalog, { drafts: false }), requested ?? locale);
+      return this.forgetReport("learner", erased, this.keptOnDisk(catalog, { drafts: false }), requested ?? locale, learnerId);
     });
   }
 
@@ -3097,8 +3110,11 @@ export class SessionHost {
     return kept;
   }
 
-  private forgetReport(scope: ForgetReport["scope"], erased: ForgetItem[], kept: ForgetItem[], locale: DisplayLocale): ForgetReport {
-    return { forgotten: true, scope, erased, kept, display_markdown: forgetMarkdown({ erased, kept }, locale) };
+  /** `learner`: the learner forgotten (forgetLearner), whom the text names. */
+  private forgetReport(
+    scope: ForgetReport["scope"], erased: ForgetItem[], kept: ForgetItem[], locale: DisplayLocale, learner?: string,
+  ): ForgetReport {
+    return { forgotten: true, scope, erased, kept, display_markdown: forgetMarkdown({ erased, kept, learner }, locale) };
   }
 
   /** A durable data folder no learner was ever written to: no pseudonym secret yet and no learner
@@ -3118,6 +3134,14 @@ const LEARNER_FOLDER = /^[0-9a-f]{16}$/;
 /** Lesson titles once each, in the reading order of their language. */
 function sortedTitles(titles: readonly string[]): string[] {
   return [...new Set(titles)].sort((a, b) => a.localeCompare(b));
+}
+
+/** Review finding 1: why forget_session {learner_id} refuses an id that is not the editor's learner, and how to
+ * forget the editor's learner instead. */
+function otherLearnerRefusal(requested: string, editorLearner: string): string {
+  return `learner_id ${JSON.stringify(requested)} is not the learner here, and nothing was erased: the editor names the ` +
+    `learner, ${JSON.stringify(editorLearner)} (the Studium pane's learner, the studium.learnerId setting of VS Code), and ` +
+    "this server plays no other. To erase that learner's data, call forget_session without learner_id.";
 }
 
 /** The default identities several people may share (no learner named): their sessions are never

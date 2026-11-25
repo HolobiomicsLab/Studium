@@ -211,6 +211,7 @@ const PHRASES = {
     lessons_shipped_note: "Une leçon de démonstration qui montre comment fonctionne Studium, rédigée par l'IA à partir de la documentation de Studium et non vérifiée par un enseignant. Elle reste à part de tes leçons.",
     forget_done: "**Tes données sont effacées.**",
     forget_nothing: "Rien à effacer : aucune donnée n'est enregistrée pour toi ici.",
+    forget_learner: "Apprenant : « {learner} ».",
     session_already_open: "Cette leçon était déjà ouverte : elle continue où tu en étais.",
     forget_erased: "Effacé : {items}.",
     forget_kept: "Conservé : {items}.",
@@ -318,6 +319,7 @@ const PHRASES = {
     lessons_shipped_note: "A demo lesson that shows how Studium works, drafted by an AI agent from Studium's documentation and not checked by a teacher. It stays apart from your lessons.",
     forget_done: "**Your data is erased.**",
     forget_nothing: "Nothing to erase: no data is recorded for you here.",
+    forget_learner: "Learner: “{learner}”.",
     session_already_open: "This lesson was already open: it continues where you left off.",
     forget_erased: "Erased: {items}.",
     forget_kept: "Kept: {items}.",
@@ -728,11 +730,14 @@ export function alreadyOpenLine(locale: DisplayLocale): string {
 
 /** forget_session's display_markdown (L-13, UX-01): what was erased, and what stays and where — the
  * lessons of the library and their sources, which a learner may believe gone with the rest. The
- * install's pseudonym key holds no learner data and is not named. */
+ * install's pseudonym key holds no learner data and is not named. `learner`, when given (forget_session
+ * {learner_id}), is named under the first line (review finding 1: the editor may have named it, not the learner). */
 export function forgetMarkdown(
-  report: { erased: readonly ForgetDisplayItem[]; kept: readonly ForgetDisplayItem[] }, locale: DisplayLocale,
+  report: { erased: readonly ForgetDisplayItem[]; kept: readonly ForgetDisplayItem[]; learner?: string | undefined },
+  locale: DisplayLocale,
 ): string {
-  if (!report.erased.length) return say(locale, "forget_nothing");
+  const learner = report.learner === undefined ? "" : say(locale, "forget_learner", { learner: report.learner });
+  if (!report.erased.length) return [say(locale, "forget_nothing"), learner].filter(Boolean).join("\n\n");
   const lessons = (item: ForgetDisplayItem) => quotedList(item.lessons ?? [], locale);
   const erased = report.erased.flatMap((item) => {
     if (item.kind === "lesson_progress") return item.lessons?.length ? [say(locale, "forget_lesson_progress", { lessons: lessons(item) })] : [];
@@ -757,6 +762,7 @@ export function forgetMarkdown(
   const separator = locale === "fr" ? " ; " : "; ";
   return [
     say(locale, "forget_done"),
+    learner,
     say(locale, "forget_erased", { items: erased.join(separator) }),
     kept.length ? say(locale, "forget_kept", { items: kept.join(separator) }) : "",
     onDisk ? say(locale, "forget_delete_yourself") : "",

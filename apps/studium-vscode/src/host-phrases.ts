@@ -50,7 +50,7 @@ const FR = {
   status_continue: "Studium · reprendre {title}",
   status_tooltip_continue: "Reprendre « {title} » à l'étape {step} sur {total}. Clique pour l'ouvrir.",
   continue_minutes_left: "Environ {minutes} min restantes.",
-  continue_scope: "C'est la progression que VS Code garde pour toi (panneau Studium et @studium) ; les leçons jouées avec les outils Studium de Copilot ou avec un autre assistant n'y sont pas.",
+  continue_scope: "C'est la progression que VS Code garde pour toi (panneau Studium, @studium, et Copilot avec le serveur Studium que propose cette extension) ; les leçons jouées avec un autre assistant ou un serveur Studium ajouté à la main n'y sont pas.",
   tree_continue: "Reprendre : {title}",
   tree_continue_step: "étape {step}/{total}",
   tree_continue_minutes: "environ {minutes} min",
@@ -92,6 +92,8 @@ const FR = {
   uri_not_absolute: "Studium : le chemin de la leçon doit être absolu — {path}",
   uri_not_lesson: "Studium : « {path} » n'est pas un fichier de leçon (.json).",
   uri_not_found: "Studium : fichier de leçon introuvable — {path}",
+  // Review finding 7: a link opens a lesson only from the library, studium.bundlesRoot or the lessons shipped with Studium.
+  uri_outside_lessons: "Studium : « {path} » n'est pas dans tes leçons (ta bibliothèque, le dossier de studium.bundlesRoot ou les leçons livrées avec Studium) : un lien ne l'ouvre pas. Pour l'ouvrir quand même, fais un clic droit sur le fichier et choisis Studium : Ouvrir cette leçon.",
   open_this_no_file: "Studium : choisis un fichier de leçon (lesson.json) à ouvrir.",
 };
 
@@ -135,7 +137,7 @@ const EN: Record<HostPhraseKey, string> = {
   status_continue: "Studium · continue {title}",
   status_tooltip_continue: "Continue “{title}” at step {step} of {total}. Click to open it.",
   continue_minutes_left: "About {minutes} min left.",
-  continue_scope: "This is the progress VS Code keeps for you (Studium pane and @studium); lessons played with Copilot's Studium tools or with another assistant are not in it.",
+  continue_scope: "This is the progress VS Code keeps for you (Studium pane, @studium, and Copilot with the Studium server this extension offers); lessons played with another assistant or a Studium server added by hand are not in it.",
   tree_continue: "Continue: {title}",
   tree_continue_step: "step {step}/{total}",
   tree_continue_minutes: "about {minutes} min",
@@ -171,6 +173,7 @@ const EN: Record<HostPhraseKey, string> = {
   uri_not_absolute: "Studium: the lesson path must be absolute — {path}",
   uri_not_lesson: "Studium: “{path}” is not a lesson file (.json).",
   uri_not_found: "Studium: lesson file not found — {path}",
+  uri_outside_lessons: "Studium: “{path}” is not among your lessons (your library, the studium.bundlesRoot folder or the lessons shipped with Studium), so a link does not open it. To open it anyway, right-click the file and choose Studium: Open this lesson.",
   open_this_no_file: "Studium: choose a lesson file (lesson.json) to open.",
 };
 

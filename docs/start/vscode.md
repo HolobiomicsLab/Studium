@@ -64,8 +64,10 @@ After building a lesson with you, an assistant can hand it over:
 code --open-url "vscode://holobiomicslab.studium-vscode/open?bundle=<percent-encoded absolute path of lesson.json>"
 ```
 
-The link must name an absolute path, without `..`, to an existing `.json` file; anything else is refused
-with a message and nothing opens. If the window reloads while a lesson is open, the pane comes back and
+The link must name an absolute path, without `..`, to an existing `.json` file in your library, in the
+`studium.bundlesRoot` folder or among the lessons shipped with Studium; anything else is refused with a
+message and nothing opens. To open a lesson file kept elsewhere, right-click it and choose
+**Studium: Open this lesson**. If the window reloads while a lesson is open, the pane comes back and
 resumes from your saved progress.
 
 ## What you see
@@ -149,9 +151,11 @@ When nothing is due, the bar offers the lesson you were playing instead, for exa
 **Studium · continue Discover Studium**; clicking it reopens that lesson at the step where you stopped. The
 **Lessons** view shows the same lesson first, as **Continue: …**, with the next step and, when the lesson
 gives its duration, the minutes left; each lesson in the list shows its progress (**6/12**, or **done**).
-This is the progress VS Code keeps under `studium.learnerId`, in the pane and `@studium`. Lessons played
-with Copilot's Studium tools, another assistant or the browser player keep their progress elsewhere and do
-not show here. A lesson being prepared and a due review come first. With no history and no lesson in
+This is the progress VS Code keeps under `studium.learnerId`: in the pane, in `@studium`, and in Copilot
+when it uses the Studium server this extension offers, which plays the same learner in the same storage (a
+lesson played there shows here at the next refresh). Lessons played with another assistant, the browser
+player or a Studium server added to VS Code by hand keep their progress elsewhere and do not show here. A
+lesson being prepared and a due review come first. With no history and no lesson in
 progress, nothing is shown.
 
 ## Chat and notebook

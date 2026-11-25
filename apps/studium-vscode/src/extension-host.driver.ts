@@ -10,7 +10,7 @@
 import Module from "node:module";
 import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { hostPhrase } from "./host-phrases.js";
 import { freeTextInput } from "./scene-io.js";
@@ -283,8 +283,18 @@ async function main() {
   {
     await seen.uriHandler.handleUri({ path: "/open", toString: () => "vscode://holobiomicslab.studium-vscode/open" });
     expect(seen.errors.at(-1) === hostPhrase("uri_missing_bundle", {}, "en"), "a link without a bundle says so");
+    // Changed (review finding 7): a link opens a lesson only from the library, studium.bundlesRoot or the shipped
+    // lessons, so the missing file is looked for in the lessons folder the setting names.
+    settings["bundlesRoot"] = lib;
     await seen.uriHandler.handleUri(uriFor(join(lib, "nope", "lesson.json")));
     expect(seen.errors.at(-1)?.includes("not found") === true, "a link to a missing file says so");
+    // Review finding 7: a lesson file elsewhere on the disk is not opened from a link, even though it exists.
+    const elsewhere = join(workspace, "elsewhere", "lesson.json");
+    mkdirSync(dirname(elsewhere), { recursive: true });
+    writeFileSync(elsewhere, readFileSync(safePath));
+    await seen.uriHandler.handleUri(uriFor(elsewhere));
+    expect(seen.errors.at(-1) === hostPhrase("uri_outside_lessons", { path: elsewhere }, "en"),
+      `a link to a lesson outside the lesson folders is refused (got ${seen.errors.at(-1)})`);
     await seen.uriHandler.handleUri({ path: "/other", toString: () => "vscode://x/other" });
     expect(seen.panels.length === 0, "none of those opened a pane");
   }

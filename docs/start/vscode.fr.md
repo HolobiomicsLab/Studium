@@ -66,8 +66,10 @@ Après avoir préparé une leçon avec vous, un assistant peut vous la transmett
 code --open-url "vscode://holobiomicslab.studium-vscode/open?bundle=<chemin absolu de lesson.json, encodé pour une URL>"
 ```
 
-Le lien doit désigner un chemin absolu, sans `..`, vers un fichier `.json` existant ; sinon il est refusé
-avec un message et rien ne s'ouvre. Si la fenêtre se recharge pendant une leçon, le panneau revient et
+Le lien doit désigner un chemin absolu, sans `..`, vers un fichier `.json` existant de votre bibliothèque,
+du dossier `studium.bundlesRoot` ou des leçons livrées avec Studium ; sinon il est refusé avec un message et
+rien ne s'ouvre. Pour ouvrir un fichier de leçon rangé ailleurs, faites un clic droit dessus et choisissez
+**Studium : Ouvrir cette leçon**. Si la fenêtre se recharge pendant une leçon, le panneau revient et
 reprend à partir de votre progression enregistrée.
 
 ## Ce que vous voyez
@@ -157,9 +159,11 @@ Quand rien n'est dû, la barre propose plutôt la leçon que vous suiviez, par e
 **Studium · reprendre Découvrir Studium** ; un clic rouvre cette leçon à l'étape où vous en étiez. La vue
 **Leçons** montre cette même leçon en premier, sous la forme **Reprendre : …**, avec l'étape
 suivante et, quand la leçon donne sa durée, les minutes restantes ; chaque leçon de la liste montre sa
-progression (**6/12**, ou **terminée**). C'est la progression que VS Code garde sous `studium.learnerId`,
-dans le panneau et `@studium`. Les leçons jouées avec les outils Studium de Copilot, un autre assistant ou
-le lecteur dans le navigateur gardent leur progression ailleurs et n'apparaissent pas ici. Une leçon en
+progression (**6/12**, ou **terminée**). C'est la progression que VS Code garde sous `studium.learnerId` :
+dans le panneau, dans `@studium`, et dans Copilot quand il utilise le serveur Studium que propose cette
+extension, qui joue le même apprenant dans le même stockage (une leçon jouée là apparaît ici au prochain
+rafraîchissement). Les leçons jouées avec un autre assistant, le lecteur dans le navigateur ou un serveur
+Studium ajouté à la main dans VS Code gardent leur progression ailleurs et n'apparaissent pas ici. Une leçon en
 préparation et une révision due passent avant. Sans historique ni leçon en cours, rien n'est affiché.
 
 ## Chat et notebook
