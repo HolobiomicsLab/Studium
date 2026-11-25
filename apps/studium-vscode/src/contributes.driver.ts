@@ -4,6 +4,7 @@
 import { readFileSync, readdirSync, existsSync, statSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { MCP_PROVIDER_ID } from "./mcp-provider.js";
 
 const here = fileURLToPath(new URL(".", import.meta.url)); // apps/studium-vscode/src
 const root = resolve(here, "..");
@@ -201,6 +202,42 @@ const hasCmd = (id: string) => commandIds.includes(id);
   }
   const m = listing.match(/VS Code (\d+\.\d+) or later/);
   expect(!!m && pkg.engines.vscode === `^${m[1]}.0`, `MARKETPLACE.md states the VS Code version of engines.vscode (${pkg.engines.vscode})`);
+}
+
+// 11) INT-STUDIUM-064: the extension declares the MCP server definition provider it registers (VS Code 1.101+
+//     ignores a registration whose id the manifest does not declare), a setting turns it off, and the engine stays
+//     where it was: the registration is feature-detected, so older editors and forks still install the extension.
+{
+  const providers = c.mcpServerDefinitionProviders ?? [];
+  expect(providers.length === 1 && providers[0]?.id === MCP_PROVIDER_ID && typeof providers[0]?.label === "string" && providers[0].label.length > 0,
+    `contributes.mcpServerDefinitionProviders declares ${MCP_PROVIDER_ID} with a label (got ${JSON.stringify(providers)})`);
+  const setting = c.configuration?.properties?.["studium.registerMcpServer"];
+  expect(setting?.type === "boolean" && setting?.default === true && /^%.+%$/.test(setting?.description ?? ""),
+    "studium.registerMcpServer is a boolean setting, on by default, with a localized description");
+  const nlsEn = JSON.parse(readFileSync(resolve(root, "package.nls.json"), "utf8"));
+  const nlsFr = JSON.parse(readFileSync(resolve(root, "package.nls.fr.json"), "utf8"));
+  const key = (setting?.description ?? "").replace(/%/g, "");
+  expect(/Copilot/.test(nlsEn[key] ?? "") && /1\.101/.test(nlsEn[key] ?? "") && /1\.101/.test(nlsFr[key] ?? ""),
+    "the setting's description names Copilot and the VS Code version the registration needs");
+  expect(pkg.engines?.vscode === "^1.95.0", `engines.vscode is unchanged (^1.95.0): the MCP registration is feature-detected (got ${pkg.engines?.vscode})`);
+  const types = String(pkg.devDependencies?.["@types/vscode"] ?? "");
+  expect(/^\^1\.(9\d)\./.test(types), `@types/vscode stays at or below engines.vscode, which vsce requires (got ${types})`);
+}
+
+// 12) 2026-11-25: the demo lesson shipped with Studium is reachable with zero setup: a declared command with its
+//     title in both languages, a button in the empty Lessons view, a link in the first walkthrough step, and the
+//     lessons copied into the extension by the build (vendor, which package and build both run).
+{
+  const id = "studium.openDemoLesson";
+  expect(hasCmd(id), `command ${id} is declared`);
+  expect((pkg.activationEvents ?? []).includes(`onCommand:${id}`), `command ${id} has an activation event`);
+  for (const file of ["package.nls.json", "package.nls.fr.json"]) {
+    const nls = JSON.parse(readFileSync(resolve(root, file), "utf8"));
+    expect(typeof nls["command.openDemoLesson.title"] === "string", `${file} titles the demo command`);
+    expect(String(nls["viewsWelcome.empty"]).includes(`(command:${id})`), `${file}: the empty Lessons view offers the demo`);
+    expect(String(nls["walkthrough.step.open.description"]).includes(`(command:${id})`), `${file}: the first walkthrough step offers the demo`);
+  }
+  expect(/shipped-lessons/.test(pkg.scripts?.vendor ?? ""), "the vendor script copies the shipped lessons into dist/shipped-lessons");
 }
 
 if (failures.length) {

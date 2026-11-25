@@ -42,6 +42,9 @@ require extension/dist/panel/vendor/marked.min.js
 require extension/dist/panel/vendor/katex/katex.min.js
 require extension/dist/panel/vendor/katex/katex.min.css
 require extension/dist/panel/vendor/3Dmol-min.js
+# The demo lesson shipped with Studium (« Try the demo lesson »), copied by the vendor script.
+require extension/dist/shipped-lessons/discover-studium-en/lesson.json
+require extension/dist/shipped-lessons/discover-studium-fr/lesson.json
 forbid '^extension/src/'
 forbid '^extension/node_modules/'
 forbid '^extension/README\.fr\.md$'

@@ -8,6 +8,10 @@
 // folders are never entered. Two host-side additions: folders holding learner data or authoring
 // inputs (`data`, `_sources`, `community` — community bundles have their own tool) are skipped, and
 // so is any directory passed in `exclude` (the configured data dir may sit inside a root).
+//
+// A `shipped` root holds the lessons that ship with Studium itself (the « Discover Studium » demo). It
+// comes last and never shadows the learner's lessons: a shipped lesson whose ref or bundle_id a lesson of
+// an earlier root already has is not listed.
 import { createHash } from "node:crypto";
 import { readdir, readFile, stat } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
@@ -15,7 +19,7 @@ import { CourseSchema, type Course, type AuthoringMode } from "@studium/lesson-b
 import { loadBundleJson } from "@studium/lesson-session/node";
 import { draftedByOf, readApproval, type DraftedBy } from "./authoring.js";
 
-export type RootKind = "bundles" | "library";
+export type RootKind = "bundles" | "library" | "shipped";
 export interface LessonRoot { kind: RootKind; dir: string }
 
 export interface CatalogLesson {
@@ -106,6 +110,7 @@ async function readEntry(root: string, ref: string, kind: RootKind, catalog: Cat
   if (!lessonCandidate || !isBundleLike(raw)) return;
   try {
     const bundle = loadBundleJson(raw);
+    if (kind === "shipped" && catalog.lessons.some((l) => l.bundle_ref === ref || l.bundle_id === bundle.bundle_id)) return;
     const minutesPerDay = learnerMinutesPerDay(raw);
     const mode = bundle.metadata.authoring?.mode ?? "teacher";
     // The file was read once: its approval record is checked against those very bytes.

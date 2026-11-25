@@ -51,8 +51,8 @@ The assistant calls `get_authoring_guide`, which returns the authoring brief in 
 JSON Schema of a lesson draft and a worked example. It asks you what you want to be able to do: that
 sentence becomes the lesson's goal.
 
-It then fetches your sources with its own web or file tools and passes their full text to
-`prepare_sources`. Studium cuts them into citable passages and stores them in your library:
+It then passes your sources to `prepare_sources`: the full text of a web page it fetched with its own
+web tool, or the path of a file on your computer, which Studium reads itself. Studium cuts them into citable passages and stores them in your library:
 
 ```json
 {

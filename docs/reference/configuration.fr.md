@@ -20,6 +20,7 @@ Pour les variables du serveur MCP, une valeur vide (`VAR=`) compte comme absente
 | `STUDIUM_DATA_DIR` | `<STUDIUM_HOME>/data` | lesson-mcp, lesson-server, API HTTP | État durable de l'apprenant. Fixez-la pour choisir un autre dossier ; elle reste prise en compte même avec `STUDIUM_EPHEMERAL=1`. lesson-server et l'API HTTP gardent l'état en mémoire tant qu'elle n'est pas fixée. |
 | `STUDIUM_EPHEMERAL` | absente | lesson-mcp | `1` (ou `true`, `yes`, `on`) garde l'état en mémoire, perdu au redémarrage. Pour les tests, démonstrations et la CI. |
 | `STUDIUM_LEARNER_ID` | `anonymous` | lesson-mcp | Identifiant d'apprenant utilisé quand un appel n'en donne pas. |
+| `STUDIUM_SHIPPED_LESSONS` | `shipped-lessons/` à côté du serveur | lesson-mcp | Les leçons livrées avec Studium (la démonstration « Découvrir Studium »), cherchées après `BUNDLES_ROOT` et la bibliothèque, jamais modifiées ; une de vos leçons au même chemin l'emporte. `off` pour aucune. Un `lesson-mcp.cjs` copié seul ailleurs n'en a pas. |
 
 Les dates des résultats d'outils et du texte montré à l'apprenant sont des jours du calendrier dans le
 fuseau horaire du processus, indiqué par `get_server_info.time_zone`. Aucune variable Studium ne le règle ;

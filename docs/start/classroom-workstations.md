@@ -13,7 +13,7 @@ has been prepared with these steps yet: see [Limits](#limits).
 |---|---|---|
 | VS Code 1.95 or later | yes | it hosts the lesson pane |
 | The Studium extension | yes | it carries the lesson server and the viewers, and runs them with VS Code's own runtime |
-| A folder of lessons | yes | the extension holds no lesson |
+| A folder of lessons | yes | the extension holds only « Discover Studium », a demo of Studium itself (below) |
 | Node, a terminal, Git, Python | no | only to build lessons with an assistant, to prepare courses, or to contribute |
 | An AI account or a model API key | no | the pane plays a lesson without any model |
 
@@ -74,6 +74,12 @@ settings files. Keep `studium.assets` on `vendor`, `studium.telemetryConsent` of
 A student who picks another folder with **Studium: Pick a course** changes only their own user settings,
 or the settings of the folder they opened.
 
+The extension also ships « Discover Studium », a demo lesson of about ten minutes on how Studium and its pane
+work (**Studium: Try the demo lesson**, also offered in the course list, in VS Code's display language). It
+is useful for a first session in the room, before the course. An AI agent drafted it from Studium's
+documentation and no teacher has reviewed it, as its first screen says: review it like any lesson before
+using it with a class. It stays apart from the course folder and writes no setting.
+
 ## Where progress is kept
 
 The extension starts its own lesson server and gives it, as data folder, the storage VS Code keeps for the
@@ -104,11 +110,20 @@ courses without reproduction steps.
 
 ## With an assistant
 
-Building new lessons in the room, with Copilot in VS Code or another assistant, adds what this page avoids:
-Node on the workstation, one command per account (see
-[Add the server to your assistant](installation.md#add-the-server-to-your-assistant)) and an account with
-the assistant's provider for each student. The pane and an assistant keep separate progress. This has not
-been tried in a room.
+Building new lessons in the room adds an account with the assistant's provider for each student. With
+Copilot in VS Code 1.101 or later, that is all: the extension offers its own server to Copilot, so the
+workstation needs neither Node nor a command ([Connect Copilot](copilot.md); not tried in a real Copilot
+session). Another assistant adds Node on the workstation and one command per account (see
+[Add the server to your assistant](installation.md#add-the-server-to-your-assistant)). The pane and an
+assistant keep separate progress. This has not been tried in a room.
+
+## Without VS Code
+
+The [browser player](browser.md) (experimental) plays the same lessons in a web browser, served by a
+process on the workstation itself, listening on 127.0.0.1 only. It needs Node on the workstation and one
+command per session (`npx -y studium-mcp play /path/to/shared/lessons`), which a login script could run;
+progress goes to `~/.studium/data` of the account, or `STUDIUM_HOME`. It has not been tried in a room
+either, and nothing yet starts it from a desktop shortcut.
 
 ## Limits
 

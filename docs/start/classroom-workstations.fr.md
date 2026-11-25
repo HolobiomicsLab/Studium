@@ -14,7 +14,7 @@ gardée et ce qui sort de la machine. Aucune salle n'a encore été préparée a
 |---|---|---|
 | VS Code 1.95 ou plus récent | oui | il héberge le panneau de leçon |
 | L'extension Studium | oui | elle embarque le serveur de leçons et les afficheurs, et les lance avec le moteur de VS Code lui-même |
-| Un dossier de leçons | oui | l'extension ne contient aucune leçon |
+| Un dossier de leçons | oui | l'extension ne contient que « Découvrir Studium », une démonstration de Studium lui-même (ci-dessous) |
 | Node, un terminal, Git, Python | non | seulement pour construire des leçons avec un assistant, préparer des cours ou contribuer |
 | Un compte d'assistant IA ou une clé d'API de modèle | non | le panneau joue une leçon sans aucun modèle |
 
@@ -79,6 +79,13 @@ par défaut.
 Un étudiant qui choisit un autre dossier avec **Studium : Choisir un cours** ne change que ses propres
 réglages utilisateur, ou ceux du dossier qu'il a ouvert.
 
+L'extension contient aussi « Découvrir Studium », une leçon de démonstration d'une dizaine de minutes sur le
+fonctionnement de Studium et de son panneau (**Studium : Essayer la leçon de démonstration**, proposée aussi dans
+la liste des cours, dans la langue d'affichage de VS Code). Elle sert pour une première séance en salle, avant le
+cours. Un agent d'IA l'a rédigée à partir de la documentation de Studium et aucun enseignant ne l'a relue, comme
+le dit son premier écran : relisez-la comme toute leçon avant de l'utiliser avec une classe. Elle reste à part du
+dossier de cours et n'écrit aucun réglage.
+
 ## Où la progression est gardée
 
 L'extension lance son propre serveur de leçons et lui donne comme dossier de données l'espace que VS Code
@@ -111,11 +118,20 @@ salle qui ne les a pas, choisissez des cours sans étape de reproduction.
 
 ## Avec un assistant
 
-Construire de nouvelles leçons dans la salle, avec Copilot dans VS Code ou un autre assistant, ajoute ce que
-cette page évite : Node sur le poste, une commande par compte (voir
-[Ajouter le serveur à votre assistant](installation.fr.md#ajouter-le-serveur-à-votre-assistant)) et un compte
-chez le fournisseur de l'assistant pour chaque étudiant. Le panneau et un assistant gardent des progressions
-séparées. Cela n'a pas été essayé en salle.
+Construire de nouvelles leçons dans la salle ajoute un compte chez le fournisseur de l'assistant pour chaque
+étudiant. Avec Copilot dans VS Code 1.101 ou plus récent, c'est tout : l'extension propose son propre
+serveur à Copilot, le poste n'a donc besoin ni de Node ni d'une commande ([Connecter Copilot](copilot.fr.md) ;
+non essayé dans une vraie session Copilot). Un autre assistant ajoute Node sur le poste et une commande par
+compte (voir [Ajouter le serveur à votre assistant](installation.fr.md#ajouter-le-serveur-à-votre-assistant)).
+Le panneau et un assistant gardent des progressions séparées. Cela n'a pas été essayé en salle.
+
+## Sans VS Code
+
+Le [lecteur dans le navigateur](browser.fr.md) (expérimental) joue les mêmes leçons dans un navigateur web,
+servies par un processus du poste lui-même, qui n'écoute que sur 127.0.0.1. Il demande Node sur le poste et
+une commande par séance (`npx -y studium-mcp play /chemin/des/lecons/partagees`), qu'un script d'ouverture
+de session pourrait lancer ; la progression va dans `~/.studium/data` du compte, ou `STUDIUM_HOME`. Il n'a
+pas non plus été essayé en salle, et rien ne le lance encore depuis un raccourci du bureau.
 
 ## Limites
 

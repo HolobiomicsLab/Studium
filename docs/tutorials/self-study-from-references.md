@@ -37,7 +37,8 @@ The assistant then follows the steps of [Learn a topic in a conversation](learn-
 | Check and write the lesson | `create_lesson` | The outline (no key) and the authoring notice |
 | Play | `start_lesson_session`, `submit_response`, `rate_recall` | One screen at a time, in your words |
 
-The assistant fetches the page with its own web tool; Studium never fetches it. A source set holds
+The assistant fetches the page with its own web tool: Studium reads a local file when the assistant
+names one by path, but never downloads anything. A source set holds
 up to 20 sources and 200 000 characters in total, so a whole chapter fits. Each quote must match its
 passage character for character, otherwise `create_lesson` refuses the draft and the assistant
 corrects it. The lesson is written to your library (`~/.studium/library/<course_id>/lesson.json`) and

@@ -1,13 +1,17 @@
 // packages/lesson-session-host/src/authoring-draft/index.ts
 //
 // The conversational author over MCP (sprint 2026-10-30, W1; contracts C1, C2, C3): sources →
-// passages (prepare_sources), the brief (get_authoring_guide), a checked draft → a lesson in the
+// passages (prepare_sources, from text or a local file), the brief (get_authoring_guide), a checked draft → a lesson in the
 // learner's library (create_lesson). apps/lesson-mcp/src/authoring-tools.ts binds them to MCP.
 export { chunkText, DEFAULT_MAX_CHARS, DEFAULT_MIN_CHARS, type ChunkedText } from "./passages.js";
 export {
   AuthoringInputError, MAX_SOURCE_CHARS, MAX_SOURCES, MAX_TOTAL_SOURCE_CHARS, prepareSources, SOURCE_KINDS, type SourceKind, readSourceSet, SOURCE_SET_ID_PATTERN, SOURCES_DIR,
   type Passage, type PrepareOptions, type SourceInput, type SourceSet,
 } from "./source-set.js";
+export {
+  fileTitle, readSourceFile, secretPlace, SECRET_DIR_PAIRS, SECRET_DIRS, SECRET_EXTENSIONS, SECRET_FILES, TEXT_EXTENSIONS,
+  type SourceFilePolicy, type SourceFileRead, type SourceFileRecord,
+} from "./source-file.js";
 export { checkQuote, MAX_QUOTE_CHARS, MIN_QUOTE_CHARS, normalizeQuoteText, sourceSpan, type QuoteCheck } from "./quotes.js";
 export { DraftSceneSchema, LessonDraftSchema, type DraftScene, type LessonDraft } from "./draft-schema.js";
 export { authoringGuide, GUIDE_VERSION, guideLanguageOf, type AuthoringGuide, type GuideLanguage, type GuideMode } from "./guide.js";

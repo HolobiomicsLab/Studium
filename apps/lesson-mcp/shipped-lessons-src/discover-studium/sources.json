@@ -1,0 +1,111 @@
+{
+  "_comment": "The documentation pages each language version of « Discover Studium » is built from. Their text is read from the repository at build time (CC BY 4.0, see NOTICE).",
+  "goal": {
+    "en": "Understand how Studium works and find my way around its interface by using it",
+    "fr": "Comprendre comment fonctionne Studium et me repérer dans son interface en l'utilisant"
+  },
+  "sources": {
+    "en": [
+      {
+        "key": "how",
+        "path": "docs/concepts/how-studium-works.md",
+        "title": "Studium documentation — How Studium works",
+        "url": "https://github.com/HolobiomicsLab/studium/blob/main/docs/concepts/how-studium-works.md",
+        "license": "CC-BY-4.0"
+      },
+      {
+        "key": "honesty",
+        "path": "docs/concepts/honesty-and-provenance.md",
+        "title": "Studium documentation — Honesty and provenance",
+        "url": "https://github.com/HolobiomicsLab/studium/blob/main/docs/concepts/honesty-and-provenance.md",
+        "license": "CC-BY-4.0"
+      },
+      {
+        "key": "assistant",
+        "path": "docs/learn/learn-with-your-assistant.md",
+        "title": "Studium documentation — Learn a topic with your assistant",
+        "url": "https://github.com/HolobiomicsLab/studium/blob/main/docs/learn/learn-with-your-assistant.md",
+        "license": "CC-BY-4.0"
+      },
+      {
+        "key": "reviews",
+        "path": "docs/learn/review-over-time.md",
+        "title": "Studium documentation — Review over time",
+        "url": "https://github.com/HolobiomicsLab/studium/blob/main/docs/learn/review-over-time.md",
+        "license": "CC-BY-4.0"
+      },
+      {
+        "key": "privacy",
+        "path": "docs/concepts/privacy-and-limits.md",
+        "title": "Studium documentation — Privacy and limits",
+        "url": "https://github.com/HolobiomicsLab/studium/blob/main/docs/concepts/privacy-and-limits.md",
+        "license": "CC-BY-4.0"
+      },
+      {
+        "key": "map",
+        "path": "docs/learn/concept-map.md",
+        "title": "Studium documentation — Concept map",
+        "url": "https://github.com/HolobiomicsLab/studium/blob/main/docs/learn/concept-map.md",
+        "license": "CC-BY-4.0"
+      },
+      {
+        "key": "student",
+        "path": "docs/learn/student-guide.md",
+        "title": "Studium documentation — Student guide",
+        "url": "https://github.com/HolobiomicsLab/studium/blob/main/docs/learn/student-guide.md",
+        "license": "CC-BY-4.0"
+      }
+    ],
+    "fr": [
+      {
+        "key": "how",
+        "path": "docs/concepts/how-studium-works.fr.md",
+        "title": "Documentation de Studium — Comment fonctionne Studium",
+        "url": "https://github.com/HolobiomicsLab/studium/blob/main/docs/concepts/how-studium-works.fr.md",
+        "license": "CC-BY-4.0"
+      },
+      {
+        "key": "honesty",
+        "path": "docs/concepts/honesty-and-provenance.fr.md",
+        "title": "Documentation de Studium — Honnêteté et provenance",
+        "url": "https://github.com/HolobiomicsLab/studium/blob/main/docs/concepts/honesty-and-provenance.fr.md",
+        "license": "CC-BY-4.0"
+      },
+      {
+        "key": "assistant",
+        "path": "docs/learn/learn-with-your-assistant.fr.md",
+        "title": "Documentation de Studium — Apprendre un sujet avec votre assistant",
+        "url": "https://github.com/HolobiomicsLab/studium/blob/main/docs/learn/learn-with-your-assistant.fr.md",
+        "license": "CC-BY-4.0"
+      },
+      {
+        "key": "reviews",
+        "path": "docs/learn/review-over-time.fr.md",
+        "title": "Documentation de Studium — Réviser dans la durée",
+        "url": "https://github.com/HolobiomicsLab/studium/blob/main/docs/learn/review-over-time.fr.md",
+        "license": "CC-BY-4.0"
+      },
+      {
+        "key": "privacy",
+        "path": "docs/concepts/privacy-and-limits.fr.md",
+        "title": "Documentation de Studium — Confidentialité et limites",
+        "url": "https://github.com/HolobiomicsLab/studium/blob/main/docs/concepts/privacy-and-limits.fr.md",
+        "license": "CC-BY-4.0"
+      },
+      {
+        "key": "map",
+        "path": "docs/learn/concept-map.fr.md",
+        "title": "Documentation de Studium — Carte des notions",
+        "url": "https://github.com/HolobiomicsLab/studium/blob/main/docs/learn/concept-map.fr.md",
+        "license": "CC-BY-4.0"
+      },
+      {
+        "key": "student",
+        "path": "docs/learn/student-guide.fr.md",
+        "title": "Documentation de Studium — Guide étudiant",
+        "url": "https://github.com/HolobiomicsLab/studium/blob/main/docs/learn/student-guide.fr.md",
+        "license": "CC-BY-4.0"
+      }
+    ]
+  }
+}

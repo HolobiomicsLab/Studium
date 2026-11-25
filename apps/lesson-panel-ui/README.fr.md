@@ -65,14 +65,14 @@ l'apprenant partent dans la conversation de l'hôte par `sendMessage`, après un
 l'action `ask` marque le passage de main. Un hôte qui ne prend pas de message reçoit l'action `ask` seule,
 dont l'avis renvoie l'apprenant à la conversation. Un brief illisible ne fait jamais échouer le panneau.
 
-Depuis la racine : `pnpm --filter @studium/lesson-panel-ui build`. Le build utilise esbuild et deux
+Depuis la racine : `pnpm --filter @studium/lesson-panel-ui build`. Le build utilise esbuild et trois
 gabarits HTML, régénère les fichiers vendor depuis les paquets installés et écrit
-`dist/lesson-panel.html`, `dist/graph-panel.html`, les exports JavaScript des ressources embarquées
+`dist/lesson-panel.html`, `dist/graph-panel.html`, `dist/browser-player.html`, les exports JavaScript des ressources embarquées
 et `dist/vscode/`. Chaque ressource MCP est limitée à 1 500 000 octets par le build. Les builds MCP
 et VS Code l'appellent automatiquement ; le lancer avant d'importer directement le serveur source.
 `pnpm --filter @studium/lesson-panel-ui test` vérifie le renderer et les interactions des bridges.
 
-Les adaptateurs sont `bridge-vscode.js`, `bridge-mcp-app.js` et `bridge-standalone.js`. Un nouvel
+Les adaptateurs sont `bridge-vscode.js`, `bridge-mcp-app.js`, `bridge-standalone.js` et `bridge-browser.js`. Le dernier est celui du lecteur dans le navigateur (`studium-mcp play`, expérimental) : il passe à `bridge-mcp-app.js` un objet qui a la forme d'une MCP App et dont les appels d'outils vont par `fetch` aux routes du lecteur de l'API locale des leçons, liste les leçons avant qu'une séance existe, et garde son jeton et l'identifiant de séance dans `sessionStorage` ; voir la [note de conception](../../docs/design-records/specs/2026-11-25-browser-player.md). Un nouvel
 hôte fournit les vues et transporte les actions de la personne qui apprend. MCP Apps respecte la
 langue et le thème de l'hôte, signale la taille, ouvre les liens via l'hôte, et dessine dans le
 panneau la confirmation de l'effacement et le choix du cours. Les reproductions de capsules nécessitent le terminal VS Code ; le

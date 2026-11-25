@@ -38,7 +38,8 @@ L'assistant suit alors les étapes d'[Apprendre un sujet en conversation](learn-
 | Vérifier et écrire la leçon | `create_lesson` | Le plan (sans clé) et l'avis d'autorat |
 | Jouer | `start_lesson_session`, `submit_response`, `rate_recall` | Un écran à la fois, avec vos mots |
 
-L'assistant récupère la page avec son propre outil web ; Studium ne la télécharge jamais. Un jeu de
+L'assistant récupère la page avec son propre outil web : Studium lit un fichier local quand l'assistant
+le désigne par son chemin, mais ne télécharge jamais rien. Un jeu de
 sources compte au plus 20 sources et 200 000 caractères au total : un chapitre entier y tient.
 Chaque citation doit correspondre à son passage au caractère près, sinon `create_lesson` refuse le
 brouillon et l'assistant le corrige. La leçon est écrite dans votre bibliothèque

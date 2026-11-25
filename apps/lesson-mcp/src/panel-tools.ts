@@ -69,7 +69,7 @@ export function hostBackend(host: SessionHost, bundlesRoot: string): PanelBacken
     inlineImage: async (asset, bundleRef) => {
       if (!asset.path || (asset.kind !== "image" && asset.kind !== "executed_result")) return asset;
       try {
-        const roots = [bundlesRoot, ...(host.libraryRoot ? [host.libraryRoot] : [])];
+        const roots = [bundlesRoot, ...(host.libraryRoot ? [host.libraryRoot] : []), ...(host.shippedRoot ? [host.shippedRoot] : [])];
         const resolved = await loadResolvedBundle(roots, bundleRef);
         return resolved.baseDir ? inlineImageAsset(resolved.root, resolved.path, asset) : asset;
       } catch { return asset; }
@@ -162,7 +162,8 @@ class Panels {
       }
       return existing;
     }
-    const roots = [this.host.bundlesRoot, ...(this.host.libraryRoot ? [this.host.libraryRoot] : [])];
+    // The same roots, in the same order, as the host resolves a lesson in: the lessons shipped with Studium last.
+    const roots = [this.host.bundlesRoot, ...(this.host.libraryRoot ? [this.host.libraryRoot] : []), ...(this.host.shippedRoot ? [this.host.shippedRoot] : [])];
     const catalog = options.bundle_ref ? null : await scanCatalog(roots.map(dir => ({ dir, kind: "bundles" })));
     const ref = options.bundle_ref ?? catalog?.lessons.find(l => l.bundle_id === state.lesson_id)?.bundle_ref ?? "";
     const resolved = ref ? await loadResolvedBundle(roots, ref) : null;

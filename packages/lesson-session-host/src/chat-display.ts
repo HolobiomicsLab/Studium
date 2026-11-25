@@ -207,6 +207,8 @@ const PHRASES = {
     lesson_new: "pas encore commencée",
     lesson_in_progress: "en cours : {done} sur {total}",
     lesson_completed: "terminée",
+    lessons_shipped_heading: "**Livrée avec Studium**",
+    lessons_shipped_note: "Une leçon de démonstration qui montre comment fonctionne Studium, rédigée par l'IA à partir de la documentation de Studium et non vérifiée par un enseignant. Elle reste à part de tes leçons.",
     forget_done: "**Tes données sont effacées.**",
     forget_nothing: "Rien à effacer : aucune donnée n'est enregistrée pour toi ici.",
     session_already_open: "Cette leçon était déjà ouverte : elle continue où tu en étais.",
@@ -310,6 +312,8 @@ const PHRASES = {
     lesson_new: "not started yet",
     lesson_in_progress: "in progress: {done} of {total}",
     lesson_completed: "completed",
+    lessons_shipped_heading: "**Shipped with Studium**",
+    lessons_shipped_note: "A demo lesson that shows how Studium works, drafted by an AI agent from Studium's documentation and not checked by a teacher. It stays apart from your lessons.",
     forget_done: "**Your data is erased.**",
     forget_nothing: "Nothing to erase: no data is recorded for you here.",
     session_already_open: "This lesson was already open: it continues where you left off.",
@@ -674,24 +678,35 @@ export interface ListedLessonLine {
 }
 
 /** list_lessons' display_markdown (L-4): the lessons, how many steps, who wrote them and, with a
- * learner, how far they got — or that there is none (matching `query`). */
-export function lessonListMarkdown(lessons: readonly ListedLessonLine[], locale: DisplayLocale, query?: string): string {
+ * learner, how far they got — or that there is none (matching `query`); then, apart, the lessons
+ * `shipped` with Studium, labelled as such. */
+export function lessonListMarkdown(
+  lessons: readonly ListedLessonLine[], locale: DisplayLocale, query?: string, shipped: readonly ListedLessonLine[] = [],
+): string {
+  const own = ownLessonsMarkdown(lessons, locale, query);
+  if (!shipped.length) return own;
+  return `${own}\n\n${say(locale, "lessons_shipped_heading")}\n\n${shipped.map((l) => lessonLine(l, locale)).join("\n")}\n\n` +
+    say(locale, "lessons_shipped_note");
+}
+
+function lessonLine(l: ListedLessonLine, locale: DisplayLocale): string {
+  const details = [l.scene_count === 1 ? say(locale, "lesson_steps_one") : say(locale, "lesson_steps_many", { count: l.scene_count })];
+  if (l.drafted_by === "agent") details.push(say(locale, "lesson_agent"));
+  if (l.drafted_by === "learner") details.push(say(locale, l.mode === "teacher" ? "lesson_classmate" : "lesson_learner"));
+  if (l.status?.state === "new") details.push(say(locale, "lesson_new"));
+  if (l.status?.state === "in_progress") {
+    details.push(say(locale, "lesson_in_progress", { done: l.status.scenes_completed, total: l.status.total_scenes }));
+  }
+  if (l.status?.state === "completed") details.push(say(locale, "lesson_completed"));
+  return say(locale, "lesson_line", { title: l.title, details: details.join(", ") });
+}
+
+function ownLessonsMarkdown(lessons: readonly ListedLessonLine[], locale: DisplayLocale, query?: string): string {
   if (!lessons.length) {
     const asked = query?.trim();
     return `${say(locale, "lessons_heading")}\n\n${asked ? say(locale, "lessons_no_match", { query: asked }) : say(locale, "lessons_none")}`;
   }
-  const line = (l: ListedLessonLine) => {
-    const details = [l.scene_count === 1 ? say(locale, "lesson_steps_one") : say(locale, "lesson_steps_many", { count: l.scene_count })];
-    if (l.drafted_by === "agent") details.push(say(locale, "lesson_agent"));
-    if (l.drafted_by === "learner") details.push(say(locale, l.mode === "teacher" ? "lesson_classmate" : "lesson_learner"));
-    if (l.status?.state === "new") details.push(say(locale, "lesson_new"));
-    if (l.status?.state === "in_progress") {
-      details.push(say(locale, "lesson_in_progress", { done: l.status.scenes_completed, total: l.status.total_scenes }));
-    }
-    if (l.status?.state === "completed") details.push(say(locale, "lesson_completed"));
-    return say(locale, "lesson_line", { title: l.title, details: details.join(", ") });
-  };
-  return `${say(locale, "lessons_heading")}\n\n${lessons.map(line).join("\n")}`;
+  return `${say(locale, "lessons_heading")}\n\n${lessons.map((l) => lessonLine(l, locale)).join("\n")}`;
 }
 
 /** What forget_session erased and kept, as the host reports it (L-13). */

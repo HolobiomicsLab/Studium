@@ -20,7 +20,7 @@ Studium a deux parties. Savoir laquelle fait quoi évite de chercher :
 | Partie | Ce qu'elle fait | Ce qu'elle ne fait pas |
 |---|---|---|
 | **Votre assistant IA**, relié au serveur Studium | construit une leçon à partir des sources que vous indiquez, vous pose ses questions dans la conversation, ramène les idées les jours suivants | répondre à votre place |
-| **L'extension VS Code** | affiche une leçon dans un panneau, avec ses figures, ses équations et ses révisions | construire une leçon : sur une machine neuve, sa vue **Leçons** reste vide tant qu'un assistant n'en a pas construit une |
+| **L'extension VS Code** | affiche une leçon dans un panneau, avec ses figures, ses équations et ses révisions | construire une leçon : sur une machine neuve, sa vue **Leçons** ne propose que la leçon de démonstration livrée avec elle tant qu'un assistant n'en a pas construit une |
 
 Une nouvelle leçon commence donc toujours dans un assistant. Une leçon déjà faite se joue dans VS Code seul.
 
@@ -31,12 +31,16 @@ d'autre : ni Node, ni terminal, ni compte d'assistant IA.
 
 1. Dans VS Code, ouvrez la vue Extensions, cherchez **Studium** et installez l'extension publiée par
    HolobiomicsLab.
-2. Munissez-vous d'un dossier de leçons : celui que votre enseignant vous a donné, ou les leçons de
+2. Pour voir d'abord comment fonctionne Studium, sélectionnez l'icône **Studium** dans la barre d'activité,
+   puis **Essayer la leçon de démonstration** : « Découvrir Studium » (une dizaine de minutes, en français ou en
+   anglais) est livrée avec l'extension. Un agent d'IA l'a rédigée à partir de la documentation de Studium et
+   aucun enseignant ne l'a encore vérifiée, comme le dit son premier écran.
+3. Pour d'autres leçons, munissez-vous d'un dossier de leçons : celui que votre enseignant vous a donné, ou les leçons de
    démonstration, qui sont le dossier `fixtures` de l'[archive du dépôt](https://github.com/HolobiomicsLab/studium/archive/refs/heads/main.zip) (environ 30 Mo ;
    décompressez-la d'abord).
-3. Sélectionnez l'icône **Studium** dans la barre d'activité, puis **Choisir un cours**, **Choisir un autre
+4. Sélectionnez l'icône **Studium** dans la barre d'activité, puis **Choisir un cours**, **Choisir un autre
    dossier de cours…**, et sélectionnez ce dossier.
-4. Choisissez un cours. Il s'ouvre dans un panneau, à sa première étape.
+5. Choisissez un cours. Il s'ouvre dans un panneau, à sa première étape.
 
 Construire une nouvelle leçon à partir de vos propres sources demande un assistant, relié comme ci-dessous :
 cette partie demande Node et une commande dans un terminal. Pour une salle d'enseignement où une équipe
@@ -52,7 +56,7 @@ redémarrez-le :
 |---|---|
 | Claude Code | `claude mcp add --scope user studium -e LITELLM_BASE_URL= -- npx -y studium-mcp` |
 | Codex | `codex mcp add studium --env LITELLM_BASE_URL= -- npx -y studium-mcp` |
-| Copilot dans VS Code, mode agent | `code --add-mcp '{"name":"studium","command":"npx","args":["-y","studium-mcp"],"env":{"LITELLM_BASE_URL":""}}'` |
+| Copilot dans VS Code, mode agent | rien, si l'extension Studium est installée (VS Code 1.101 ou plus récent) : elle propose son propre serveur à Copilot, sans Node ; voir [Connecter Copilot](docs/start/copilot.fr.md). Sans l'extension : `code --add-mcp '{"name":"studium","command":"npx","args":["-y","studium-mcp"],"env":{"LITELLM_BASE_URL":""}}'` |
 
 Cursor, OpenCode et Claude Desktop, ainsi que le plugin Claude Code qui apporte aussi les skills, sont sur
 la page [Installation](docs/start/installation.fr.md). `LITELLM_BASE_URL=` (vide) empêche Studium
