@@ -15,6 +15,8 @@
 // before the same checks run on the whole lesson. Errors on the concepts, goal, title or the order of
 // the scenes ask for the whole draft again. L1: one refusal reports the schema, quote and concept
 // errors of every scene together (each scene is parsed on its own); the linter's round comes last.
+// Review of D4: the draft is kept for the learner the call names (options.learner), and calls on one
+// library run one at a time (draft-store.ts oneAtATime).
 import { randomBytes } from "node:crypto";
 import { lstat, mkdir, readFile, realpath, rename, writeFile } from "node:fs/promises";
 import { isAbsolute, join, relative, sep } from "node:path";
@@ -24,7 +26,7 @@ import { COURSE_ID_PATTERN } from "../community-bundles.js";
 import { SCENE_KEY_CLASS, type KeyClass } from "../key-class.js";
 import { z } from "zod";
 import { DraftSceneSchema, LessonDraftSchema, type DraftScene, type DraftSceneType, type LessonDraft } from "./draft-schema.js";
-import { clearDrafts, findKeptDraft, keepDraft, type Resend } from "./draft-store.js";
+import { clearDrafts, endedByWrite, findKeptDraft, keepDraft, oneAtATime, sourcesKey, type KeptDraft, type LibraryTurn, type Resend } from "./draft-store.js";
 import { lintBundleData, placeholderPaths, type LintFinding } from "./lint.js";
 import { checkQuote, sourceSpan } from "./quotes.js";
 import { asciiSlug } from "./slug.js";
@@ -91,6 +93,10 @@ export interface CreateLessonOptions {
   /** Whether the server already serves a lesson of this course id from a folder it reads before the
    * library (BUNDLES_ROOT): a lesson written under that id would never be the one played. */
   servedElsewhere?: (courseId: string) => boolean;
+  /** The pseudonym of the learner the lesson is built for (SessionHost.draftLearnerOf): a draft refused
+   * for them is kept for them and offered to them alone. Null or absent: no learner is known, and a
+   * refused draft is kept for the resend (draft_id) but offered to no one. */
+  learner?: string | null | undefined;
 }
 
 /** The lesson as the agent may show it to the learner before they play: no key of any kind. */
@@ -129,6 +135,8 @@ export const NOTHING_KEPT_HINT = "No lesson was written and no draft was kept: t
   "its hint says and send the whole draft again.";
 export const KEPT_UNCHANGED_HINT = "No lesson was written and the kept draft is unchanged: the error is not in the draft. " +
   "Fix it as its hint says and send the same draft_id and scenes again.";
+export const WRITTEN_MEANWHILE_HINT = "No lesson was written by this call and no draft was kept: another call wrote a lesson " +
+  "meanwhile, which ends this build. To write another lesson from these sources, fix every error and send the whole draft again.";
 /** The draft's top level, its scenes parsed one by one (L1). */
 const DraftTopSchema = LessonDraftSchema.extend({ scenes: z.array(z.unknown()).min(1).max(40) });
 
@@ -136,20 +144,29 @@ const DraftTopSchema = LessonDraftSchema.extend({ scenes: z.array(z.unknown()).m
  * Build the draft `input.draft` over source set `input.source_set_id` and write it to
  * `<libraryRoot>/<course_id>/lesson.json` (course_id defaults to the title's slug). An existing
  * lesson is replaced only with `overwrite`. Returns the bundle, a keyless outline, the key classes
- * and the linter's WARN/INFO findings, or the errors that refused it (nothing written then).
+ * and the linter's WARN/INFO findings, or the errors that refused it (nothing written then). Calls on
+ * one library run one at a time, in the order they came (minor 2 of the review of D4).
  */
-export async function createLesson(libraryRoot: string, input: CreateLessonInput, options: CreateLessonOptions = {}): Promise<CreateLessonResult> {
+export function createLesson(libraryRoot: string, input: CreateLessonInput, options: CreateLessonOptions = {}): Promise<CreateLessonResult> {
+  return oneAtATime(libraryRoot, (turn) => createLessonInTurn(libraryRoot, input, options, turn));
+}
+
+async function createLessonInTurn(
+  libraryRoot: string, input: CreateLessonInput, options: CreateLessonOptions, turn: LibraryTurn,
+): Promise<CreateLessonResult> {
   try {
     const sourceSet = await readSourceSet(libraryRoot, input.source_set_id);
     const now = (options.now ?? (() => new Date()))();
-    const given = await draftOf(libraryRoot, sourceSet, input, now);
+    const learner = options.learner ?? null;
+    const given = await draftOf(libraryRoot, sourceSet, input, now, learner);
     if (!given.ok) return given;
     const requestedCourseId = input.course_id ?? given.course_id;
     // A refusal for what the draft says keeps the draft; a refusal for anything else keeps nothing.
-    const keep = async (errors: BundleIssue[]): Promise<Refusal> => keptRefusal(libraryRoot, sourceSet, given.raw, errors, requestedCourseId, now);
+    const keep = async (errors: BundleIssue[]): Promise<Refusal> =>
+      keptRefusal(libraryRoot, sourceSet, given.raw, errors, { course_id: requestedCourseId, learner, now, turn });
     // A refusal of the course id or the write leaves what was kept as it was, and says what to send again.
     const notKept = (refusal: Refusal): Refusal => given.patch
-      ? { ...refusal, draft_id: given.patch.draft_id, resend: "scenes", fix_scenes: given.patch.scenes, hint: KEPT_UNCHANGED_HINT }
+      ? { ...refusal, draft_id: given.patch.draft.draft_id, resend: "scenes", fix_scenes: given.patch.scenes, hint: KEPT_UNCHANGED_HINT }
       : { ...refusal, resend: "draft", hint: NOTHING_KEPT_HINT };
     const parsed = parseDraft(given.raw, sourceSet);
     if (!parsed.ok) return keep(parsed.errors);
@@ -175,7 +192,10 @@ export async function createLesson(libraryRoot: string, input: CreateLessonInput
     if (lintErrors.length > 0) return keep(lintErrors.map((item) => lintIssue(item, bundle)));
     const written = await writeLesson(libraryRoot, courseId, bundle, input.overwrite === true);
     if (!written.ok) return notKept(written);
-    await clearDrafts(libraryRoot, sourceSet, now);
+    // The lesson ends the builds it finishes; a refusal that came in meanwhile keeps nothing they cover.
+    const ends = endedByWrite(sourceSet, learner, given.patch?.draft ?? null);
+    await clearDrafts(libraryRoot, ends, now);
+    turn.wrote(ends);
     return {
       ok: true, course_id: courseId, course_ref: `${courseId}/${LESSON_FILENAME}`, lesson_path: written.path, bundle,
       outline: outlineOf(bundle, draft), key_classes: keyClassesOf(bundle),
@@ -333,8 +353,8 @@ function draftIssues(parts: DraftParts, sourceSet: SourceSet, goal: string | nul
  * its own. Refuses both, neither, a draft_id that is not the one kept for these sources, and a scene
  * index the kept draft does not have (adding, removing or reordering scenes takes the whole draft). */
 async function draftOf(
-  libraryRoot: string, sourceSet: SourceSet, input: CreateLessonInput, now: Date,
-): Promise<{ ok: true; raw: unknown; course_id?: string | undefined; patch?: { draft_id: string; scenes: number[] } } | Refusal> {
+  libraryRoot: string, sourceSet: SourceSet, input: CreateLessonInput, now: Date, learner: string | null,
+): Promise<{ ok: true; raw: unknown; course_id?: string | undefined; patch?: { draft: KeptDraft; scenes: number[] } } | Refusal> {
   const patching = input.draft_id !== undefined || input.scenes !== undefined;
   const either = "send the whole draft as draft, or, after a refusal that returned draft_id, draft_id with scenes: [{at, ...scene}]";
   if (input.draft !== undefined && patching) {
@@ -348,7 +368,7 @@ async function draftOf(
   if (!Array.isArray(input.scenes) || input.scenes.length === 0) {
     return refused([{ path: "scenes", message: "needs at least 1 item, has 0", hint: "pass the scenes the refusal named, each as {at, ...the whole corrected scene}" }]);
   }
-  const found = await findKeptDraft(libraryRoot, sourceSet, input.draft_id, now.getTime());
+  const found = await findKeptDraft(libraryRoot, sourceSet, input.draft_id, now.getTime(), learner);
   if (!found.draft) {
     return refused([{
       path: "draft_id", message: `no draft ${JSON.stringify(input.draft_id)} is kept for these sources`,
@@ -377,17 +397,23 @@ async function draftOf(
   if (issues.length > 0) return refused(issues);
   return {
     ok: true, raw: { ...kept.draft, scenes }, course_id: kept.course_id,
-    patch: { draft_id: kept.draft_id, scenes: [...given].sort((a, z) => a - z) },
+    patch: { draft: kept, scenes: [...given].sort((a, z) => a - z) },
   };
 }
 
-/** A refusal for what the draft says: keep the draft (when it is an object) and say what to send again. */
+/** A refusal for what the draft says: keep the draft (when it is an object) for the learner and say what to
+ * send again; keep nothing when a lesson written since the call came in ended this build. */
 async function keptRefusal(
-  libraryRoot: string, sourceSet: SourceSet, raw: unknown, errors: BundleIssue[], courseId: string | undefined, now: Date,
+  libraryRoot: string, sourceSet: SourceSet, raw: unknown, errors: BundleIssue[],
+  context: { course_id: string | undefined; learner: string | null; now: Date; turn: LibraryTurn },
 ): Promise<Refusal> {
   if (!isRecord(raw)) return refused(errors);
   const { resend, fix_scenes } = resendOf(errors);
-  const kept = await keepDraft(libraryRoot, sourceSet, { draft: raw, errors, resend, fix_scenes, course_id: courseId }, now);
+  const { learner, now, turn } = context;
+  if (turn.endedMeanwhile({ source_set_id: sourceSet.source_set_id, sources: sourcesKey(sourceSet), learner })) {
+    return { ok: false, errors, resend: "draft", hint: WRITTEN_MEANWHILE_HINT };
+  }
+  const kept = await keepDraft(libraryRoot, sourceSet, { draft: raw, errors, resend, fix_scenes, course_id: context.course_id, learner }, now);
   return resend === "scenes"
     ? { ok: false, errors, draft_id: kept.draft_id, resend, fix_scenes, hint: RESEND_SCENES_HINT }
     : { ok: false, errors, resend, hint: RESEND_DRAFT_HINT };

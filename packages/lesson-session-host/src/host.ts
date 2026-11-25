@@ -56,7 +56,7 @@ import { OffsetClock, checkNowMs } from "./session-clock.js";
 import { calendarDate, checkTimeZone, localTimeZone } from "./calendar.js";
 import { scanCatalog, type Catalog, type CatalogLesson, type LessonRoot } from "./lesson-catalog.js";
 import { buildStudyPlan, scheduleFromMemory, type StudyPlan } from "./study-plan.js";
-import { DRAFTS_DIR, eraseDrafts, unfinishedBuilds } from "./authoring-draft/draft-store.js";
+import { DRAFTS_DIR, eraseDrafts, eraseLearnerDrafts, unfinishedBuilds } from "./authoring-draft/draft-store.js";
 import {
   emptyStudyRecord, FileStudyRecordStore, InMemoryStudyRecordStore,
   type ConceptRoute, type StudyRecord, type StudyRecordStore,
@@ -1098,6 +1098,16 @@ export class SessionHost {
     return this.deps().pseudonym.get(learnerId, PROFILE_PSEUDONYM_SCOPE);
   }
 
+  /** Review of D4: the learner a draft refused by create_lesson is kept for — the pseudonym of `learnerId`,
+   * else of persistence.learner_id_default — or null when no learner is known: no learner_id given and
+   * no STUDIUM_LEARNER_ID set (the default "anonymous" names no one). A draft kept for null serves the
+   * resend in the same conversation and is offered to no one, so a shared computer never shows one
+   * learner's goal or file to another. */
+  async draftLearnerOf(learnerId?: string): Promise<string | null> {
+    const id = learnerId ?? this.defaultLearnerId;
+    return id === DEFAULT_LEARNER_ID ? null : this.profilePseudonymOf(id);
+  }
+
   /** Start or resume a lesson; legacy third-argument clocks and languages remain supported. */
   async create(bundleRef: string, learnerId: string = this.defaultLearnerId, options?: SessionStartOptions | number | string): Promise<SessionStartResult> {
     const { nowMs: requestedNow, presentationLanguage, promptSurface } = typeof options === "number" ? { nowMs: options }
@@ -1460,8 +1470,8 @@ export class SessionHost {
     const library = this.opts.libraryRoot;
     const [profile, stored, catalog, unfinished] = await Promise.all([
       this.profileStore.load(pseudonym), this.studyStore.load(pseudonym), this.catalog(),
-      // D4: the most recent lesson build that stopped, offered to finish.
-      library ? unfinishedBuilds(library, nowMs) : Promise.resolve([]),
+      // D4: the most recent lesson build that stopped, a draft kept for this learner, offered to finish.
+      library ? unfinishedBuilds(library, nowMs, learnerId === DEFAULT_LEARNER_ID ? null : pseudonym) : Promise.resolve([]),
     ]);
     const record = stored ?? emptyStudyRecord();
     // The shipped lessons say nothing of the learner's language.
@@ -2872,11 +2882,18 @@ export class SessionHost {
    * `language` (fr|en) when given, else the learner's last lesson's, else the server default. */
   async forgetLearner(learnerId: string = this.defaultLearnerId, language?: DisplayLocale): Promise<ForgetReport> {
     const requested = language === undefined ? undefined : checkLocale(language);
-    // D4: the drafts Studium kept after a refusal are the library's learner data: erased with the rest.
-    const drafts: ForgetItem[] = this.opts.libraryRoot && await eraseDrafts(this.opts.libraryRoot) ? [{ kind: "lesson_drafts" }] : [];
-    if (this.holdsNoLearner()) return this.forgetReport("learner", drafts, this.keptOnDisk(await this.catalog()), requested ?? DEFAULT_LOCALE);
+    const library = this.opts.libraryRoot;
+    const draftsErased: ForgetItem[] = [{ kind: "lesson_drafts" }];
+    if (this.holdsNoLearner()) {
+      // D4: with no pseudonym key on this install, no kept draft can be matched to a learner: all go.
+      const drafts = library && await eraseDrafts(library) ? draftsErased : [];
+      return this.forgetReport("learner", drafts, this.keptOnDisk(await this.catalog(), { drafts: false }), requested ?? DEFAULT_LOCALE);
+    }
     const pseudonymOf = this.deps().pseudonym;
     const profilePseudonym = await pseudonymOf.get(learnerId, PROFILE_PSEUDONYM_SCOPE);
+    // Review of D4: the drafts Studium kept for this learner (and those kept for no known learner, which may
+    // be theirs) are their data in the library: erased with the rest; another learner's stay.
+    const drafts = library && await eraseLearnerDrafts(library, learnerId === DEFAULT_LEARNER_ID ? null : profilePseudonym) ? draftsErased : [];
     // L-11: from now on no session of this learner opened before writes them back.
     this.forgotten.set(profilePseudonym, ++this.sequence);
     return this.learnerOperation(profilePseudonym, async () => {
@@ -2917,7 +2934,7 @@ export class SessionHost {
         ...drafts,
       ];
       this.afterForget();
-      return this.forgetReport("learner", erased, this.keptOnDisk(catalog), requested ?? locale);
+      return this.forgetReport("learner", erased, this.keptOnDisk(catalog, { drafts: false }), requested ?? locale);
     });
   }
 
@@ -2973,9 +2990,10 @@ export class SessionHost {
   }
 
   /** What forget leaves on disk (L-13): the lessons of the learner's library and the sources they were
-   * built from, which the learner may believe gone, the drafts kept of unfinished lessons (forgetLearner
-   * erases them first) and the install's pseudonym key (no learner data). */
-  private keptOnDisk(catalog: Catalog): ForgetItem[] {
+   * built from, which the learner may believe gone, the drafts kept of unfinished lessons (unless
+   * `drafts` is false: forgetLearner erased the learner's, and any left are other learners') and the
+   * install's pseudonym key (no learner data). */
+  private keptOnDisk(catalog: Catalog, opts: { drafts?: boolean } = {}): ForgetItem[] {
     const kept: ForgetItem[] = [];
     const library = this.opts.libraryRoot;
     if (library) {
@@ -2986,7 +3004,7 @@ export class SessionHost {
       const exports = join(library, EXPORTS_DIR);
       if (existsSync(exports)) kept.push({ kind: "map_exports", path: exports });
       const drafts = join(library, DRAFTS_DIR);
-      if (existsSync(drafts)) kept.push({ kind: "lesson_drafts", path: drafts });
+      if (opts.drafts !== false && existsSync(drafts)) kept.push({ kind: "lesson_drafts", path: drafts });
     }
     const secret = this.dataDir ? join(this.dataDir, SECRET_FILE) : null;
     if (secret && existsSync(secret)) kept.push({ kind: "pseudonym_key", path: secret });
