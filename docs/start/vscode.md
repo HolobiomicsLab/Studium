@@ -151,9 +151,11 @@ When nothing is due, the bar offers the lesson you were playing instead, for exa
 **Studium · continue Discover Studium**; clicking it reopens that lesson at the step where you stopped. The
 **Lessons** view shows the same lesson first, as **Continue: …**, with the next step and, when the lesson
 gives its duration, the minutes left; each lesson in the list shows its progress (**6/12**, or **done**).
-This is the progress VS Code keeps under `studium.learnerId`, in the pane and `@studium`. Lessons played
-with Copilot's Studium tools, another assistant or the browser player keep their progress elsewhere and do
-not show here. A lesson being prepared and a due review come first. With no history and no lesson in
+This is the progress VS Code keeps under `studium.learnerId`: in the pane, in `@studium`, and in Copilot
+when it uses the Studium server this extension offers, which plays the same learner in the same storage (a
+lesson played there shows here at the next refresh). Lessons played with another assistant, the browser
+player or a Studium server added to VS Code by hand keep their progress elsewhere and do not show here. A
+lesson being prepared and a due review come first. With no history and no lesson in
 progress, nothing is shown.
 
 ## Chat and notebook

@@ -105,7 +105,8 @@ Pour jouer dans VS Code, ouvrez la leçon depuis la vue **Leçons** de l'extensi
 qu'elle est prête, et VS Code vous prévient. Vous pouvez aussi suivre le lien donné par l'assistant
 (`vscode://holobiomicslab.studium-vscode/open?bundle=<chemin absolu>`). Voir [VS Code](../start/vscode.fr.md).
 Le panneau garde sa propre progression dans le stockage de VS Code : les réponses données là n'apparaissent
-pas dans le plan d'étude que lit votre assistant, et inversement.
+pas dans le plan d'étude que lit votre assistant, et inversement, sauf pour Copilot avec le serveur Studium que
+propose l'extension, qui joue l'apprenant du panneau dans ce stockage ([Connecter Copilot](../start/copilot.fr.md)).
 
 ## 5. Lire l'avis d'autorat
 
