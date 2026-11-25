@@ -10,7 +10,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
-  DEBOUNCE_MS, LibraryWatch, OWN_MS, PREPARING_MAX_MS, readLessonFacts, readSourceSetFacts, type LibraryWatchAction,
+  DEBOUNCE_MS, LibraryWatch, OWN_MS, PREPARING_MAX_MS, dontShowLessonReadyAgain, lessonReadyMuted, migrateLessonReadyMute, readLessonFacts,
+  readSourceSetFacts, type LessonReadySetting, type LibraryWatchAction,
 } from "./library-watch.js";
 
 const failures: string[] = [];
@@ -62,10 +63,14 @@ function harness(opts: { focused?: boolean; muted?: boolean; shown?: Set<string>
     writeFileSync(path, JSON.stringify(lesson));
     return path;
   };
+  /** Copy the real source set into <library>/_sources/<id>.json; another id is written into the copy too. */
   const writeSources = (id = SS_ID) => {
     const path = join(library, "_sources", `${id}.json`);
     mkdirSync(join(library, "_sources"), { recursive: true });
-    copyFileSync(join(fixtures, "_sources", `${SS_ID}.json`), path);
+    if (id === SS_ID) { copyFileSync(join(fixtures, "_sources", `${SS_ID}.json`), path); return path; }
+    const set = JSON.parse(readFileSync(join(fixtures, "_sources", `${SS_ID}.json`), "utf8"));
+    set.source_set_id = id;
+    writeFileSync(path, JSON.stringify(set));
     return path;
   };
   const kinds = () => actions.map((a) => a.kind).join(",");
@@ -99,8 +104,11 @@ function harness(opts: { focused?: boolean; muted?: boolean; shown?: Set<string>
   expect(h.actions.length === 0, `nothing happens before the ${DEBOUNCE_MS} ms debounce (got ${h.kinds()})`);
   h.advance(DEBOUNCE_MS);
   expect(h.kinds() === "refresh,notify", `then the list refreshes and the lesson is announced (got ${h.kinds()})`);
+  // Changed: a notice now carries the lessons it announces (review finding 2: lessons that land together share one
+  // notice), so the lesson's fields are read from its single entry; what is checked is unchanged.
   const notice = h.notices()[0];
-  expect(notice?.title === TITLE && notice.steps === 9 && notice.ref === "photosynthese/lesson.json" && notice.path === path,
+  const only = notice?.lessons.length === 1 ? notice.lessons[0] : undefined;
+  expect(only?.title === TITLE && only.steps === 9 && only.ref === "photosynthese/lesson.json" && only.path === path,
     `the notice names the lesson, its steps and its ref (got ${JSON.stringify(notice)})`);
 }
 {
@@ -114,6 +122,53 @@ function harness(opts: { focused?: boolean; muted?: boolean; shown?: Set<string>
   h.advance(DEBOUNCE_MS);
   expect(h.notices().length === 1 && h.actions.filter((a) => a.kind === "refresh").length === 1,
     `three events within the debounce give one refresh and one notice (got ${h.kinds()})`);
+}
+
+// Review finding 2: lessons that land together are announced in one notice, not one each; and only a lesson an assistant
+// built is announced (build.ts always writes a top-level source_plan_id): a lesson copied into the library by hand is
+// listed, not announced.
+{
+  const h = harness();
+  const courses = ["photosynthese", "respiration", "fermentation"];
+  for (const course of courses) {
+    h.watch.lessonEvent(h.writeLesson(course, (l) => { l.metadata.title = course; }));
+    h.advance(100);
+  }
+  h.advance(DEBOUNCE_MS);
+  const notices = h.notices();
+  expect(notices.length === 1, `three lessons landing together give one notice (got ${notices.length})`);
+  expect(JSON.stringify(notices[0]?.lessons?.map((l) => [l.title, l.ref])) === JSON.stringify(courses.map((c) => [c, `${c}/lesson.json`])),
+    `the notice names each of them (got ${JSON.stringify(notices[0])})`);
+  expect(h.actions.filter((a) => a.kind === "refresh").length === 1, `and the list is refreshed once (got ${h.kinds()})`);
+}
+{
+  const h = harness();
+  h.watch.lessonEvent(h.writeLesson("copied", (l) => { delete l.source_plan_id; }));
+  h.advance(DEBOUNCE_MS);
+  expect(h.kinds() === "refresh", `a lesson without a top-level source_plan_id (copied by hand) is listed, not announced (got ${h.kinds()})`);
+  h.watch.lessonEvent(h.writeLesson("nested", (l) => { delete l.source_plan_id; l.provenance = { source_plan_id: SS_ID }; }));
+  h.advance(DEBOUNCE_MS);
+  expect(h.notices().length === 0, "a source_plan_id under provenance does not count: build.ts writes it at the top level");
+}
+{
+  const h = harness();
+  h.watch.lessonEvent(h.writeLesson("copied", (l) => { delete l.source_plan_id; l.metadata.title = "copied"; }));
+  h.watch.lessonEvent(h.writeLesson());
+  h.advance(DEBOUNCE_MS);
+  expect(h.notices().length === 1 && JSON.stringify(h.notices()[0]?.lessons?.map((l) => l.title)) === JSON.stringify([TITLE]),
+    `landing with an assistant's lesson, the copied one is still not announced (got ${JSON.stringify(h.notices())})`);
+}
+{
+  const h = harness({ focused: false });
+  h.watch.lessonEvent(h.writeLesson());
+  h.advance(DEBOUNCE_MS);
+  h.advance(60_000);
+  h.watch.lessonEvent(h.writeLesson("respiration", (l) => { l.metadata.title = "respiration"; }));
+  h.advance(DEBOUNCE_MS);
+  h.state.focused = true;
+  h.watch.windowFocused();
+  expect(h.notices().length === 1 && h.notices()[0]?.lessons?.length === 2,
+    `lessons that landed while the window was in the background share one notice when it comes back (got ${JSON.stringify(h.notices())})`);
 }
 
 // Only <library>/<course>/lesson.json counts: other paths are ignored.
@@ -159,7 +214,9 @@ function harness(opts: { focused?: boolean; muted?: boolean; shown?: Set<string>
   expect(h.kinds() === "refresh", `unfocused: the list refreshes, the notice waits (got ${h.kinds()})`);
   h.state.focused = true;
   h.watch.windowFocused();
-  expect(h.notices().length === 1 && h.notices()[0]!.title === TITLE, `the window comes back: the notice is shown (got ${h.kinds()})`);
+  // Changed: the title is read from the notice's lessons (review finding 2), same check.
+  expect(h.notices().length === 1 && h.notices()[0]!.lessons.length === 1 && h.notices()[0]!.lessons[0]!.title === TITLE,
+    `the window comes back: the notice is shown (got ${h.kinds()})`);
   h.watch.windowFocused();
   expect(h.notices().length === 1, "and only once");
 }
@@ -229,6 +286,36 @@ function harness(opts: { focused?: boolean; muted?: boolean; shown?: Set<string>
   h.advance(DEBOUNCE_MS);
   expect(h.kinds() === "refresh,notify", `a lesson with no source set being prepared: ready only (got ${h.kinds()})`);
 }
+// Review finding 1: an assistant that called prepare_sources twice in one build (a first set it then replaced) cites the
+// second set in its lesson. The lesson ends « preparing » for both: a set prepared before the one it cites was part of
+// the same build, and left on it would keep the spinner next to the ready notice for up to 20 minutes. A set prepared
+// after it belongs to another build and stays.
+{
+  const h = harness();
+  const FIRST = "ss-1111111111111111";
+  const SECOND = "ss-2222222222222222";
+  h.watch.sourcesEvent(h.writeSources(FIRST));
+  h.advance(60_000);
+  h.watch.sourcesEvent(h.writeSources(SECOND));
+  expect(h.watch.preparing()?.id === SECOND, `the second source set is the one being prepared (got ${JSON.stringify(h.watch.preparing())})`);
+  h.advance(60_000);
+  h.watch.lessonEvent(h.writeLesson("photosynthese", (l) => { l.source_plan_id = SECOND; }));
+  h.advance(DEBOUNCE_MS);
+  expect(h.watch.preparing() === null, `the lesson citing the second set also ends the first one (got ${JSON.stringify(h.watch.preparing())})`);
+  expect(h.kinds() === "status,status,refresh,status,notify", `one status update, then the notice (got ${h.kinds()})`);
+}
+{
+  const h = harness();
+  const EARLIER = "ss-3333333333333333";
+  const LATER = "ss-4444444444444444";
+  h.watch.sourcesEvent(h.writeSources(EARLIER));
+  h.advance(60_000);
+  h.watch.sourcesEvent(h.writeSources(LATER));
+  h.advance(60_000);
+  h.watch.lessonEvent(h.writeLesson("photosynthese", (l) => { l.source_plan_id = EARLIER; }));
+  h.advance(DEBOUNCE_MS);
+  expect(h.watch.preparing()?.id === LATER, `a set prepared after the one the lesson cites stays on (got ${JSON.stringify(h.watch.preparing())})`);
+}
 {
   const h = harness();
   h.watch.sourcesEvent(h.writeSources());
@@ -259,9 +346,76 @@ function harness(opts: { focused?: boolean; muted?: boolean; shown?: Set<string>
   expect(h.kinds() === "status", `after dispose, nothing more happens (got ${h.kinds()})`);
 }
 
-if (failures.length) {
-  console.error(`FAIL — ${failures.length}/${checks} library-watch assertions failed:`);
-  for (const f of failures) console.error("  - " + f);
-  process.exit(1);
+// Review finding 4: « Don't show again » turns off the user setting studium.notifyLessonReady, so the learner can turn the
+// notice back on. Before the setting, the choice was a global-state flag nothing could undo: it is moved into the setting
+// once, at start, and then forgotten. The setting and the flag are faked here; extension.ts maps them onto VS Code.
+function noticeSetting(init: { user?: boolean; legacy?: boolean; unwritable?: boolean } = {}) {
+  const state = { user: init.user, legacy: init.legacy ?? false, unwritable: init.unwritable ?? false, writes: [] as boolean[] };
+  const setting: LessonReadySetting = {
+    enabled: () => state.user !== false,
+    userValue: () => state.user,
+    setUserValue: async (on) => {
+      if (state.unwritable) throw new Error("Unable to write into user settings.");
+      state.writes.push(on);
+      state.user = on;
+    },
+    legacyMuted: () => state.legacy,
+    setLegacyMuted: async (muted) => { state.legacy = muted; },
+  };
+  return { state, setting };
 }
-console.log(`OK — library-watch (lesson ready, preparing) passed all ${checks} assertions.`);
+/** These cases await the setting's writes; the package is CommonJS, so no top-level await. */
+async function lessonReadySettingCases() {
+  {
+    const { state, setting } = noticeSetting();
+    expect(!lessonReadyMuted(setting), "by default, lesson-ready notices are on");
+    await dontShowLessonReadyAgain(setting);
+    expect(JSON.stringify(state.writes) === "[false]" && !state.legacy && lessonReadyMuted(setting),
+      `Don't show again writes false to the user setting, not the old flag (got ${JSON.stringify(state)})`);
+    state.user = true; // the learner turns the setting back on in the Settings editor
+    expect(!lessonReadyMuted(setting), "turning the setting back on brings the notices back");
+    await migrateLessonReadyMute(setting);
+    expect(!lessonReadyMuted(setting) && state.writes.length === 1, "and the next start does not mute them again");
+  }
+  {
+    const { state, setting } = noticeSetting({ legacy: true });
+    expect(lessonReadyMuted(setting), "the flag of an earlier version still mutes before it is moved");
+    await migrateLessonReadyMute(setting);
+    expect(state.user === false && !state.legacy && lessonReadyMuted(setting),
+      `at start the flag becomes the user setting, and is forgotten (got ${JSON.stringify(state)})`);
+    state.user = true;
+    expect(!lessonReadyMuted(setting), "so turning the setting back on is enough");
+  }
+  {
+    const { state, setting } = noticeSetting({ legacy: true, user: true });
+    await migrateLessonReadyMute(setting);
+    expect(state.writes.length === 0 && !state.legacy && !lessonReadyMuted(setting),
+      `a learner who already set the setting keeps their choice; the flag is forgotten (got ${JSON.stringify(state)})`);
+  }
+  {
+    const { state, setting } = noticeSetting();
+    await migrateLessonReadyMute(setting);
+    expect(state.writes.length === 0 && state.user === undefined, "without the flag, the start writes no setting");
+  }
+  {
+    // A settings.json VS Code cannot write (one with a syntax error, say): the choice is kept in the flag meanwhile.
+    const { state, setting } = noticeSetting({ unwritable: true });
+    let threw = false;
+    try { await dontShowLessonReadyAgain(setting); } catch { threw = true; }
+    expect(!threw && state.legacy && lessonReadyMuted(setting), `unwritable settings: Don't show again still holds, in the flag (got ${JSON.stringify(state)})`);
+    await migrateLessonReadyMute(setting);
+    expect(state.legacy && lessonReadyMuted(setting), "a start that still cannot write keeps the flag");
+    state.unwritable = false;
+    await migrateLessonReadyMute(setting);
+    expect(state.user === false && !state.legacy, `the first start that can write moves it into the setting (got ${JSON.stringify(state)})`);
+  }
+}
+
+void lessonReadySettingCases().catch((error) => { failures.push(`the lesson-ready setting cases threw: ${error}`); }).finally(() => {
+  if (failures.length) {
+    console.error(`FAIL — ${failures.length}/${checks} library-watch assertions failed:`);
+    for (const f of failures) console.error("  - " + f);
+    process.exit(1);
+  }
+  console.log(`OK — library-watch (lesson ready, preparing) passed all ${checks} assertions.`);
+});

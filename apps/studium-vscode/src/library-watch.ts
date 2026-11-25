@@ -1,18 +1,23 @@
 // library-watch.ts — BN-1 / BN-4: turn file events in the learner's library (<STUDIUM_HOME>/library, where an
 // assistant's Studium server writes, apps/lesson-mcp/src/server.ts authoringRoot) into what the extension shows.
 //   - <library>/<course>/lesson.json written (create_lesson): refresh the Lessons view, then announce the lesson once
-//     ("Your lesson … is ready"), after a burst of events settles. Not announced: a lesson the extension itself opened or
-//     wrote in the last OWN_MS, or after the learner chose "Don't show again". With the window in the background the
-//     notice waits and is shown when the window comes back; windows share a record of what was shown, so a second
-//     window does not repeat it.
+//     ("Your lesson … is ready"), after a burst of events settles. Lessons that land together share one notice. Only a
+//     lesson an assistant built is announced: build.ts always writes a top-level source_plan_id, and a lesson copied
+//     into the library by hand has none, so it is listed only. Not announced either: a lesson the extension itself
+//     opened or wrote in the last OWN_MS, or any lesson after the learner chose "Don't show again". With the window in
+//     the background the notice waits and is shown when the window comes back, with the lessons that landed meanwhile;
+//     windows share a record of what was shown, so a second window does not repeat it.
 //   - <library>/_sources/<id>.json written (prepare_sources): "preparing a lesson" until a lesson whose top-level
-//     source_plan_id is that id lands, or for PREPARING_MAX_MS at most (a build the assistant abandoned).
+//     source_plan_id is that id, or the id of a set prepared after it, lands, or for PREPARING_MAX_MS at most (a build
+//     the assistant abandoned).
+//   - "Don't show again" turns off the user setting studium.notifyLessonReady (LessonReadySetting, below).
 // Pure apart from the two readers at the bottom: no VS Code import; the clock, the timers, the window focus and the
 // host's actions are injected, so library-watch.driver.ts drives it with a manual clock.
 import { readFileSync, statSync } from "node:fs";
 import { isAbsolute, relative, resolve, sep } from "node:path";
 
-/** Wait this long after the last event on a lesson before acting: one write can raise several events. */
+/** Wait this long after the last event on a lesson before acting: one write can raise several events, and lessons
+ * written within this time of each other share one notice. */
 export const DEBOUNCE_MS = 500;
 /** A lesson the extension opened or wrote within this window is not announced. */
 export const OWN_MS = 10_000;
@@ -25,10 +30,14 @@ export interface LessonFacts { title: string; steps: number; sourcePlanId: strin
 export interface SourceSetFacts { id: string; title: string }
 export interface PreparingState { id: string; title: string; since: number }
 
+/** A lesson the notice announces. */
+export interface ReadyLesson { path: string; ref: string; title: string; steps: number }
+
 export type LibraryWatchAction =
   | { kind: "refresh" }
   | { kind: "status" }
-  | { kind: "notify"; path: string; ref: string; title: string; steps: number };
+  /** One notice, for one lesson or for several that landed together. */
+  | { kind: "notify"; lessons: ReadyLesson[] };
 
 export interface LibraryWatchDeps {
   /** The library folder, as the server computes it (absolute). */
@@ -40,18 +49,20 @@ export interface LibraryWatchDeps {
   clearTimer: (handle: unknown) => void;
   /** Whether this window is in front. */
   focused: () => boolean;
-  /** Whether the learner chose "Don't show again". */
+  /** Whether the learner chose "Don't show again" (lessonReadyMuted). */
   muted: () => boolean;
   /** Which lesson versions were already announced, shared by every window. */
   shown: { has: (key: string) => boolean; add: (key: string) => void };
   act: (action: LibraryWatchAction) => void;
 }
 
-type Notice = Extract<LibraryWatchAction, { kind: "notify" }> & { key: string; queuedAt: number };
+type Notice = ReadyLesson & { key: string; queuedAt: number };
 
 export class LibraryWatch {
   private readonly library: string;
-  private readonly debounces = new Map<string, unknown>();
+  /** The lessons with events since the last burst settled, and the one timer that waits for the burst to end. */
+  private readonly settling = new Set<string>();
+  private settleTimer: unknown = undefined;
   private readonly pending = new Map<string, Notice>();
   private readonly ownedAt = new Map<string, number>();
   private readonly preparingById = new Map<string, PreparingState & { timer: unknown }>();
@@ -66,9 +77,9 @@ export class LibraryWatch {
     if (this.disposed) return;
     const file = resolve(path);
     if (!this.lessonRef(file)) return;
-    const previous = this.debounces.get(file);
-    if (previous !== undefined) this.deps.clearTimer(previous);
-    this.debounces.set(file, this.deps.setTimer(() => { this.debounces.delete(file); this.settle(file); }, DEBOUNCE_MS));
+    this.settling.add(file);
+    if (this.settleTimer !== undefined) this.deps.clearTimer(this.settleTimer);
+    this.settleTimer = this.deps.setTimer(() => { this.settleTimer = undefined; this.settle(); }, DEBOUNCE_MS);
   }
 
   /** A create or change event on <library>/_sources/<id>.json. A file that does not read as a source set is ignored. */
@@ -88,17 +99,16 @@ export class LibraryWatch {
     this.deps.act({ kind: "status" });
   }
 
-  /** The window came to the front: show the notices that waited for it. */
+  /** The window came to the front: show the notices that waited for it, as one. */
   windowFocused(): void {
     if (this.disposed) return;
     const waiting = [...this.pending.values()];
     this.pending.clear();
-    for (const notice of waiting) {
+    if (this.deps.muted()) return;
+    this.show(waiting.filter((notice) => {
       const opened = this.ownedAt.get(notice.path);
-      if (opened !== undefined && opened >= notice.queuedAt) continue;
-      if (this.deps.muted() || this.deps.shown.has(notice.key)) continue;
-      this.show(notice);
-    }
+      return !(opened !== undefined && opened >= notice.queuedAt) && !this.deps.shown.has(notice.key);
+    }));
   }
 
   /** The extension opened or wrote this lesson: do not announce it for OWN_MS, and drop a notice that waits for it. */
@@ -115,41 +125,56 @@ export class LibraryWatch {
 
   dispose(): void {
     this.disposed = true;
-    for (const handle of this.debounces.values()) this.deps.clearTimer(handle);
+    if (this.settleTimer !== undefined) this.deps.clearTimer(this.settleTimer);
     for (const entry of this.preparingById.values()) this.deps.clearTimer(entry.timer);
-    this.debounces.clear();
+    this.settling.clear();
     this.preparingById.clear();
     this.pending.clear();
   }
 
-  private settle(file: string): void {
+  /** A burst of events has settled: refresh the list once, then announce its lessons in one notice. */
+  private settle(): void {
     if (this.disposed) return;
-    const ref = this.lessonRef(file);
-    if (!ref) return;
+    const files = [...this.settling];
+    this.settling.clear();
     this.deps.act({ kind: "refresh" });
-    const facts = this.safe(() => this.deps.readLesson(file));
-    if (!facts) return;
-    const prepared = facts.sourcePlanId ? this.preparingById.get(facts.sourcePlanId) : undefined;
-    if (prepared) {
-      this.deps.clearTimer(prepared.timer);
-      this.preparingById.delete(prepared.id);
-      this.deps.act({ kind: "status" });
-    }
-    const now = this.deps.now();
-    const opened = this.ownedAt.get(file);
-    if (opened !== undefined && now - opened < OWN_MS) return;
-    if (this.deps.muted()) return;
-    const key = `${ref}@${facts.version}`;
-    if (this.deps.shown.has(key)) return;
-    const notice: Notice = { kind: "notify", path: file, ref, title: facts.title, steps: facts.steps, key, queuedAt: now };
-    if (this.deps.focused()) this.show(notice);
-    else this.pending.set(file, notice);
+    const ready = files.map((file) => this.ready(file)).filter((notice): notice is Notice => notice !== null);
+    if (this.deps.focused()) this.show(ready);
+    else for (const notice of ready) this.pending.set(notice.path, notice);
   }
 
-  private show(notice: Notice): void {
-    this.deps.shown.add(notice.key);
-    const { key: _key, queuedAt: _queuedAt, ...action } = notice;
-    this.deps.act(action);
+  /** One lesson of a settled burst: end « preparing » for its source set, and return its notice if it is announced. */
+  private ready(file: string): Notice | null {
+    const ref = this.lessonRef(file);
+    if (!ref) return null;
+    const facts = this.safe(() => this.deps.readLesson(file));
+    if (!facts) return null;
+    // The lesson ends « preparing » for the set it cites and for every set prepared before it: an assistant that called
+    // prepare_sources twice in one build (a first set it then replaced) cites the last one only.
+    const prepared = facts.sourcePlanId ? this.preparingById.get(facts.sourcePlanId) : undefined;
+    if (prepared) {
+      for (const entry of [...this.preparingById.values()]) {
+        if (entry.since > prepared.since) continue;
+        this.deps.clearTimer(entry.timer);
+        this.preparingById.delete(entry.id);
+      }
+      this.deps.act({ kind: "status" });
+    }
+    // A lesson copied into the library by hand has no source_plan_id: it is listed, not announced.
+    if (!facts.sourcePlanId) return null;
+    const now = this.deps.now();
+    const opened = this.ownedAt.get(file);
+    if (opened !== undefined && now - opened < OWN_MS) return null;
+    if (this.deps.muted()) return null;
+    const key = `${ref}@${facts.version}`;
+    if (this.deps.shown.has(key)) return null;
+    return { path: file, ref, title: facts.title, steps: facts.steps, key, queuedAt: now };
+  }
+
+  private show(notices: Notice[]): void {
+    if (notices.length === 0) return;
+    for (const notice of notices) this.deps.shown.add(notice.key);
+    this.deps.act({ kind: "notify", lessons: notices.map(({ path, ref, title, steps }) => ({ path, ref, title, steps })) });
   }
 
   /** "<course>/lesson.json" for a lesson directly under the library, else null. */
@@ -167,6 +192,48 @@ export class LibraryWatch {
 
   private safe<T>(read: () => T | null): T | null {
     try { return read(); } catch { return null; }
+  }
+}
+
+/** Where « Don't show again » is kept: the user setting studium.notifyLessonReady, so the learner can turn the notice
+ * back on in the Settings editor. Before the setting existed it was a global-state flag that nothing could undo; that
+ * flag is moved into the setting at start. The accessors are injected, as for LibraryWatch; extension.ts maps them. */
+export interface LessonReadySetting {
+  /** The setting as VS Code resolves it: false once the learner turned the notice off. */
+  enabled: () => boolean;
+  /** Its value in the user settings, undefined when the learner never set it there. */
+  userValue: () => boolean | undefined;
+  /** Write it to the user settings: the choice applies to every window. */
+  setUserValue: (on: boolean) => PromiseLike<void>;
+  /** The global-state flag of versions before the setting (or of a choice the settings could not take). */
+  legacyMuted: () => boolean;
+  setLegacyMuted: (muted: boolean) => PromiseLike<void>;
+}
+
+/** Whether lesson-ready notices are off: the setting, or the old flag until it is moved into the setting. */
+export function lessonReadyMuted(setting: LessonReadySetting): boolean {
+  return !setting.enabled() || setting.legacyMuted();
+}
+
+/** « Don't show again »: turn the setting off. If the user settings cannot be written (a settings.json with a syntax
+ * error, say), keep the choice in the flag, which a later start moves into the setting. */
+export async function dontShowLessonReadyAgain(setting: LessonReadySetting): Promise<void> {
+  try {
+    await setting.setUserValue(false);
+  } catch {
+    await setting.setLegacyMuted(true);
+  }
+}
+
+/** At start: move the flag into the setting, unless the learner already set it in their user settings (their choice
+ * wins), then forget the flag, so that turning the setting back on is enough. A failed write keeps the flag. */
+export async function migrateLessonReadyMute(setting: LessonReadySetting): Promise<void> {
+  if (!setting.legacyMuted()) return;
+  try {
+    if (setting.userValue() === undefined) await setting.setUserValue(false);
+    await setting.setLegacyMuted(false);
+  } catch {
+    // The flag still mutes; the next start tries again.
   }
 }
 

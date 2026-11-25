@@ -113,7 +113,8 @@ does not send it to your teacher.
 - **Resume.** Start the same lesson with the same learner id: Studium resumes at the first unfinished step.
   A finished lesson starts again from the beginning as a retake.
 - **Several places.** The VS Code pane and an assistant keep separate progress. Two assistants share it when
-  they use the same data folder and learner id.
+  they use the same data folder and learner id. Copilot with the server the Studium extension offers shares
+  it with the pane: same folder, same learner.
 - **Erase.** Ask the assistant to forget your data for a lesson, or all your data (`forget_session`); it
   then tells you what stays on disk. See
   [learn with your assistant](learn-with-your-assistant.md#7-close-or-forget). In VS Code, **Studium: Forget

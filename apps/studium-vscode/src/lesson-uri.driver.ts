@@ -1,7 +1,9 @@
 // lesson-uri.driver.ts — C7: vscode://<publisher>.studium-vscode/open?bundle=<path of lesson.json>, and
 // the same resolution for "Open this lesson" on a file. No VS Code APIs.
 //   node_modules/.pnpm/node_modules/.bin/tsx apps/studium-vscode/src/lesson-uri.driver.ts
-import { parseOpenLessonQuery, lessonLocation, rawQuery, type OpenLessonResult } from "./lesson-uri.js";
+import { join } from "node:path";
+import { bundleOfQuery, parseOpenLessonLink, parseOpenLessonQuery, lessonLocation, rawQuery, type OpenLessonResult } from "./lesson-uri.js";
+import { vscodeHandsOver } from "./vscode-uri-fixture.js";
 
 const failures: string[] = [];
 let checks = 0;
@@ -41,6 +43,34 @@ const err = (r: OpenLessonResult) => (r.ok ? null : r.error);
   expect(rawQuery("vscode://x/open") === "", "no query → empty string");
   const r = ok(parseOpenLessonQuery(rawQuery("vscode://x/open?bundle=%2Flib%2Fphoto%2Flesson.json"), exists));
   expect(!!r && r.bundleRef === "photo/lesson.json", "rawQuery output feeds parseOpenLessonQuery");
+}
+
+// D2 (owner decision 1): the link the Copilot server gives (lesson-session-host open-link.ts: the prefix, then the
+// lesson file's absolute path percent-encoded once) reaches the handler the way VS Code hands it over: uri.query decoded
+// once, uri.toString() encoded again with "=" as %3D, so that "bundle=" is gone from it. parseOpenLessonLink reads the
+// decoded query: a path with spaces, & + # % = ?, accents, quotes or a Windows drive opens as it is.
+{
+  const PREFIX = "vscode://holobiomicslab.studium-vscode/open?bundle=";
+  const handed = vscodeHandsOver(PREFIX + encodeURIComponent("/lib/photo/lesson.json"));
+  expect(handed.toString().includes("bundle%3D") && handed.query === "bundle=/lib/photo/lesson.json",
+    `the fixture hands over what VS Code does (got ${handed.toString()} and ${handed.query})`);
+  for (const path of ["/Users/zoë/Mes cours/a&b+c#d%e=f?g/lesson.json", "/lib/100% sûr/l'été (2)/lesson.json", "/lib/photo/lesson.json"]) {
+    const result = parseOpenLessonLink(vscodeHandsOver(PREFIX + encodeURIComponent(path)).query, (p) => p === path);
+    const opened = ok(result);
+    expect(!!opened && join(opened.bundlesRoot, opened.bundleRef) === path, `${path} opens from the link VS Code hands over (got ${JSON.stringify(result)})`);
+  }
+  const windows = "C:\\Users\\Zoë\\a&b c\\lesson.json";
+  expect(bundleOfQuery(vscodeHandsOver(PREFIX + encodeURIComponent(windows)).query) === windows, "a Windows path comes through as it is");
+  expect(bundleOfQuery("bundle=/lib/photo/lesson.json&x=1") === "/lib/photo/lesson.json", "a parameter after the path is not part of it");
+  expect(bundleOfQuery("bundle=/lib/a&b/lesson.json&x=1") === "/lib/a&b/lesson.json", "nor when the path holds an &");
+  expect(bundleOfQuery("x=1&bundle=/lib/photo/lesson.json") === "/lib/photo/lesson.json", "bundle may follow another parameter");
+  expect(bundleOfQuery("bundles=/lib/photo/lesson.json") === null, "another parameter is not bundle");
+  expect(err(parseOpenLessonLink("", exists))?.key === "uri_missing_bundle", "a link without a query → missing");
+  expect(err(parseOpenLessonLink("bundle=", exists))?.key === "uri_missing_bundle", "an empty bundle → missing");
+  expect(err(parseOpenLessonLink("bundle=photo/lesson.json", exists))?.key === "uri_not_absolute", "a relative path is refused");
+  expect(err(parseOpenLessonLink("bundle=/lib/photo/../../etc/lesson.json", exists))?.key === "uri_not_absolute", "a path with .. is refused");
+  expect(err(parseOpenLessonLink("bundle=/lib/photo/notes.txt", exists))?.key === "uri_not_lesson", "a file that is not .json is refused");
+  expect(err(parseOpenLessonLink("bundle=/lib/gone/lesson.json", exists))?.key === "uri_not_found", "a missing file is reported");
 }
 
 if (failures.length) {

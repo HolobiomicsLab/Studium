@@ -169,7 +169,7 @@ class Panels {
     const ref = options.bundle_ref ?? catalog?.lessons.find(l => l.bundle_id === state.lesson_id)?.bundle_ref ?? "";
     const resolved = ref ? await loadResolvedBundle(roots, ref) : null;
     const ctx: PanelContext = {
-      sessionId: id, learnerId: options.learner_id ?? this.host.defaultLearnerId,
+      sessionId: id, learnerId: this.host.learnerFor(options.learner_id),
       bundleRef: ref, lessonTitle: resolved?.bundle.metadata.title ?? state.lesson_id,
       contentLanguage: this.host.sessionLanguage(id).source_language,
       conceptTitles: Object.fromEntries((resolved?.bundle.concepts ?? []).map(c => [c.id, c.title])),
@@ -181,7 +181,7 @@ class Panels {
 
   async open(options: Payload): Promise<PanelView> {
     if (!options.session_id && !options.bundle_ref) throw new Error("pass bundle_ref or session_id");
-    const started = options.session_id ? null : await this.backend.startLessonSession(options.bundle_ref, options.learner_id ?? this.host.defaultLearnerId);
+    const started = options.session_id ? null : await this.backend.startLessonSession(options.bundle_ref, this.host.learnerFor(options.learner_id));
     const ctx = await this.context(options.session_id ?? started!.session_id, options);
     if (options.show_mastery !== undefined) ctx.showMastery = options.show_mastery;
     if (options.modality_preference !== undefined) ctx.modalityPreference = options.modality_preference;
@@ -218,7 +218,7 @@ class Panels {
     if (name === "forget_session" || name === "end_session") {
       this.contexts.delete(args.session_id);
       if (args.learner_id) for (const [id, context] of this.contexts) {
-        if (context.learnerId === args.learner_id) this.contexts.delete(id);
+        if (context.learnerId === this.host.learnerFor(args.learner_id)) this.contexts.delete(id);
       }
     }
   }

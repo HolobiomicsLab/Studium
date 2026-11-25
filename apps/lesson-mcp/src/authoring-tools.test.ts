@@ -23,13 +23,14 @@ afterEach(() => { for (const root of roots.splice(0)) rmSync(root, { recursive: 
 
 interface Passage { id: string; source_id: string; text: string }
 
-async function connected(judge = false, files?: SourceFilePolicy) {
+async function connected(judge = false, files?: SourceFilePolicy, openLink?: string) {
   const library = mkdtempSync(join(tmpdir(), "mcp-authoring-"));
   roots.push(library);
   const written: string[] = [];
   const ctx: AuthoringToolsContext = {
     libraryRoot: () => library, onLessonWritten: (ref) => { written.push(ref); }, judge: () => judge,
     ...(files ? { sourceFiles: () => files } : {}),
+    ...(openLink ? { openLink: () => openLink } : {}),
   };
   const server = new McpServer({ name: "authoring-test", version: "0" });
   const names = registerAuthoringTools(server, ctx);
@@ -113,6 +114,39 @@ describe("registerAuthoringTools", () => {
     expect(description).toMatch(/without waiting/);
     // The sentence goes with the prepare_sources call, not with whatever call comes next.
     expect(description).toContain("with your prepare_sources call");
+  });
+});
+
+// D2 (waiting review 2026-11-25, owner decision 1): when the Studium VS Code extension serves Studium
+// (STUDIUM_OPEN_LINK), the lesson just written is offered in the pane first: create_lesson's result carries the
+// lesson's path, the link that opens it there, and display_markdown, which a harness relays as it is. Without the
+// variable, the result keeps its six keys (asserted in the end-to-end case below).
+describe("create_lesson with the VS Code extension's link", () => {
+  const PREFIX = "vscode://holobiomicslab.studium-vscode/open?bundle=";
+
+  it("returns lesson_path, open_link and display_markdown that offers the pane first, the chat one word away", async () => {
+    const { library, call } = await connected(false, undefined, PREFIX);
+    const prepared = await call("prepare_sources", { sources: [{ title: FRENCH_SOURCE.title, text: FRENCH_SOURCE.text }], language: "fr" });
+    const created = await call("create_lesson", { source_set_id: prepared.body["source_set_id"], draft: draftOver(prepared.body["passages"] as Passage[]) });
+    expect(created.isError).toBe(false);
+    const path = join(library, "deux-solidarites", "lesson.json");
+    expect(created.body).toMatchObject({ ok: true, lesson_path: path, open_link: PREFIX + encodeURIComponent(path) });
+    const shown = String(created.body["display_markdown"]);
+    expect(shown).toMatch(/«.Deux solidarités.» est prête/);
+    expect(shown).toContain("4 étapes");
+    expect(shown).toContain(`](${PREFIX + encodeURIComponent(path)})`);
+    expect(shown).toMatch(/panneau Studium/);
+    expect(shown).toMatch(/dis «.ici.»/);
+    // Still no key in what the tool returns.
+    for (const key of ["Le droit restitutif", "spécialis", "besoin des autres", "\"correct\""]) expect(created.text).not.toContain(key);
+  });
+
+  it("says in its description to show that display_markdown first when open_link is there", async () => {
+    const { client } = await connected();
+    const description = (await client.listTools()).tools.find((tool) => tool.name === "create_lesson")!.description!;
+    expect(description).toContain("open_link");
+    expect(description).toMatch(/display_markdown as it is/);
+    expect(description).toMatch(/“here”/);
   });
 });
 

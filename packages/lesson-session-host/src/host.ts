@@ -66,6 +66,7 @@ import {
   type ReviewSource,
 } from "./review-session.js";
 import { persistenceInfo, DEFAULT_LEARNER_ID, type PersistenceInfo } from "./persistence.js";
+import { paneLink, type PaneLink } from "./open-link.js";
 import { replyToInput, checkDisplayedChoice, ResponseInputError } from "./reply-mapping.js";
 import { expectedKind } from "./operator-context.js";
 import {
@@ -126,12 +127,17 @@ function escapes(base: string, target: string): boolean {
  * « session not found: », which the HTTP adapter maps to a 404. */
 export class SessionHostNotFoundError extends Error {
   /** `erased` (L-11): the learner's data was erased — by forget_session here or in another server on
-   * the same data folder, or the folder itself — while the session was open. */
-  constructor(id: string, cause: "unknown" | "erased" = "unknown") {
+   * the same data folder, or the folder itself — while the session was open. `moved_on` (D1): another process
+   * saved the lesson since this session loaded it, and this session would have saved its older state over it. */
+  constructor(id: string, cause: "unknown" | "erased" | "moved_on" = "unknown") {
     super(cause === "erased"
       ? `session not found: ${id} (the learner's data was erased while this session was open): call ` +
         "start_lesson_session with the same bundle_ref and learner_id to start the lesson afresh, or " +
         "start_review_session with the same learner_id for a review"
+      : cause === "moved_on"
+      ? `session not found: ${id} (this lesson went on in another session since this one loaded it, in the Studium ` +
+        "pane or another chat, and this one would save over it): call start_lesson_session with the same bundle_ref " +
+        "and learner_id to continue where it is now"
       : `session not found: ${id} (the server may have restarted, or the session was closed): call ` +
         "start_lesson_session with the same bundle_ref and learner_id to resume the lesson where it stopped, or " +
         "start_review_session with the same learner_id to start the review again");
@@ -759,6 +765,13 @@ export interface SessionHostOptions {
   dataDir?: string | null;
   /** C6: the learner_id used when a caller names none (STUDIUM_LEARNER_ID). Absent ⇒ "anonymous". */
   defaultLearnerId?: string;
+  /** D1 (waiting review 2026-11-25): the editor names the learner — the server the Studium VS Code extension offers
+   * to Copilot, started with the pane's learner id (STUDIUM_LEARNER_ID with STUDIUM_OPEN_LINK). Every call then plays
+   * `defaultLearnerId`, whatever learner_id it passes, so that the chat and the pane share one learner. */
+  editorNamesLearner?: boolean;
+  /** D2: the start of a link that opens a lesson in the Studium VS Code pane (STUDIUM_OPEN_LINK); the encoded path
+   * of the lesson file is appended (open-link.ts). Absent ⇒ no link is offered. */
+  openLink?: string;
   live: boolean;
   /** OPTIONAL per-run judgment regenerator. When present, a spot_the_flaw with regenerate_from_run has its
    * flawed_content/claims regenerated from the learner's OWN run (server-side) when they run the capsule —
@@ -985,6 +998,8 @@ export class SessionHost {
   /** L-11: sessions closed because their learner's data was erased: a later call says so, and points
    * to a fresh start, rather than to a restart of the server. */
   private readonly erasedIds = new Set<string>();
+  /** D1: sessions closed because their lesson went on in another process: a later call says so. */
+  private readonly movedOnIds = new Set<string>();
   constructor(private readonly opts: SessionHostOptions) {
     this.zone = checkTimeZone(opts.timeZone ?? localTimeZone());
     this.dataDir = opts.dataDir !== undefined ? opts.dataDir : durableDataDir();
@@ -1004,6 +1019,14 @@ export class SessionHost {
   get timeZone(): string { return this.zone; }
   /** C6: the learner_id used when a caller names none. */
   get defaultLearnerId(): string { return this.opts.defaultLearnerId ?? DEFAULT_LEARNER_ID; }
+  /** D1: whether the editor names the learner (SessionHostOptions.editorNamesLearner). */
+  get editorNamesLearner(): boolean { return this.opts.editorNamesLearner === true; }
+  /** D2: the start of a link that opens a lesson in the Studium VS Code pane, or null. */
+  get openLink(): string | null { return this.opts.openLink?.trim() || null; }
+  /** D1: the learner a call plays: the editor's when it names the learner, else the one named, else the default. */
+  learnerFor(requested?: string): string {
+    return this.editorNamesLearner ? this.defaultLearnerId : requested ?? this.defaultLearnerId;
+  }
   /** Whether a judge model grades production scenes here (the authoring notices depend on it). */
   get judge(): boolean { return this.opts.live; }
 
@@ -1011,6 +1034,7 @@ export class SessionHost {
   persistence(): PersistenceInfo {
     return persistenceInfo({
       dataDir: this.dataDir, libraryRoot: this.opts.libraryRoot ?? null, learnerIdDefault: this.defaultLearnerId,
+      learnerIdFromEditor: this.editorNamesLearner,
     });
   }
 
@@ -1033,6 +1057,12 @@ export class SessionHost {
         ...(library ? [{ kind: "library" as const, dir: library }] : [])];
     if (shipped && !roots.some((root) => same(root.dir, shipped))) roots.push({ kind: "shipped", dir: shipped });
     return roots;
+  }
+
+  /** D2: the pane link of a lesson of the catalog — its file under the root it was listed from — or null. */
+  private paneLinkOf(lesson: CatalogLesson): PaneLink | null {
+    const root = this.lessonRoots().find((r) => r.kind === lesson.root);
+    return root && this.openLink ? paneLink(this.openLink, resolve(root.dir, lesson.bundle_ref)) : null;
   }
 
   /** Whether `dir`, a root a lesson was loaded from, is the shipped lessons root. */
@@ -1110,6 +1140,7 @@ export class SessionHost {
 
   /** Start or resume a lesson; legacy third-argument clocks and languages remain supported. */
   async create(bundleRef: string, learnerId: string = this.defaultLearnerId, options?: SessionStartOptions | number | string): Promise<SessionStartResult> {
+    learnerId = this.learnerFor(learnerId);
     const { nowMs: requestedNow, presentationLanguage, promptSurface } = typeof options === "number" ? { nowMs: options }
       : typeof options === "string" ? { presentationLanguage: options } : options ?? {};
     // L-1: a session started with now_ms stamps its answers, ratings and memory on a clock anchored there.
@@ -1124,7 +1155,10 @@ export class SessionHost {
       const bundle = resolved.bundle;
       // D5: the learner already plays this lesson in this server — that session goes on.
       const open = sharedIdentity(learnerId) ? undefined : this.openLessonOf(profilePseudonym, bundle);
-      if (open) return this.alreadyOpen(open[0], open[1], { presentationLanguage: normalizedPresentationLanguage, promptSurface });
+      // D1: unless another process saved the lesson since that session loaded it (the learner went on in the pane, or
+      // in another chat): that session is set aside, and this one starts from what is saved.
+      if (open && await this.movedOn(open[1])) this.setAsideMovedOn(open[0]);
+      else if (open) return this.alreadyOpen(open[0], open[1], { presentationLanguage: normalizedPresentationLanguage, promptSurface });
       // C5: the approval record (next to lesson.json, or inside the .zip), bound to the very bytes just loaded.
       const authoring = authoringOf(bundle, {
         judge: this.opts.live, approval: resolved.approval, ...(this.isShippedRoot(resolved.root) ? { shipped: true } : {}),
@@ -1136,6 +1170,7 @@ export class SessionHost {
       let journalDirectory: string | undefined;
       let scopeDir: string | undefined;
       let prior: LearnerState | null = null;
+      let stateRevision: string | null | undefined;
       if (this.dataDir) {
         // Build deps once to obtain the (fail-closed) pseudonym provider, derive the scope dir, then
         // rebuild the deps with File* stores rooted at that dir. resolvePseudoSecret runs in
@@ -1150,6 +1185,9 @@ export class SessionHost {
         // #3 RESUME: load any prior LearnerState for this (pseudonym, bundle_id). FileStateStore.load
         // returns null on missing/parse-error, so a fresh learner falls back to defaultLearnerState.
         prior = await deps.stateStore.load(bundle.bundle_id);
+        // D1: what was loaded, to tell later that another process saved over it. A shared default identity is
+        // never guarded, as D5 never merges its sessions: several people may share it.
+        if (!sharedIdentity(learnerId)) stateRevision = await deps.stateStore.revision?.(bundle.bundle_id);
       } else {
         deps = this.deps(undefined, clock);
       }
@@ -1168,6 +1206,7 @@ export class SessionHost {
         memory: initial.concept_memory ?? {}, profileSeen: profile !== null, lessonSha256: resolved.sha256 ?? null,
         ...(normalizedPresentationLanguage ? { presentationLanguage: normalizedPresentationLanguage } : {}),
         ...(scopeDir ? { scopeDir } : {}),
+        ...(stateRevision !== undefined ? { stateRevision } : {}),
         ...(resolved.minutesPerDay !== null ? { minutesPerDay: resolved.minutesPerDay } : {}),
       });
       entry.carriedMemory = structuredClone(profile?.concept_memory ?? {});
@@ -1265,6 +1304,7 @@ export class SessionHost {
     learnerId: string = this.defaultLearnerId,
     opts: { maxItems?: number; nowMs?: number; presentationLanguage?: string; language?: DisplayLocale; promptSurface?: PromptSurface } = {},
   ): Promise<ReviewStartResult> {
+    learnerId = this.learnerFor(learnerId);
     const nowMs = this.nowOr(opts.nowMs);
     const requestedLanguage = opts.language === undefined ? undefined : checkLocale(opts.language);
     const deps = this.deps(undefined, this.sessionClock(opts.nowMs));
@@ -1398,6 +1438,7 @@ export class SessionHost {
    * Reads the learner's completed_lessons from the cross-lesson profile (the same learner-level pseudonym
    * the profile is keyed by). The caller then host.create(next.bundle_ref, learnerId) to start it. */
   async nextLesson(course: Course, learnerId: string = this.defaultLearnerId): Promise<CourseLesson | null> {
+    learnerId = this.learnerFor(learnerId);
     const profile = await this.profileStore.load(await this.profilePseudonymOf(learnerId));
     return nextCourseLesson(course, profile?.completed_lessons ?? []);
   }
@@ -1407,6 +1448,7 @@ export class SessionHost {
    * from the profile's concept_states. Empty when no profile / no memory. `nowMs` injected for
    * deterministic review scheduling. */
   async dueReinforcements(learnerId: string = this.defaultLearnerId, nowMs?: number): Promise<ReinforcementTarget[]> {
+    learnerId = this.learnerFor(learnerId);
     const at = this.nowOr(nowMs);
     return this.dueReinforcementsForProfile(await this.profilePseudonymOf(learnerId), at);
   }
@@ -1425,6 +1467,7 @@ export class SessionHost {
     learnerId: string = this.defaultLearnerId,
     requestedNow?: number,
   ): Promise<ReinforcementStatus> {
+    learnerId = this.learnerFor(learnerId);
     const nowMs = this.nowOr(requestedNow);
     const pseudonym = await this.profilePseudonymOf(learnerId);
     const [profile, record] = await Promise.all([this.profileStore.load(pseudonym), this.studyStore.load(pseudonym)]);
@@ -1443,6 +1486,7 @@ export class SessionHost {
    * surfacing `reinforce` even past the last lesson (review never stops). Loads the profile ONCE.
    * `nowMs` injected for deterministic scheduling. */
   async nextCourseStep(course: Course, learnerId: string = this.defaultLearnerId, requestedNow?: number): Promise<CourseStep> {
+    learnerId = this.learnerFor(learnerId);
     const nowMs = this.nowOr(requestedNow);
     const profile = await this.profileStore.load(await this.profilePseudonymOf(learnerId));
     if (profile?.concept_memory) {
@@ -1463,6 +1507,7 @@ export class SessionHost {
   async studyPlan(
     learnerId: string = this.defaultLearnerId, opts: { nowMs?: number; locale?: DisplayLocale; language?: DisplayLocale } = {},
   ): Promise<StudyPlan> {
+    learnerId = this.learnerFor(learnerId);
     const nowMs = this.nowOr(opts.nowMs);
     const requested = opts.language ?? opts.locale;
     const language = requested === undefined ? undefined : checkLocale(requested);
@@ -1507,6 +1552,7 @@ export class SessionHost {
       timeZone: this.zone,
       reviewSeconds,
       unfinishedBuild: unfinished[0] ?? null,
+      ...(this.openLink ? { paneLinkFor: (lesson: CatalogLesson) => this.paneLinkOf(lesson) } : {}),
     });
   }
 
@@ -1516,6 +1562,8 @@ export class SessionHost {
    * speaks `language` (fr|en), else the language of the learner's last lesson, else of the newest
    * lesson on disk, else English. */
   async listLessons(opts: { query?: string; learnerId?: string; language?: DisplayLocale } = {}): Promise<LessonListing> {
+    // D1: when the editor names the learner, the listing shows that learner's progress, learner_id given or not.
+    if (this.editorNamesLearner) opts = { ...opts, learnerId: this.defaultLearnerId };
     const language = opts.language === undefined ? undefined : checkLocale(opts.language);
     const catalog = await this.catalog();
     const words = foldText(opts.query ?? "").split(/\s+/).filter(Boolean);
@@ -1573,7 +1621,7 @@ export class SessionHost {
 
   private require(id: string): SessionEntry {
     const e = this.registry.get(id);
-    if (!e) throw new SessionHostNotFoundError(id, this.erasedIds.has(id) ? "erased" : "unknown");
+    if (!e) throw new SessionHostNotFoundError(id, this.erasedIds.has(id) ? "erased" : this.movedOnIds.has(id) ? "moved_on" : "unknown");
     return e;
   }
 
@@ -2426,10 +2474,45 @@ export class SessionHost {
   /** Recheck the forget generation after waiting for preceding operations. */
   private sessionWrite<T>(id: string, fn: (entry: SessionEntry) => Promise<T>): Promise<T> {
     const entry = this.require(id);
-    return this.learnerOperation(entry.profilePseudonym, () => {
+    return this.learnerOperation(entry.profilePseudonym, async () => {
       this.assertNotErased(id, entry);
-      return fn(entry);
+      await this.assertNotMovedOn(id, entry);
+      try { return await fn(entry); }
+      finally { await this.noteOwnSave(entry); }
     });
+  }
+
+  /** D1 (waiting review 2026-11-25): whether another process saved this session's lesson state since the session
+   * loaded or last saved it — the learner went on in the Studium pane or in another chat, on the same data folder.
+   * Read under the learner's lock, which every save of the lesson state holds, across processes. */
+  private async movedOn(entry: SessionEntry): Promise<boolean> {
+    if (entry.stateRevision === undefined || entry.erased) return false;
+    const now = await entry.deps.stateStore.revision?.(entry.bundle.bundle_id);
+    return now !== undefined && now !== entry.stateRevision;
+  }
+
+  /** D1: the stamp of what this session just saved (still under the learner's lock), so that only another
+   * process's save counts as moving on. */
+  private async noteOwnSave(entry: SessionEntry): Promise<void> {
+    if (entry.stateRevision === undefined) return;
+    const now = await entry.deps.stateStore.revision?.(entry.bundle.bundle_id);
+    if (now !== undefined) entry.stateRevision = now;
+  }
+
+  /** D1: close, without writing anything, a session whose lesson went on in another process. */
+  private setAsideMovedOn(id: string): void {
+    this.movedOnIds.add(id);
+    this.registry.delete(id);
+    this.experiments.delete(id);
+  }
+
+  /** D1: refuse — and close — a session whose lesson went on in another process, before it writes anything: its
+   * older state would be saved over the newer one. The refusal points to start_lesson_session, which resumes from
+   * what is saved. */
+  private async assertNotMovedOn(id: string, entry: SessionEntry): Promise<void> {
+    if (!await this.movedOn(entry)) return;
+    this.setAsideMovedOn(id);
+    throw new SessionHostNotFoundError(id, "moved_on");
   }
 
   private learnerTombstone(pseudonym: string): string | null {
@@ -2771,7 +2854,8 @@ export class SessionHost {
           // A proposal still open when the session closes went unanswered: counted ignored.
           if (entry.prompts) this.emitPromptOutcomes(entry, entry.prompts.sessionEnded());
           await this.flushSessionOutputs(entry);
-          await this.persistLearner(entry, { moved: [], sceneId: null, complete: false });
+          // D1: a session whose lesson went on in another process does not write its older progress back.
+          if (!await this.movedOn(entry)) await this.persistLearner(entry, { moved: [], sceneId: null, complete: false });
         }
       } catch (error) {
         warning = persistenceWarning(error);
@@ -2881,6 +2965,7 @@ export class SessionHost {
    * cross-lesson profile and the review schedule — and say what stays, as forget does. D10: in
    * `language` (fr|en) when given, else the learner's last lesson's, else the server default. */
   async forgetLearner(learnerId: string = this.defaultLearnerId, language?: DisplayLocale): Promise<ForgetReport> {
+    learnerId = this.learnerFor(learnerId);
     const requested = language === undefined ? undefined : checkLocale(language);
     const library = this.opts.libraryRoot;
     const draftsErased: ForgetItem[] = [{ kind: "lesson_drafts" }];

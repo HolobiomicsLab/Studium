@@ -8,6 +8,8 @@ import { browserPhrases } from "./phrases.js";
 const few = { en: /a few minutes/, fr: /quelques minutes/ } as const;
 const assistant = { en: /assistant/, fr: /assistant/ } as const;
 const folder = { en: /folder/i, fr: /dossier/i } as const;
+const library = { en: /your library/, fr: /ta bibliothèque/ } as const;
+const here = { en: /\bhere\b/, fr: /\bici\b/ } as const;
 
 describe("texts shown before the learner has a lesson of their own", () => {
   for (const locale of ["en", "fr"] as const) {
@@ -28,6 +30,14 @@ describe("texts shown before the learner has a lesson of their own", () => {
     it(`${locale}: the empty courses entry of the Lessons view names the assistant, and the library group has a label`, () => {
       expect(words.tree_no_courses).toMatch(assistant[locale]);
       expect(words.tree_library.length).toBeGreaterThan(0);
+    });
+    // Review finding 6: « appears here » is false when studium.bundlesRoot names another folder: the assistant's lesson
+    // lands in the library, listed apart under « Your library ». The texts name the library instead.
+    it(`${locale}: they say the assistant's lesson appears in the library, not « here »`, () => {
+      for (const key of ["picker_empty", "picker_empty_demo", "tree_no_courses"] as const) {
+        expect(words[key]).toMatch(library[locale]);
+        expect(words[key]).not.toMatch(here[locale]);
+      }
     });
   }
   it("each text differs between the two languages", () => {

@@ -29,17 +29,20 @@ import { buildLessonTree, type CommunityItem, type TreeNode } from "./lesson-tre
 import { discoverCoursesInRoot, needsLessonPicker, toLessonPickerChoices, type LessonCourse, type LessonPickerChoice } from "./lesson-picker.js";
 import { browserPhrases, localeFromLanguage, phrase, type Locale } from "./phrases.js";
 import { inlineImageAsset } from "./asset-path.js";
-import { hostPhrase } from "./host-phrases.js";
+import { hostPhrase, lessonReadyMessage } from "./host-phrases.js";
 import { defaultBundlesRoot, demoLessonRef, shippedLessonsRoot, studiumHome } from "./data-paths.js";
 import { isTrusted, runConsent, runFingerprint, withTrusted } from "./run-trust.js";
-import { checkLessonPath, parseOpenLessonQuery, rawQuery, type OpenLessonResult } from "./lesson-uri.js";
+import { checkLessonPath, parseOpenLessonLink, type OpenLessonResult } from "./lesson-uri.js";
 import {
   continueArgs, parseReinforcement, parseStudyProgress, statusBarText, type ProgressSource, type StudyProgress, type StudyStatus,
 } from "./study-status.js";
 import { readConceptTitles } from "./bundle-titles.js";
 import { parseRateRecall } from "./pane-messages.js";
 import { sessionLostReason } from "./session-lost.js";
-import { DEBOUNCE_MS, LibraryWatch, readLessonFacts, readSourceSetFacts, type LibraryWatchAction } from "./library-watch.js";
+import {
+  DEBOUNCE_MS, LibraryWatch, dontShowLessonReadyAgain, lessonReadyMuted, migrateLessonReadyMute, readLessonFacts, readSourceSetFacts,
+  type LessonReadySetting, type LibraryWatchAction,
+} from "./library-watch.js";
 
 type Json = Record<string, any>;
 
@@ -83,14 +86,20 @@ let lessonStatusLine: string | null = null;
 let studyStatusRefreshing = false;
 /** BN-1 / BN-4: the library an assistant's server writes lessons to (<STUDIUM_HOME>/library), and what its watchers saw. */
 let libraryRoot: string | undefined;
+/** Review finding 3: STUDIUM_HOME, resolved once at activation; the Copilot server is given it, so the library it
+ * writes is the one watched here. */
+let studiumHomeDir: string | undefined;
 let libraryWatch: LibraryWatch | undefined;
 /** The watcher on the lessons folder (studium.bundlesRoot) when it is not the library: it refreshes the list only. */
 let lessonsFolderWatcher: vscode.Disposable | undefined;
 
 const TRUSTED_RUNS_KEY = "studium.trustedRuns";
 const LAST_LESSON_KEY = "studium.lastLesson";
-/** BN-1: the learner chose « Don't show again » on a lesson-ready notice. */
+/** BN-1: the learner chose « Don't show again » on a lesson-ready notice, before studium.notifyLessonReady existed (or
+ * when the user settings could not be written): moved into that setting at start. */
 const LESSON_READY_MUTED_KEY = "studium.lessonReadyMuted";
+/** Review finding 4: the setting « Don't show again » turns off, so the learner can turn the notices back on. */
+const NOTIFY_LESSON_READY = "notifyLessonReady";
 /** BN-1: the lesson versions already announced, shared by every window (each runs its own watcher). */
 const LESSON_READY_SHOWN_KEY = "studium.lessonReadyShown";
 const LESSON_VIEW_TYPE = "studiumLesson";
@@ -177,7 +186,8 @@ export function activate(context: vscode.ExtensionContext) {
   // BN-1: the library where an assistant's server writes the lessons it builds, computed as the server computes it
   // (persistence.ts libraryRoot). Created now if missing: a watcher on a folder that does not exist yet misses the
   // first files written into it, which is the first build of a fresh install.
-  libraryRoot = join(studiumHome(process.env, homedir()), "library");
+  studiumHomeDir = studiumHome(process.env, homedir());
+  libraryRoot = join(studiumHomeDir, "library");
   try { mkdirSync(libraryRoot, { recursive: true }); } catch { /* an unwritable home: the server will say so when it writes */ }
   treeProvider = new StudiumCoursesTreeProvider(() => discoverForTree(context));
   const lessonsView = vscode.window.createTreeView("studiumLessons", { treeDataProvider: treeProvider });
@@ -218,6 +228,8 @@ export function activate(context: vscode.ExtensionContext) {
       locations: () => lessonServerLocations(context, resolveLessonBundlesRoot(context)),
       repoRoot: () => cfg<string>("repoRoot", resolve(context.extensionPath, "..", "..")),
       enabled: () => cfg<boolean>("registerMcpServer", true) !== false,
+      learnerId: () => cfg<string>("learnerId", "vscode-learner"),
+      studiumHome: studiumHomeDir,
       log: (line) => mcpOutput.appendLine(line),
     });
   } catch (e: any) {
@@ -269,6 +281,15 @@ function sameFolder(a: string, b: string): boolean {
  * bar. Nothing here starts a server: refreshStudyStatus is not called on file events. */
 function setUpLibraryWatch(context: vscode.ExtensionContext, library: string) {
   const shownKeys = () => context.globalState.get<string[]>(LESSON_READY_SHOWN_KEY) ?? [];
+  // « Don't show again » is the user setting studium.notifyLessonReady; the flag of earlier versions is moved into it now.
+  const noticeSetting: LessonReadySetting = {
+    enabled: () => cfg<boolean>(NOTIFY_LESSON_READY, true) !== false,
+    userValue: () => vscode.workspace.getConfiguration("studium").inspect<boolean>(NOTIFY_LESSON_READY)?.globalValue,
+    setUserValue: (on) => vscode.workspace.getConfiguration("studium").update(NOTIFY_LESSON_READY, on, vscode.ConfigurationTarget.Global),
+    legacyMuted: () => context.globalState.get<boolean>(LESSON_READY_MUTED_KEY) === true,
+    setLegacyMuted: (muted) => context.globalState.update(LESSON_READY_MUTED_KEY, muted ? true : undefined),
+  };
+  void migrateLessonReadyMute(noticeSetting);
   const watch = new LibraryWatch({
     library,
     readLesson: readLessonFacts,
@@ -277,7 +298,7 @@ function setUpLibraryWatch(context: vscode.ExtensionContext, library: string) {
     setTimer: (fn, ms) => setTimeout(fn, ms),
     clearTimer: (handle) => clearTimeout(handle as ReturnType<typeof setTimeout>),
     focused: () => vscode.window.state?.focused !== false,
-    muted: () => context.globalState.get<boolean>(LESSON_READY_MUTED_KEY) === true,
+    muted: () => lessonReadyMuted(noticeSetting),
     shown: {
       has: (key) => shownKeys().includes(key),
       add: (key) => { void context.globalState.update(LESSON_READY_SHOWN_KEY, [...shownKeys().filter((k) => k !== key), key].slice(-20)); },
@@ -285,7 +306,7 @@ function setUpLibraryWatch(context: vscode.ExtensionContext, library: string) {
     act: (action) => {
       if (action.kind === "refresh") treeProvider?.refresh();
       else if (action.kind === "status") applyStudyStatus();
-      else void announceLesson(context, library, action);
+      else void announceLesson(context, library, action, noticeSetting);
     },
   });
   libraryWatch = watch;
@@ -337,18 +358,23 @@ function watchLessonsFolder(context: vscode.ExtensionContext, library: string) {
 }
 
 /** BN-1: « Your lesson … is ready »: Open plays it from the library (no setting is written), Later does nothing, Don't
- * show again is kept in the global state. The pane is never opened unasked: it would take the focus from the chat. */
-async function announceLesson(context: vscode.ExtensionContext, library: string, notice: Extract<LibraryWatchAction, { kind: "notify" }>) {
+ * show again turns off the user setting studium.notifyLessonReady, which the learner can turn back on. Lessons that
+ * landed together share one notice, whose Show opens the Studium view, where they are listed. The pane is never opened
+ * unasked: it would take the focus from the chat. */
+async function announceLesson(
+  context: vscode.ExtensionContext, library: string, notice: Extract<LibraryWatchAction, { kind: "notify" }>, setting: LessonReadySetting,
+) {
   const locale = extensionLocale;
-  const open = hostPhrase("lesson_ready_open", {}, locale);
+  const [first] = notice.lessons;
+  if (!first) return;
+  const several = notice.lessons.length > 1;
+  const open = hostPhrase(several ? "lessons_ready_show" : "lesson_ready_open", {}, locale);
   const later = hostPhrase("lesson_ready_later", {}, locale);
   const never = hostPhrase("lesson_ready_never", {}, locale);
-  const message = notice.steps === 1
-    ? hostPhrase("lesson_ready_one", { title: notice.title }, locale)
-    : hostPhrase("lesson_ready", { title: notice.title, steps: notice.steps }, locale);
-  const choice = await vscode.window.showInformationMessage(message, open, later, never);
-  if (choice === open) await openLesson(context, notice.ref, "lesson", { bundlesRoot: library });
-  else if (choice === never) await context.globalState.update(LESSON_READY_MUTED_KEY, true);
+  const choice = await vscode.window.showInformationMessage(lessonReadyMessage(notice.lessons, locale), open, later, never);
+  if (choice === open && several) await vscode.commands.executeCommand("workbench.view.extension.studium");
+  else if (choice === open) await openLesson(context, first.ref, "lesson", { bundlesRoot: library });
+  else if (choice === never) await dontShowLessonReadyAgain(setting);
 }
 
 function applyStudyStatus() {
@@ -432,7 +458,8 @@ function reportLessonPathError(result: Extract<OpenLessonResult, { ok: false }>)
 /** vscode://<publisher>.studium-vscode/open?bundle=<path of lesson.json> (C7). */
 async function handleLessonUri(context: vscode.ExtensionContext, uri: vscode.Uri): Promise<void> {
   if (uri.path !== "/open") return;
-  const result = parseOpenLessonQuery(rawQuery(uri.toString()), existsSync);
+  // D2: VS Code hands over the query decoded once (uri.query); uri.toString() would encode its "=" again.
+  const result = parseOpenLessonLink(uri.query ?? "", existsSync);
   if (!result.ok) { reportLessonPathError(result); return; }
   await openLesson(context, result.bundleRef, "lesson", { bundlesRoot: result.bundlesRoot });
 }
@@ -462,7 +489,7 @@ async function restoreLessonPanel(context: vscode.ExtensionContext, panel: vscod
 async function forgetMyData(context: vscode.ExtensionContext): Promise<void> {
   const locale = extensionLocale;
   const action = hostPhrase("forget_data_action", {}, locale);
-  const harnessData = join(studiumHome(process.env, homedir()), "data");
+  const harnessData = join(studiumHomeDir ?? studiumHome(process.env, homedir()), "data");
   const choice = await vscode.window.showWarningMessage(
     hostPhrase("forget_data_prompt", { harness_data: harnessData }, locale), { modal: true }, action);
   if (choice !== action) return;

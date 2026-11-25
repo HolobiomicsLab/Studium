@@ -123,7 +123,8 @@ Construire de nouvelles leçons dans la salle ajoute un compte chez le fournisse
 serveur à Copilot, le poste n'a donc besoin ni de Node ni d'une commande ([Connecter Copilot](copilot.fr.md) ;
 non essayé dans une vraie session Copilot). Un autre assistant ajoute Node sur le poste et une commande par
 compte (voir [Ajouter le serveur à votre assistant](installation.fr.md#ajouter-le-serveur-à-votre-assistant)).
-Le panneau et un assistant gardent des progressions séparées. Cela n'a pas été essayé en salle.
+Le panneau et un assistant gardent des progressions séparées, sauf Copilot avec le serveur de l'extension,
+qui joue l'apprenant du panneau. Cela n'a pas été essayé en salle.
 
 ## Sans VS Code
 

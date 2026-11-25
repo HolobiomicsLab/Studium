@@ -106,8 +106,9 @@ const FR = {
   tree_walkthrough: "Prise en main",
   tree_run: "Lancer la reproduction",
   tree_courses: "Cours disponibles",
-  // BN-3: where a learner's first lesson comes from; « aucun cours trouvé » sent them looking for a folder.
-  tree_no_courses: "Aucune leçon pour l'instant : celle que ton assistant écrit apparaît ici",
+  // BN-3: where a learner's first lesson comes from; « aucun cours trouvé » sent them looking for a folder. Review
+  // finding 6: « ici » was false when studium.bundlesRoot names another folder; the lesson lands in the library.
+  tree_no_courses: "Aucune leçon pour l'instant : celle que ton assistant écrit apparaît dans ta bibliothèque",
   // BN-1: the library an assistant writes to, listed apart when the lessons folder is another one.
   tree_library: "Ta bibliothèque",
   tree_current: "\n✓ cours actuel",
@@ -119,9 +120,9 @@ const FR = {
   picker_not_specified: "non renseigné",
   picker_title: "Studium : choisir un cours",
   // BN-3: also the empty course list of the MCP Apps panel, which has no folder action.
-  picker_empty: "Pas encore de leçon à toi. Une leçon que ton assistant écrit apparaît ici quand elle est prête, en quelques minutes.",
+  picker_empty: "Pas encore de leçon à toi. Une leçon que ton assistant écrit apparaît dans ta bibliothèque quand elle est prête, en quelques minutes.",
   // The QuickPick placeholder is one line: kept short.
-  picker_empty_demo: "Une leçon écrite par ton assistant apparaît ici en quelques minutes. En attendant, essaie la démo.",
+  picker_empty_demo: "Ton assistant écrit ta leçon dans ta bibliothèque en quelques minutes. En attendant, essaie la démo.",
   picker_choose: "Choisis le cours à ouvrir",
   picker_folder_title: "Choisir le dossier qui contient les cours Studium",
 
@@ -643,7 +644,7 @@ const EN: Record<PhraseKey, string> = {
   tree_walkthrough: "Getting started",
   tree_run: "Run the reproduction",
   tree_courses: "Available courses",
-  tree_no_courses: "No lesson yet: one your assistant writes appears here",
+  tree_no_courses: "No lesson yet: one your assistant writes appears in your library",
   tree_library: "Your library",
   tree_current: "\n✓ current course",
   tree_community: "Community contributions",
@@ -653,8 +654,8 @@ const EN: Record<PhraseKey, string> = {
   picker_folder_description: "Change studium.bundlesRoot",
   picker_not_specified: "not specified",
   picker_title: "Studium: Pick a course",
-  picker_empty: "No lesson of your own yet. A lesson your assistant writes appears here when it is ready, in a few minutes.",
-  picker_empty_demo: "A lesson your assistant writes appears here in a few minutes. Meanwhile, try the demo.",
+  picker_empty: "No lesson of your own yet. A lesson your assistant writes appears in your library when it is ready, in a few minutes.",
+  picker_empty_demo: "Your assistant writes your lesson into your library in a few minutes. Meanwhile, try the demo.",
   picker_choose: "Choose a course to open",
   picker_folder_title: "Choose the folder containing Studium courses",
 

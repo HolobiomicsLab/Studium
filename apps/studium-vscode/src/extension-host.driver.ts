@@ -17,6 +17,7 @@ import { freeTextInput } from "./scene-io.js";
 import { isolateFromHome } from "./driver-isolation.js";
 import { makeZip } from "./zip-fixture.js";
 import { liveLessonMcpCount, parseToolResult, resolveServerLaunch } from "./mcp-connect.js";
+import { vscodeHandsOver } from "./vscode-uri-fixture.js";
 import { MCP_PROVIDER_ID } from "./mcp-provider.js";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
@@ -221,7 +222,9 @@ const context: Json = {
     update: async (k: string, v: unknown) => { if (v === undefined) globalStateData.delete(k); else globalStateData.set(k, v); },
   },
 };
-const uriFor = (lessonPath: string) => ({ path: "/open", toString: () => `vscode://holobiomicslab.studium-vscode/open?bundle=${encodeURIComponent(lessonPath)}` });
+// Changed (D2, owner decision 1): a link reaches the handler the way VS Code hands it over (vscode-uri-fixture.ts:
+// uri.query decoded once, uri.toString() encoded again, "=" included), no longer as the link's own string.
+const uriFor = (lessonPath: string) => vscodeHandsOver(`vscode://holobiomicslab.studium-vscode/open?bundle=${encodeURIComponent(lessonPath)}`);
 /** Every file under a folder (recursive); empty when the folder does not exist. */
 function listFiles(dir: string): string[] {
   if (!existsSync(dir)) return [];
@@ -650,6 +653,8 @@ async function main() {
     settings["bundlesRoot"] = lib;
     const savedJudge = process.env["LITELLM_BASE_URL"];
     process.env["LITELLM_BASE_URL"] = "";
+    // D1: a learner of its own, so that what the pane did above for e2e-learner is not in its study plan.
+    settings["learnerId"] = "e2e-copilot";
     const defs = await provide();
     expect(defs.length === 1, `one server is offered (got ${defs.length})`);
     const def = defs[0] ?? {};
@@ -658,7 +663,15 @@ async function main() {
       && def.cwd?.fsPath === launch.cwd, `the definition starts the pane's lesson-mcp (got ${JSON.stringify({ label: def.label, command: def.command, args: def.args, cwd: def.cwd?.fsPath })})`);
     expect(def.env?.BUNDLES_ROOT === lib && def.env?.STUDIUM_DATA_DIR === storage && def.env?.LITELLM_BASE_URL === ""
       && def.env?.STUDIUM_TELEMETRY_CONSENT === null, `same lessons folder and data folder as the pane, no judge (got ${JSON.stringify(def.env)})`);
-    const allowed = new Set(["BUNDLES_ROOT", "STUDIUM_DATA_DIR", "STUDIUM_TELEMETRY_CONSENT", "LITELLM_BASE_URL", "ELECTRON_RUN_AS_NODE"]);
+    // Review finding 3: the STUDIUM_HOME the extension resolved once, whose library it watches.
+    expect(def.env?.STUDIUM_HOME === isolation.studiumHome, `the server writes its library where the extension watches (got ${def.env?.STUDIUM_HOME})`);
+    // D1, D2 (owner decision 1): the pane's learner and the pane link.
+    expect(def.env?.STUDIUM_LEARNER_ID === "e2e-copilot" && def.env?.STUDIUM_OPEN_LINK === "vscode://holobiomicslab.studium-vscode/open?bundle=",
+      `the server plays the pane's learner and links to the pane (got ${JSON.stringify(def.env)})`);
+    // Changed: STUDIUM_HOME, STUDIUM_LEARNER_ID and STUDIUM_OPEN_LINK are allowed too; the extension sets them, none is
+    // copied from the editor's environment.
+    const allowed = new Set(["BUNDLES_ROOT", "STUDIUM_DATA_DIR", "STUDIUM_TELEMETRY_CONSENT", "LITELLM_BASE_URL", "ELECTRON_RUN_AS_NODE",
+      "STUDIUM_HOME", "STUDIUM_LEARNER_ID", "STUDIUM_OPEN_LINK"]);
     expect(Object.keys(def.env ?? {}).every((k) => allowed.has(k)), `nothing else is copied from the editor's environment (got ${Object.keys(def.env ?? {})})`);
 
     // Start it the way the editor does (the definition's env over the extension host's), and ask who it is.
@@ -669,12 +682,38 @@ async function main() {
       const client = new Client({ name: "fake-copilot", version: "0" });
       await client.connect(new StdioClientTransport({ command: def.command, args: def.args, cwd: def.cwd?.fsPath, env, stderr: "pipe" }));
       const info = parseToolResult("get_server_info", await client.callTool({ name: "get_server_info", arguments: {} }));
+      // D1 + D2 (owner decision 1): the chat and the pane share one learner. Copilot starts a lesson without naming a
+      // learner and answers its first step; get_study_plan offers it in the pane first, with a link; that link, handed
+      // over the way VS Code does, opens the pane at the step the chat reached.
+      expect(info["persistence"]?.["learner_id_from_editor"] === true && info["persistence"]?.["learner_id_default"] === "e2e-copilot",
+        `the started server is told the editor names the learner (got ${JSON.stringify(info["persistence"])})`);
+      makeLesson("shared", SAFE_RUN, "capsule-run-shared");
+      let step: Json | undefined;
+      try {
+        const started = parseToolResult("start_lesson_session", await client.callTool({ name: "start_lesson_session", arguments: { bundle_ref: "shared/lesson.json" } }));
+        parseToolResult("submit_response", await client.callTool({ name: "submit_response", arguments: { session_id: started["session_id"], input: { kind: "ack" } } }));
+        step = parseToolResult("get_study_plan", await client.callTool({ name: "get_study_plan", arguments: {} }))["next_step"];
+      } catch (e: any) { expect(false, `Copilot plays the shared lesson's first step (${e?.message ?? e})`); }
       await client.close();
+      expect(step?.["action"] === "continue" && typeof step?.["open_link"] === "string" && step["lesson_path"] === join(lib, "shared", "lesson.json"),
+        `the study plan offers the lesson in progress in the pane, with its link (got ${JSON.stringify(step)})`);
+      if (typeof step?.["open_link"] === "string") {
+        const panesBefore = seen.panels.length;
+        await seen.uriHandler.handleUri(vscodeHandsOver(step["open_link"]));
+        const pane = lastPanel();
+        if (seen.panels.length > panesBefore && await waitFor(() => pane.posted.some((m: Json) => m.type === "render"), "the pane opened from Copilot's link")) {
+          const first = pane.posted.find((m: Json) => m.type === "render");
+          expect(first?.scene?.id === "s-repro", `the pane opens the lesson at the step the chat reached (got ${first?.scene?.id})`);
+          pane.dispose();
+        } else expect(false, `Copilot's link opens a pane (errors: ${JSON.stringify(seen.errors.slice(-1))})`);
+      }
       expect(info["bundles_root"] === lib && info["data_dir"] === storage && info["model_backend"] === "none",
         `the started server reads the pane's lessons folder, keeps progress in the extension storage, calls no model (got ${JSON.stringify({ b: info["bundles_root"], d: info["data_dir"], m: info["model_backend"] })})`);
       expect(Array.isArray(info["tools"]) && info["tools"].includes("create_lesson") && info["tools"].includes("prepare_sources"),
         "the started server offers the authoring tools that build a lesson");
     }
+
+    settings["learnerId"] = "e2e-learner";
 
     // The setting turns it off, and the editor is told the list changed.
     let changes = 0;
@@ -716,7 +755,7 @@ async function main() {
     // Editors without the API (VS Code before 1.101, forks) or with one that throws: nothing breaks.
     const { registerStudiumMcpServer } = await import("./mcp-registration.js");
     const deps = { locations: () => ({ bundlesRoot: lib, storageDir: storage, telemetryConsent: false }), repoRoot: () => repoRoot,
-      enabled: () => true, log: (line: string) => { seen.outputLines.push(line); } };
+      enabled: () => true, learnerId: () => "e2e-learner", studiumHome: isolation.studiumHome, log: (line: string) => { seen.outputLines.push(line); } };
     const savedLm = fakeVscode.lm;
     delete fakeVscode.lm;
     let outcome: unknown;
@@ -941,7 +980,10 @@ async function main() {
     fire(lessonsWatcher, "change", third);
     await waitFor(() => seen.infos.length > mutedBefore, "the notice on a change event");
     await sleep(50);
-    expect(globalStateData.get("studium.lessonReadyMuted") === true, "Don't show again is kept in the global state");
+    // Changed: « Don't show again » now turns off the user setting studium.notifyLessonReady (review finding 4), which the
+    // learner can turn back on in the Settings editor; the global-state flag is no longer written.
+    expect(configWrites.some((w) => w.key === "notifyLessonReady" && w.value === false && w.target === 1)
+      && !globalStateData.has("studium.lessonReadyMuted"), "Don't show again turns studium.notifyLessonReady off in the user settings");
     infoAnswer = () => undefined;
     const fourth = join(libraryRoot, "photosynthese-quater", "lesson.json");
     mkdirSync(join(libraryRoot, "photosynthese-quater"), { recursive: true });
@@ -952,6 +994,7 @@ async function main() {
     await sleep(900);
     expect(seen.infos.length === afterMute && refreshes > refreshesMuted, "after Don't show again: refreshed, not announced");
     globalStateData.delete("studium.lessonReadyMuted");
+    delete settings["notifyLessonReady"];
 
     // The lessons folder (studium.bundlesRoot), when it is not the library, is watched to refresh the list only: a pull
     // that touches many lessons must not announce each one. Its watcher follows the setting.

@@ -347,6 +347,12 @@
           "type": "boolean",
           "default": true,
           "description": "%configuration.registerMcpServer.description%"
+        },
+        "studium.notifyLessonReady": {
+          "type": "boolean",
+          "default": true,
+          "scope": "application",
+          "description": "%configuration.notifyLessonReady.description%"
         }
       }
     },

@@ -8,8 +8,11 @@ import { homedir } from "node:os";
 import { basename, dirname } from "node:path";
 import { describeServerLaunch, resolveServerLaunch, type LogSink } from "./mcp-connect.js";
 import {
-  MCP_PROVIDER_ID, MCP_SERVER_LABEL, findHandAddedStudium, mcpConfigFiles, mcpServerApi, registeredServerEnv,
+  MCP_PROVIDER_ID, MCP_SERVER_LABEL, findHandAddedStudium, mcpConfigFiles, mcpServerApi, openLinkPrefix, registeredServerEnv,
 } from "./mcp-provider.js";
+
+/** The extension's id (publisher.name in package.json), when the editor does not give it. */
+const EXTENSION_ID = "holobiomicslab.studium-vscode";
 
 export interface McpRegistrationDeps {
   /** Where the pane's server keeps things: the lessons folder, the data folder (created), the consent setting. */
@@ -18,6 +21,10 @@ export interface McpRegistrationDeps {
   repoRoot: () => string;
   /** The studium.registerMcpServer setting. */
   enabled: () => boolean;
+  /** Owner decision 1: the pane's learner (studium.learnerId), whom the Copilot server then plays too. */
+  learnerId: () => string;
+  /** Review finding 3: STUDIUM_HOME as the extension resolved it once (its library is the folder it watches). */
+  studiumHome: string;
   log: LogSink;
 }
 
@@ -70,12 +77,16 @@ export function registerStudiumMcpServer(context: vscode.ExtensionContext, deps:
         return [];
       }
       const where = deps.locations();
-      const env = registeredServerEnv({ launchEnv: launch.env, ...where, hostEnv: process.env });
+      const env = registeredServerEnv({
+        launchEnv: launch.env, ...where, hostEnv: process.env, learnerId: deps.learnerId(), studiumHome: deps.studiumHome,
+        openLink: openLinkPrefix(vscode.env.uriScheme, context.extension?.id ?? EXTENSION_ID),
+      });
       const version: string | undefined = context.extension?.packageJSON?.version;
       const definition = new api.Definition(MCP_SERVER_LABEL, launch.command, launch.args, env, version);
       definition.cwd = vscode.Uri.file(launch.cwd);
       note(`[studium] Copilot gets the built-in Studium server: ${describeServerLaunch(launch)}, lessons ${where.bundlesRoot}, ` +
-        `progress ${where.storageDir}, judge ${env["LITELLM_BASE_URL"] ? "configured" : "none"}.`);
+        `progress ${where.storageDir}, learner ${env["STUDIUM_LEARNER_ID"] ?? "chosen by the assistant"}, ` +
+        `judge ${env["LITELLM_BASE_URL"] ? "configured" : "none"}.`);
       return [definition];
     },
   };

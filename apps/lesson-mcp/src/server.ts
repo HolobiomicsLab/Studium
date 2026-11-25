@@ -62,6 +62,31 @@ export const SERVER_INSTRUCTIONS = [
   "- When Studium itself fails, contradicts its documentation or cannot do what the person asks, say so plainly and help them on; then offer once, at a pause, to report it or propose a change (get_server_info.feedback gives the addresses and what a report holds). The person posts it, or asks you to once they have read the final text; a lesson's content goes to its teacher or author.",
 ].join("\n");
 
+/** D1 (waiting review 2026-11-25): the line that replaces the stable-learner_id one when the editor names the
+ * learner (the server the Studium VS Code extension offers to Copilot). */
+const EDITOR_LEARNER_LINE = "- The editor names the learner: omit learner_id (an id you pass is ignored; " +
+  "persistence.learner_id_default is the learner).";
+
+/** D2: how the authoring line begins in SERVER_INSTRUCTIONS, and how it begins when the Studium VS Code extension
+ * serves Studium (STUDIUM_OPEN_LINK): a lesson ready to play is offered in the pane first. */
+const AUTHORING_START = "- To learn from new sources: get_authoring_guide, prepare_sources, create_lesson, then start_lesson_session.";
+const PANE_FIRST_START = "- To learn from new sources: get_authoring_guide, prepare_sources, create_lesson. When a result or a " +
+  "next_step carries open_link, show its display_markdown as it is (the Studium pane first) and call " +
+  "start_lesson_session only if the learner says “here”.";
+
+/** The instructions of a server over `host`: SERVER_INSTRUCTIONS, with the learner line rewritten when the editor
+ * names the learner (D1) and the authoring line's start when the VS Code extension serves Studium (D2). Same number
+ * of lines (at most 13). */
+export function serverInstructions(host: Pick<SessionHost, "editorNamesLearner" | "openLink">): string {
+  const lines = SERVER_INSTRUCTIONS.split("\n");
+  if (host.editorNamesLearner) lines[lines.findIndex((line) => line.startsWith("- Pass one stable learner_id"))] = EDITOR_LEARNER_LINE;
+  if (host.openLink) {
+    const at = lines.findIndex((line) => line.startsWith(AUTHORING_START));
+    lines[at] = PANE_FIRST_START + lines[at]!.slice(AUTHORING_START.length);
+  }
+  return lines.join("\n");
+}
+
 let hasLoggedStartup = false;
 
 function logStartup(toolCount: number): void {
@@ -95,8 +120,11 @@ function operation<S extends z.ZodRawShape>(
   };
 }
 
-const learnerIdArg = z.string().min(1).max(200).optional()
+const defaultLearnerIdArg = z.string().min(1).max(200).optional()
   .describe("one stable id per learner; defaults to persistence.learner_id_default");
+/** D1: the same argument when the editor names the learner. */
+const editorLearnerIdArg = z.string().min(1).max(200).optional()
+  .describe("omit it: the editor names the learner (persistence.learner_id_default), and an id passed here is ignored");
 /** L-1: an integer epoch a Date can hold, refused otherwise in one line (session-clock.ts). */
 const nowMsArg = NowMsSchema.optional();
 /** L-4: the language the study tools speak. */
@@ -113,6 +141,7 @@ export function studyOperations(
 ): Operation[] {
   // INT-STUDIUM-058 § 2.6: the screens these tools serve are read in the conversation (rank 1).
   const promptSurface = (): PromptSurface => ({ rank: 1, formsAvailable: opts.formsAvailable?.() ?? false });
+  const learnerIdArg = host.editorNamesLearner ? editorLearnerIdArg : defaultLearnerIdArg;
   // The conversation tools log the rank the session is played on, not always the conversation's own.
   const rankOf = (sessionId: string): SurfaceRank => opts.surfaceRankOf?.(sessionId) ?? 1;
   return [
@@ -299,7 +328,7 @@ function registerPrompts(server: McpServer): void {
 /** The MCP server over `host`: lesson operations, study, authoring and teacher tools, instructions and
  * prompts. */
 export function buildMcpServer(host: SessionHost): McpServer {
-  const server = new McpServer({ name: "studium-lesson", version: SERVER_VERSION }, { instructions: SERVER_INSTRUCTIONS });
+  const server = new McpServer({ name: "studium-lesson", version: SERVER_VERSION }, { instructions: serverInstructions(host) });
   const panels = registerPanelTools(server, host);
   const registered: string[] = [...panels.names];
   // get_server_info reads `registered` when it is called, so it lists every tool added below.
@@ -330,6 +359,7 @@ export function buildMcpServer(host: SessionHost): McpServer {
     judge: () => host.judge,
     sourceFiles: () => sourceFilePolicy(host),
     draftLearner: (learnerId) => host.draftLearnerOf(learnerId),
+    openLink: () => host.openLink,
   }));
   registered.push(...registerTeacherTools(server, {
     bundlesRoot: host.bundlesRoot, libraryRoot: host.libraryRoot, dataDir: host.persistence().data_dir,

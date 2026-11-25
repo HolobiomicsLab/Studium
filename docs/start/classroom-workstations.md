@@ -115,7 +115,8 @@ Copilot in VS Code 1.101 or later, that is all: the extension offers its own ser
 workstation needs neither Node nor a command ([Connect Copilot](copilot.md); not tried in a real Copilot
 session). Another assistant adds Node on the workstation and one command per account (see
 [Add the server to your assistant](installation.md#add-the-server-to-your-assistant)). The pane and an
-assistant keep separate progress. This has not been tried in a room.
+assistant keep separate progress, except Copilot with the extension's server, which plays the pane's learner.
+This has not been tried in a room.
 
 ## Without VS Code
 

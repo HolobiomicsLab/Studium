@@ -51,9 +51,12 @@ l'assistant, étape par étape, est dans
 Quand `studium.bundlesRoot` est vide, le dossier de leçons est le `fixtures/` du dépôt si l'extension
 tourne depuis un clone de Studium, sinon votre bibliothèque personnelle, `~/.studium/library` (ou
 `<STUDIUM_HOME>/library`), où sont écrites les leçons qu'un assistant prépare pour vous. L'extension crée
-cette bibliothèque au démarrage si elle manque, et la surveille : une leçon écrite là est listée et annoncée,
-avec **Ouvrir**, **Plus tard** et **Ne plus afficher**. Si `studium.bundlesRoot` désigne un autre dossier,
-les leçons de la bibliothèque sont listées à part, sous **Ta bibliothèque**.
+cette bibliothèque au démarrage si elle manque, et la surveille : une leçon qu'un assistant y écrit est listée
+et annoncée, avec **Ouvrir**, **Plus tard** et **Ne plus afficher**. Des leçons arrivées ensemble partagent
+une seule notification, dont **Afficher** ouvre la vue Studium. Une leçon que vous y copiez vous-même est
+listée mais pas annoncée. **Ne plus afficher** désactive le réglage `studium.notifyLessonReady` :
+réactivez-le dans l'éditeur de réglages pour revoir les notifications. Si `studium.bundlesRoot` désigne
+un autre dossier, les leçons de la bibliothèque sont listées à part, sous **Ta bibliothèque**.
 
 ### De la conversation au panneau
 
@@ -151,8 +154,8 @@ encore mesurées), ou la date de la prochaine révision. Le décompte est rafra�
 fermeture ou à la fin d'une leçon, et avec le bouton de rafraîchissement de la vue Leçons.
 
 Quand rien n'est dû, la barre propose plutôt la leçon que vous suiviez, par exemple
-**Studium · reprendre Découvrir Studium** ; un clic rouvre cette leçon à l'étape où vous vous étiez
-arrêté·e. La vue **Leçons** montre cette même leçon en premier, sous la forme **Reprendre : …**, avec l'étape
+**Studium · reprendre Découvrir Studium** ; un clic rouvre cette leçon à l'étape où vous en étiez. La vue
+**Leçons** montre cette même leçon en premier, sous la forme **Reprendre : …**, avec l'étape
 suivante et, quand la leçon donne sa durée, les minutes restantes ; chaque leçon de la liste montre sa
 progression (**6/12**, ou **terminée**). C'est la progression que VS Code garde sous `studium.learnerId`,
 dans le panneau et `@studium`. Les leçons jouées avec les outils Studium de Copilot, un autre assistant ou
@@ -171,7 +174,10 @@ préparation et une révision due passent avant. Sans historique ni leçon en co
 
 Le panneau et le mode agent de Copilot lancent chacun leur propre serveur, que Copilot utilise celui que
 propose l'extension ou un serveur que vous avez configuré vous-même, et ne partagent pas l'étape courante.
-Pilotez une leçon depuis l'un des deux à la fois.
+Pilotez une leçon depuis l'un des deux à la fois. Avec le serveur que propose l'extension, Copilot joue
+l'apprenant du panneau (`studium.learnerId`) : une leçon se poursuit dans le panneau là où elle s'est arrêtée
+dans la conversation, et Copilot propose d'abord dans le panneau une leçon qu'il a construite
+([Connecter Copilot](copilot.fr.md)).
 
 ## Exécuter une reproduction
 
@@ -193,6 +199,7 @@ contrôle la sortie s'exécute sous une limite de 50 ms : une leçon défectueu
 | `studium.assets` | `vendor` | charger KaTeX et Vega hors ligne (`vendor`) ou depuis un CDN (`cdn`) |
 | `studium.learnerId` | `vscode-learner` | votre identifiant d'apprenant ; il sale votre pseudonyme sur le disque |
 | `studium.registerMcpServer` | `true` | proposer le serveur de l'extension au mode agent de Copilot (VS Code 1.101 ou plus récent) ; aucun n'est proposé si vous avez déjà ajouté vous-même un serveur Studium |
+| `studium.notifyLessonReady` | `true` | vous prévenir quand une leçon construite par votre assistant est prête ; **Ne plus afficher** sur cette notification le désactive, et le réactiver fait revenir les notifications. Un réglage utilisateur, pour toutes les fenêtres |
 | `studium.telemetryConsent` | `false` | consentir à l'enregistrement d'une télémétrie de classe pseudonymisée dans le dossier de données de l'extension (rien n'est envoyé) |
 | `studium.modalityPreference` | `balanced` | `visual` ou `textual` réordonne le contenu de chaque étape ; rien n'est retiré |
 | `studium.showGraph` | `true` | ouvrir un panneau compagnon avec le graphe d'apprentissage en direct |

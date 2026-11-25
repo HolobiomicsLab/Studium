@@ -208,6 +208,17 @@ describe("authoringGuide", () => {
     expect(JSON.stringify(example.draft)).not.toMatch(/\b(vous|votre|vos|Relisez|Racontez)\b/i);
   });
 
+  // D2 (waiting review 2026-11-25): after create_lesson, a result that carries open_link (the server the Studium VS
+  // Code extension offers) is offered in the pane first; the chat starts the lesson only when the learner says so.
+  it("says, in both languages, to show create_lesson's display_markdown first when its result carries open_link", () => {
+    for (const language of ["en", "fr"] as const) {
+      const step = authoringGuide({ language }).markdown.split("\n").find((line) => line.startsWith("6. "))!;
+      for (const named of ["`open_link`", "`display_markdown`", "`start_lesson_session {bundle_ref: course_ref}`"]) expect(step).toContain(named);
+    }
+    expect(authoringGuide({ language: "en" }).markdown).toMatch(/Studium pane first; start here only on the learner's “here”/);
+    expect(authoringGuide({ language: "fr" }).markdown).toMatch(/panneau Studium d'abord ; ici seulement sur son « ici »/);
+  });
+
   it("says in teacher mode that this route writes self-study lessons and names the teacher route", () => {
     expect(authoringGuide({ language: "en", mode: "teacher" }).markdown).toMatch(/self-study lessons only[\s\S]*experience_packet\.py approve/);
     expect(authoringGuide({ language: "fr", mode: "teacher" }).markdown).toMatch(/uniquement des leçons d'auto-apprentissage[\s\S]*experience_packet\.py approve/);

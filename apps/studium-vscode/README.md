@@ -210,7 +210,9 @@ renderers, so it runs without a checkout or a global `tsx`. Lessons are not insi
 checkout the extension reads your personal library; otherwise set `studium.bundlesRoot` and
 `studium.bundleRef`, or use **Studium: Pick a course**. In a checkout it prefers the source server and the
 checkout's `fixtures/`. `studium.vsix` is a local build artifact, not a Marketplace release. A native MCP
-client and the extension pane create separate server sessions; they do not share the current scene.
+client and the extension pane create separate server sessions; they do not share the current scene. Copilot
+with the server the extension registers plays the pane's learner (`studium.learnerId`), so progress carries
+over between them, and it offers a lesson in the pane first, with a link the extension opens.
 Installation is described in the [installation guide](../../docs/start/installation.md).
 
 The page the Marketplace and Open VSX show is [`MARKETPLACE.md`](MARKETPLACE.md), written for the person

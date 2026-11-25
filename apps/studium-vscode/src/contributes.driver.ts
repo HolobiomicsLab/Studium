@@ -267,6 +267,26 @@ const hasCmd = (id: string) => commandIds.includes(id);
   }
 }
 
+// 14) Review finding 4: « Don't show again » on the lesson-ready notice can be undone. It turns off a setting,
+//     studium.notifyLessonReady, on by default, whose description in both languages names that button; it holds in
+//     user settings only (application scope), as the choice applies to every window. Every setting the extension
+//     contributes is listed in the settings table of docs/start/vscode.md and vscode.fr.md.
+{
+  const setting = c.configuration?.properties?.["studium.notifyLessonReady"];
+  expect(setting?.type === "boolean" && setting?.default === true && setting?.scope === "application" && /^%.+%$/.test(setting?.description ?? ""),
+    `studium.notifyLessonReady is a boolean user setting, on by default, with a localized description (got ${JSON.stringify(setting)})`);
+  const key = (setting?.description ?? "").replace(/%/g, "");
+  const nlsEn = JSON.parse(readFileSync(resolve(root, "package.nls.json"), "utf8"));
+  const nlsFr = JSON.parse(readFileSync(resolve(root, "package.nls.fr.json"), "utf8"));
+  expect(/Don't show again/.test(nlsEn[key] ?? "") && /Ne plus afficher/.test(nlsFr[key] ?? ""),
+    "its description names the button that turns it off, in English and in French");
+  const repo = resolve(root, "..", "..");
+  for (const page of ["docs/start/vscode.md", "docs/start/vscode.fr.md"]) {
+    const text = readFileSync(resolve(repo, page), "utf8");
+    for (const name of Object.keys(c.configuration?.properties ?? {})) expect(text.includes(`| \`${name}\` |`), `${page} lists the setting ${name}`);
+  }
+}
+
 if (failures.length) {
   console.error(`FAIL — ${failures.length}/${checks} contributes assertions failed:`);
   for (const f of failures) console.error("  - " + f);

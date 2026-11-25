@@ -443,7 +443,8 @@ export function lessonOperations(host: SessionHost, opts: LessonOperationsOption
     },
     async ({ session_id, learner_id, now_ms }) => {
       try {
-        if (session_id === undefined && learner_id === undefined) {
+        // D1: when the editor names the learner, a call without either is that learner's.
+        if (session_id === undefined && learner_id === undefined && !host.editorNamesLearner) {
           return fail("at least one of session_id or learner_id is required");
         }
         const status = session_id !== undefined
