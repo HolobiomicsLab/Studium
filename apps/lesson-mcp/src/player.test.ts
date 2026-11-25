@@ -167,6 +167,13 @@ describe('browser player: a lesson played through the routes', () => {
     const explain = answered.help.rungs.find((rung:{kind:string}) => rung.kind === 'explain');
     expect(explain.available).toBe(false);
     expect(explain.why_not).toMatch(/^pas d'assistant sur cette page.: relis la leçon ou demande un indice$/);
+    // A written answer no judge assessed asks for a recall rating; the rating is the learner's, through the page.
+    expect(answered.scene.type).toBe('summary_audit');
+    const written = await view('panel_action', {session_id, action:{type:'respond', input:{kind:'summary_audit', text:'Le résumé omet les isotopes.'}, expected_scene_id:answered.scene.id}});
+    expect(written.verdict).toMatchObject({assessed_by:'none'});
+    expect(written.self_rating).toMatchObject({requested:true});
+    const rated = await view('panel_action', {session_id, action:{type:'rateRecall', sceneId:written.self_rating.scene_id, grade:'good'}});
+    expect(rated.recall_rated).toEqual({sceneId:written.self_rating.scene_id, grade:'good'});
     const again = await view('get_panel_view', {session_id});
     expect(again.session_id).toBe(session_id);
     expect(again.surface.kind).toBe('pane');
