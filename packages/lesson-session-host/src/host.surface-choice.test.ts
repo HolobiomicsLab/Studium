@@ -144,6 +144,18 @@ describe("the study plan offers the panel first where the client draws it (A)", 
     expect(text.indexOf(`<${link}>`)).toBeLessThan(text.indexOf("say “here”"));
   });
 
+  // Review G, finding 4: a call that names no learner got open_panel.learner_id = the server's default learner
+  // (STUDIUM_LEARNER_ID), filled in before the offer was made; create_lesson leaves it out, and so does the plan now.
+  it("names no learner in open_panel when the call named none", async () => {
+    const { library } = host();
+    const h = new SessionHost({ bundlesRoot: library, libraryRoot: library, live: false, dataDir: null, defaultLearnerId: "lfx-private-id",
+      browserLink: async (learner: string, ref: string) => address(learner, ref) });
+    const step = (await h.studyPlan(undefined, { language: "en", client: CODEX })).next_step;
+    expect(step).toMatchObject({ offer_first: "panel", open_panel: { bundle_ref: REF } });
+    expect(step.open_panel).not.toHaveProperty("learner_id");
+    expect((await h.studyPlan("ana", { language: "en", client: CODEX })).next_step.open_panel).toEqual({ bundle_ref: REF, learner_id: "ana" });
+  });
+
   it("a client that draws no panel: the browser first, as decision 4 has it", async () => {
     const { h } = host();
     const plan = await h.studyPlan("ana", { language: "en" });

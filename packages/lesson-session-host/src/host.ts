@@ -1584,11 +1584,12 @@ export class SessionHost {
    * older name) defaults to the language of the lesson the learner touched last, else of the newest
    * lesson on disk, else English. RFR-06: the learner's minutes a day size the next step. */
   async studyPlan(
-    learnerId: string = this.defaultLearnerId,
+    asked?: string,
     opts: { nowMs?: number; locale?: DisplayLocale; language?: DisplayLocale; client?: OfferClient } = {},
   ): Promise<StudyPlan> {
-    const asked = learnerId;
-    learnerId = this.learnerFor(learnerId);
+    // `asked` stays as the call gave it (review G, finding 4): the offer names no learner the call did not name, as
+    // create_lesson's does not (lessonOffer).
+    const learnerId = this.learnerFor(asked);
     const nowMs = this.nowOr(opts.nowMs);
     const requested = opts.language ?? opts.locale;
     const language = requested === undefined ? undefined : checkLocale(requested);
