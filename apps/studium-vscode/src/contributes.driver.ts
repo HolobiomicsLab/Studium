@@ -203,6 +203,22 @@ const hasCmd = (id: string) => commandIds.includes(id);
   expect(!!m && pkg.engines.vscode === `^${m[1]}.0`, `MARKETPLACE.md states the VS Code version of engines.vscode (${pkg.engines.vscode})`);
 }
 
+// 11) 2026-11-25: the demo lesson shipped with Studium is reachable with zero setup: a declared command with its
+//     title in both languages, a button in the empty Lessons view, a link in the first walkthrough step, and the
+//     lessons copied into the extension by the build (vendor, which package and build both run).
+{
+  const id = "studium.openDemoLesson";
+  expect(hasCmd(id), `command ${id} is declared`);
+  expect((pkg.activationEvents ?? []).includes(`onCommand:${id}`), `command ${id} has an activation event`);
+  for (const file of ["package.nls.json", "package.nls.fr.json"]) {
+    const nls = JSON.parse(readFileSync(resolve(root, file), "utf8"));
+    expect(typeof nls["command.openDemoLesson.title"] === "string", `${file} titles the demo command`);
+    expect(String(nls["viewsWelcome.empty"]).includes(`(command:${id})`), `${file}: the empty Lessons view offers the demo`);
+    expect(String(nls["walkthrough.step.open.description"]).includes(`(command:${id})`), `${file}: the first walkthrough step offers the demo`);
+  }
+  expect(/shipped-lessons/.test(pkg.scripts?.vendor ?? ""), "the vendor script copies the shipped lessons into dist/shipped-lessons");
+}
+
 if (failures.length) {
   console.error(`FAIL — ${failures.length}/${checks} contributes assertions failed:`);
   for (const f of failures) console.error("  - " + f);

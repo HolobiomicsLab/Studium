@@ -29,6 +29,16 @@ const bundle = (title: string, target: string, language: string, validatedBy: st
   const picks = toLessonPickerChoices(courses, "/courses");
   expect(picks[0]?.description === "L1 · fr" && picks[0]?.detail === "wave-scenes.json · aucune approbation enregistrée", "picker items expose target, language, ref, and the approval state (not validated_by)");
   expect(picks.at(-1)?.action === "folder" && picks.at(-1)?.detail === "/courses", "picker always offers another bundles-root folder");
+  expect(!picks.some((pick) => pick.action === "demo"), "without the shipped demo, the picker offers none");
+  // 2026-11-25: the demo shipped with Studium, labelled as such, after the courses and before the folder action.
+  const withDemo = toLessonPickerChoices(courses, "/courses", "en", { demo: true });
+  const demo = withDemo.at(-2);
+  expect(demo?.action === "demo" && withDemo.length === picks.length + 1, "with the shipped demo, the picker offers it just before the folder action");
+  expect(/Discover Studium/.test(demo?.label ?? "") && /shipped with Studium/.test(demo?.description ?? ""), "the demo choice is named and says it ships with Studium (en)");
+  expect(/not checked by a teacher/.test(demo?.detail ?? ""), "the demo choice says no teacher checked it (en)");
+  const demoFr = toLessonPickerChoices([], "/courses", "fr", { demo: true });
+  expect(demoFr[0]?.action === "demo" && /Découvrir Studium/.test(demoFr[0]?.label ?? "") && /livrée avec Studium/.test(demoFr[0]?.description ?? ""),
+    "an empty folder still offers the demo first (fr)");
 }
 
 // Approval state comes from approval.json bound to the bytes of the lesson; validated_by text never shows.

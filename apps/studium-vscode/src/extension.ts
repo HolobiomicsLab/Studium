@@ -29,7 +29,7 @@ import { discoverCoursesInRoot, needsLessonPicker, toLessonPickerChoices, type L
 import { browserPhrases, localeFromLanguage, phrase, type Locale } from "./phrases.js";
 import { inlineImageAsset } from "./asset-path.js";
 import { hostPhrase } from "./host-phrases.js";
-import { defaultBundlesRoot, studiumHome } from "./data-paths.js";
+import { defaultBundlesRoot, demoLessonRef, shippedLessonsRoot, studiumHome } from "./data-paths.js";
 import { isTrusted, runConsent, runFingerprint, withTrusted } from "./run-trust.js";
 import { checkLessonPath, parseOpenLessonQuery, rawQuery, type OpenLessonResult } from "./lesson-uri.js";
 import { parseReinforcement, statusBarText, type StudyStatus } from "./study-status.js";
@@ -159,6 +159,7 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand("studium.openLesson", (ref?: unknown, source?: unknown) =>
       openLesson(context, typeof ref === "string" ? ref : undefined, source === "community" ? "community" : "lesson")),
     vscode.commands.registerCommand("studium.pickLesson", () => pickLesson(context)),
+    vscode.commands.registerCommand("studium.openDemoLesson", () => openDemoLesson(context)),
     vscode.commands.registerCommand("studium.communityContributions", () => openCommunityContribution(context)),
     vscode.commands.registerCommand("studium.runReproduction", () => runReproductionScene()),
     vscode.commands.registerCommand("studium.openWalkthrough", () => openWalkthrough(context)),
@@ -637,8 +638,9 @@ type LessonRootKind = "lesson" | "community";
 async function pickLesson(context: vscode.ExtensionContext) {
   let bundlesRoot = resolveLessonBundlesRoot(context);
   for (;;) {
-    const chosen = await showLessonChoices(bundlesRoot);
+    const chosen = await showLessonChoices(bundlesRoot, shippedRootOf(context) !== null);
     if (!chosen) return;
+    if (chosen.action === "demo") { await openDemoLesson(context); return; }
     if (chosen.action === "folder") {
       const selected = await chooseBundlesRoot();
       if (!selected) return;
@@ -651,8 +653,8 @@ async function pickLesson(context: vscode.ExtensionContext) {
   }
 }
 
-async function showLessonChoices(bundlesRoot: string): Promise<LessonPickerChoice | undefined> {
-  const choices = toLessonPickerChoices(discoverCoursesInRoot(bundlesRoot), bundlesRoot, extensionLocale);
+async function showLessonChoices(bundlesRoot: string, demo: boolean): Promise<LessonPickerChoice | undefined> {
+  const choices = toLessonPickerChoices(discoverCoursesInRoot(bundlesRoot), bundlesRoot, extensionLocale, { demo });
   return vscode.window.showQuickPick(choices, {
     title: phrase("picker_title", {}, extensionLocale),
     placeHolder: choices.length === 1
@@ -671,6 +673,24 @@ async function chooseBundlesRoot(): Promise<string | undefined> {
     canSelectMany: false,
   });
   return selected?.[0]?.fsPath;
+}
+
+/** The lessons shipped with Studium that the launched server reads (data-paths.ts), or null. */
+function shippedRootOf(context: vscode.ExtensionContext): string | null {
+  const repoRoot = cfg<string>("repoRoot", resolve(context.extensionPath, "..", ".."));
+  return shippedLessonsRoot({ extensionPath: context.extensionPath, repoRoot, exists: existsSync });
+}
+
+/** « Try the demo lesson »: « Discover Studium » in VS Code's display language (not the last lesson's), opened from
+ * the shipped folder. It is never saved as the learner's course (studium.bundlesRoot and studium.bundleRef stay theirs). */
+async function openDemoLesson(context: vscode.ExtensionContext): Promise<void> {
+  const root = shippedRootOf(context);
+  const ref = demoLessonRef(localeFromLanguage(vscode.env.language));
+  if (!root || !existsSync(join(root, ref))) {
+    vscode.window.showErrorMessage(hostPhrase("demo_missing", { path: root ? join(root, ref) : ref }, extensionLocale));
+    return;
+  }
+  await openLesson(context, ref, "lesson", { bundlesRoot: root });
 }
 
 /** Save the chosen course where the tree, the chat and the notebook read it. A folder or a workspace keeps its own
