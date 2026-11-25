@@ -41,6 +41,11 @@ const FR = {
   lesson_ready_open: "Ouvrir",
   lesson_ready_later: "Plus tard",
   lesson_ready_never: "Ne plus afficher",
+  // Review finding 2: lessons that land together share one notice; « Afficher » opens the Lessons view.
+  lessons_ready: "Studium : {count} leçons sont prêtes : {titles}.",
+  lessons_ready_more: "Studium : {count} leçons sont prêtes, dont {titles}.",
+  lessons_ready_title: "« {title} »",
+  lessons_ready_show: "Afficher",
   // BN-7: the lesson in progress, offered in the status bar (when nothing is due) and first in the Lessons view.
   status_continue: "Studium · reprendre {title}",
   status_tooltip_continue: "Reprendre « {title} » à l'étape {step} sur {total}. Clique pour l'ouvrir.",
@@ -123,6 +128,10 @@ const EN: Record<HostPhraseKey, string> = {
   lesson_ready_open: "Open",
   lesson_ready_later: "Later",
   lesson_ready_never: "Don't show again",
+  lessons_ready: "Studium: {count} lessons are ready: {titles}.",
+  lessons_ready_more: "Studium: {count} lessons are ready, including {titles}.",
+  lessons_ready_title: "“{title}”",
+  lessons_ready_show: "Show",
   status_continue: "Studium · continue {title}",
   status_tooltip_continue: "Continue “{title}” at step {step} of {total}. Click to open it.",
   continue_minutes_left: "About {minutes} min left.",
@@ -170,6 +179,18 @@ const EN: Record<HostPhraseKey, string> = {
 const FR_TYPESET = Object.fromEntries(Object.entries(FR).map(([key, text]) => [key, frenchSpacing(text)])) as Record<HostPhraseKey, string>;
 
 export const HOST_CATALOGUES: Record<Locale, Record<HostPhraseKey, string>> = { fr: FR_TYPESET, en: EN };
+
+/** BN-1: the text of a lesson-ready notice. One lesson: its title and steps. Several, that landed together: how many,
+ * and the titles of the first three. */
+export function lessonReadyMessage(lessons: readonly { title: string; steps: number }[], locale: Locale): string {
+  const [first] = lessons;
+  if (lessons.length <= 1) {
+    const title = first?.title ?? "";
+    return first?.steps === 1 ? hostPhrase("lesson_ready_one", { title }, locale) : hostPhrase("lesson_ready", { title, steps: first?.steps ?? 0 }, locale);
+  }
+  const titles = lessons.slice(0, 3).map(({ title }) => hostPhrase("lessons_ready_title", { title }, locale)).join(", ");
+  return hostPhrase(lessons.length > 3 ? "lessons_ready_more" : "lessons_ready", { count: lessons.length, titles }, locale);
+}
 
 /** Look up a host-side message and fill its `{name}` placeholders; an unknown placeholder is left as written. */
 export function hostPhrase(key: HostPhraseKey, params: PhraseParams = {}, locale: Locale = "fr"): string {

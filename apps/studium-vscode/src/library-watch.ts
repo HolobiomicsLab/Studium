@@ -1,10 +1,12 @@
 // library-watch.ts — BN-1 / BN-4: turn file events in the learner's library (<STUDIUM_HOME>/library, where an
 // assistant's Studium server writes, apps/lesson-mcp/src/server.ts authoringRoot) into what the extension shows.
 //   - <library>/<course>/lesson.json written (create_lesson): refresh the Lessons view, then announce the lesson once
-//     ("Your lesson … is ready"), after a burst of events settles. Not announced: a lesson the extension itself opened or
-//     wrote in the last OWN_MS, or after the learner chose "Don't show again". With the window in the background the
-//     notice waits and is shown when the window comes back; windows share a record of what was shown, so a second
-//     window does not repeat it.
+//     ("Your lesson … is ready"), after a burst of events settles. Lessons that land together share one notice. Only a
+//     lesson an assistant built is announced: build.ts always writes a top-level source_plan_id, and a lesson copied
+//     into the library by hand has none, so it is listed only. Not announced either: a lesson the extension itself
+//     opened or wrote in the last OWN_MS, or any lesson after the learner chose "Don't show again". With the window in
+//     the background the notice waits and is shown when the window comes back, with the lessons that landed meanwhile;
+//     windows share a record of what was shown, so a second window does not repeat it.
 //   - <library>/_sources/<id>.json written (prepare_sources): "preparing a lesson" until a lesson whose top-level
 //     source_plan_id is that id, or the id of a set prepared after it, lands, or for PREPARING_MAX_MS at most (a build
 //     the assistant abandoned).
@@ -13,7 +15,8 @@
 import { readFileSync, statSync } from "node:fs";
 import { isAbsolute, relative, resolve, sep } from "node:path";
 
-/** Wait this long after the last event on a lesson before acting: one write can raise several events. */
+/** Wait this long after the last event on a lesson before acting: one write can raise several events, and lessons
+ * written within this time of each other share one notice. */
 export const DEBOUNCE_MS = 500;
 /** A lesson the extension opened or wrote within this window is not announced. */
 export const OWN_MS = 10_000;
@@ -26,10 +29,14 @@ export interface LessonFacts { title: string; steps: number; sourcePlanId: strin
 export interface SourceSetFacts { id: string; title: string }
 export interface PreparingState { id: string; title: string; since: number }
 
+/** A lesson the notice announces. */
+export interface ReadyLesson { path: string; ref: string; title: string; steps: number }
+
 export type LibraryWatchAction =
   | { kind: "refresh" }
   | { kind: "status" }
-  | { kind: "notify"; path: string; ref: string; title: string; steps: number };
+  /** One notice, for one lesson or for several that landed together. */
+  | { kind: "notify"; lessons: ReadyLesson[] };
 
 export interface LibraryWatchDeps {
   /** The library folder, as the server computes it (absolute). */
@@ -48,11 +55,13 @@ export interface LibraryWatchDeps {
   act: (action: LibraryWatchAction) => void;
 }
 
-type Notice = Extract<LibraryWatchAction, { kind: "notify" }> & { key: string; queuedAt: number };
+type Notice = ReadyLesson & { key: string; queuedAt: number };
 
 export class LibraryWatch {
   private readonly library: string;
-  private readonly debounces = new Map<string, unknown>();
+  /** The lessons with events since the last burst settled, and the one timer that waits for the burst to end. */
+  private readonly settling = new Set<string>();
+  private settleTimer: unknown = undefined;
   private readonly pending = new Map<string, Notice>();
   private readonly ownedAt = new Map<string, number>();
   private readonly preparingById = new Map<string, PreparingState & { timer: unknown }>();
@@ -67,9 +76,9 @@ export class LibraryWatch {
     if (this.disposed) return;
     const file = resolve(path);
     if (!this.lessonRef(file)) return;
-    const previous = this.debounces.get(file);
-    if (previous !== undefined) this.deps.clearTimer(previous);
-    this.debounces.set(file, this.deps.setTimer(() => { this.debounces.delete(file); this.settle(file); }, DEBOUNCE_MS));
+    this.settling.add(file);
+    if (this.settleTimer !== undefined) this.deps.clearTimer(this.settleTimer);
+    this.settleTimer = this.deps.setTimer(() => { this.settleTimer = undefined; this.settle(); }, DEBOUNCE_MS);
   }
 
   /** A create or change event on <library>/_sources/<id>.json. A file that does not read as a source set is ignored. */
@@ -89,17 +98,16 @@ export class LibraryWatch {
     this.deps.act({ kind: "status" });
   }
 
-  /** The window came to the front: show the notices that waited for it. */
+  /** The window came to the front: show the notices that waited for it, as one. */
   windowFocused(): void {
     if (this.disposed) return;
     const waiting = [...this.pending.values()];
     this.pending.clear();
-    for (const notice of waiting) {
+    if (this.deps.muted()) return;
+    this.show(waiting.filter((notice) => {
       const opened = this.ownedAt.get(notice.path);
-      if (opened !== undefined && opened >= notice.queuedAt) continue;
-      if (this.deps.muted() || this.deps.shown.has(notice.key)) continue;
-      this.show(notice);
-    }
+      return !(opened !== undefined && opened >= notice.queuedAt) && !this.deps.shown.has(notice.key);
+    }));
   }
 
   /** The extension opened or wrote this lesson: do not announce it for OWN_MS, and drop a notice that waits for it. */
@@ -116,20 +124,30 @@ export class LibraryWatch {
 
   dispose(): void {
     this.disposed = true;
-    for (const handle of this.debounces.values()) this.deps.clearTimer(handle);
+    if (this.settleTimer !== undefined) this.deps.clearTimer(this.settleTimer);
     for (const entry of this.preparingById.values()) this.deps.clearTimer(entry.timer);
-    this.debounces.clear();
+    this.settling.clear();
     this.preparingById.clear();
     this.pending.clear();
   }
 
-  private settle(file: string): void {
+  /** A burst of events has settled: refresh the list once, then announce its lessons in one notice. */
+  private settle(): void {
     if (this.disposed) return;
-    const ref = this.lessonRef(file);
-    if (!ref) return;
+    const files = [...this.settling];
+    this.settling.clear();
     this.deps.act({ kind: "refresh" });
+    const ready = files.map((file) => this.ready(file)).filter((notice): notice is Notice => notice !== null);
+    if (this.deps.focused()) this.show(ready);
+    else for (const notice of ready) this.pending.set(notice.path, notice);
+  }
+
+  /** One lesson of a settled burst: end « preparing » for its source set, and return its notice if it is announced. */
+  private ready(file: string): Notice | null {
+    const ref = this.lessonRef(file);
+    if (!ref) return null;
     const facts = this.safe(() => this.deps.readLesson(file));
-    if (!facts) return;
+    if (!facts) return null;
     // The lesson ends « preparing » for the set it cites and for every set prepared before it: an assistant that called
     // prepare_sources twice in one build (a first set it then replaced) cites the last one only.
     const prepared = facts.sourcePlanId ? this.preparingById.get(facts.sourcePlanId) : undefined;
@@ -141,21 +159,21 @@ export class LibraryWatch {
       }
       this.deps.act({ kind: "status" });
     }
+    // A lesson copied into the library by hand has no source_plan_id: it is listed, not announced.
+    if (!facts.sourcePlanId) return null;
     const now = this.deps.now();
     const opened = this.ownedAt.get(file);
-    if (opened !== undefined && now - opened < OWN_MS) return;
-    if (this.deps.muted()) return;
+    if (opened !== undefined && now - opened < OWN_MS) return null;
+    if (this.deps.muted()) return null;
     const key = `${ref}@${facts.version}`;
-    if (this.deps.shown.has(key)) return;
-    const notice: Notice = { kind: "notify", path: file, ref, title: facts.title, steps: facts.steps, key, queuedAt: now };
-    if (this.deps.focused()) this.show(notice);
-    else this.pending.set(file, notice);
+    if (this.deps.shown.has(key)) return null;
+    return { path: file, ref, title: facts.title, steps: facts.steps, key, queuedAt: now };
   }
 
-  private show(notice: Notice): void {
-    this.deps.shown.add(notice.key);
-    const { key: _key, queuedAt: _queuedAt, ...action } = notice;
-    this.deps.act(action);
+  private show(notices: Notice[]): void {
+    if (notices.length === 0) return;
+    for (const notice of notices) this.deps.shown.add(notice.key);
+    this.deps.act({ kind: "notify", lessons: notices.map(({ path, ref, title, steps }) => ({ path, ref, title, steps })) });
   }
 
   /** "<course>/lesson.json" for a lesson directly under the library, else null. */

@@ -1,7 +1,7 @@
 // host-phrases.driver.ts — the host-side catalogues cover the same keys in French and English, no value
 // is left in the wrong language, and placeholders agree. No VS Code APIs.
 //   node_modules/.pnpm/node_modules/.bin/tsx apps/studium-vscode/src/host-phrases.driver.ts
-import { HOST_CATALOGUES, hostPhrase, type HostPhraseKey } from "./host-phrases.js";
+import { HOST_CATALOGUES, hostPhrase, lessonReadyMessage, type HostPhraseKey } from "./host-phrases.js";
 import { browserPhrases } from "./phrases.js";
 
 const failures: string[] = [];
@@ -76,6 +76,23 @@ expect(/profil/.test(fr.forget_data_prompt) && /révisions de toutes tes leçons
     "it never says only « this session » is erased");
 }
 expect(/profile/.test(en.forget_data_prompt) && /reviews of all your lessons/.test(en.forget_data_prompt), `and in English (${en.forget_data_prompt})`);
+
+// Review finding 2: lessons that land together share one notice. One lesson keeps its own sentence; several are counted
+// and named, the first three only.
+{
+  const titled = (titles: string[], steps = 4) => titles.map((title) => ({ title, steps }));
+  expect(lessonReadyMessage(titled(["Photosynthèse"], 9), "en") === hostPhrase("lesson_ready", { title: "Photosynthèse", steps: 9 }, "en"),
+    "one lesson: its own sentence, with its steps");
+  expect(lessonReadyMessage(titled(["Photosynthèse"], 1), "fr") === hostPhrase("lesson_ready_one", { title: "Photosynthèse" }, "fr"), "one lesson of one step");
+  const three = titled(["A", "B", "C"]);
+  expect(lessonReadyMessage(three, "en") === "Studium: 3 lessons are ready: “A”, “B”, “C”.", `three lessons, one sentence (got ${lessonReadyMessage(three, "en")})`);
+  expect(lessonReadyMessage(three, "fr") === "Studium\u00a0: 3 leçons sont prêtes\u00a0: «\u00a0A\u00a0», «\u00a0B\u00a0», «\u00a0C\u00a0».",
+    `and in French, typeset (got ${JSON.stringify(lessonReadyMessage(three, "fr"))})`);
+  const five = titled(["A", "B", "C", "D", "E"]);
+  expect(lessonReadyMessage(five, "en") === "Studium: 5 lessons are ready, including “A”, “B”, “C”.", `more than three: the first three are named (got ${lessonReadyMessage(five, "en")})`);
+  expect(lessonReadyMessage(five, "fr") === "Studium\u00a0: 5 leçons sont prêtes, dont «\u00a0A\u00a0», «\u00a0B\u00a0», «\u00a0C\u00a0».",
+    `and in French (got ${JSON.stringify(lessonReadyMessage(five, "fr"))})`);
+}
 
 if (failures.length) {
   console.error(`FAIL — ${failures.length}/${checks} host-phrases assertions failed:`);

@@ -29,7 +29,7 @@ import { buildLessonTree, type CommunityItem, type TreeNode } from "./lesson-tre
 import { discoverCoursesInRoot, needsLessonPicker, toLessonPickerChoices, type LessonCourse, type LessonPickerChoice } from "./lesson-picker.js";
 import { browserPhrases, localeFromLanguage, phrase, type Locale } from "./phrases.js";
 import { inlineImageAsset } from "./asset-path.js";
-import { hostPhrase } from "./host-phrases.js";
+import { hostPhrase, lessonReadyMessage } from "./host-phrases.js";
 import { defaultBundlesRoot, demoLessonRef, shippedLessonsRoot, studiumHome } from "./data-paths.js";
 import { isTrusted, runConsent, runFingerprint, withTrusted } from "./run-trust.js";
 import { checkLessonPath, parseOpenLessonQuery, rawQuery, type OpenLessonResult } from "./lesson-uri.js";
@@ -337,17 +337,19 @@ function watchLessonsFolder(context: vscode.ExtensionContext, library: string) {
 }
 
 /** BN-1: « Your lesson … is ready »: Open plays it from the library (no setting is written), Later does nothing, Don't
- * show again is kept in the global state. The pane is never opened unasked: it would take the focus from the chat. */
+ * show again is kept in the global state. Lessons that landed together share one notice, whose Show opens the Studium
+ * view, where they are listed. The pane is never opened unasked: it would take the focus from the chat. */
 async function announceLesson(context: vscode.ExtensionContext, library: string, notice: Extract<LibraryWatchAction, { kind: "notify" }>) {
   const locale = extensionLocale;
-  const open = hostPhrase("lesson_ready_open", {}, locale);
+  const [first] = notice.lessons;
+  if (!first) return;
+  const several = notice.lessons.length > 1;
+  const open = hostPhrase(several ? "lessons_ready_show" : "lesson_ready_open", {}, locale);
   const later = hostPhrase("lesson_ready_later", {}, locale);
   const never = hostPhrase("lesson_ready_never", {}, locale);
-  const message = notice.steps === 1
-    ? hostPhrase("lesson_ready_one", { title: notice.title }, locale)
-    : hostPhrase("lesson_ready", { title: notice.title, steps: notice.steps }, locale);
-  const choice = await vscode.window.showInformationMessage(message, open, later, never);
-  if (choice === open) await openLesson(context, notice.ref, "lesson", { bundlesRoot: library });
+  const choice = await vscode.window.showInformationMessage(lessonReadyMessage(notice.lessons, locale), open, later, never);
+  if (choice === open && several) await vscode.commands.executeCommand("workbench.view.extension.studium");
+  else if (choice === open) await openLesson(context, first.ref, "lesson", { bundlesRoot: library });
   else if (choice === never) await context.globalState.update(LESSON_READY_MUTED_KEY, true);
 }
 

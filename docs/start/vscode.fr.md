@@ -51,9 +51,11 @@ l'assistant, étape par étape, est dans
 Quand `studium.bundlesRoot` est vide, le dossier de leçons est le `fixtures/` du dépôt si l'extension
 tourne depuis un clone de Studium, sinon votre bibliothèque personnelle, `~/.studium/library` (ou
 `<STUDIUM_HOME>/library`), où sont écrites les leçons qu'un assistant prépare pour vous. L'extension crée
-cette bibliothèque au démarrage si elle manque, et la surveille : une leçon écrite là est listée et annoncée,
-avec **Ouvrir**, **Plus tard** et **Ne plus afficher**. Si `studium.bundlesRoot` désigne un autre dossier,
-les leçons de la bibliothèque sont listées à part, sous **Ta bibliothèque**.
+cette bibliothèque au démarrage si elle manque, et la surveille : une leçon qu'un assistant y écrit est listée
+et annoncée, avec **Ouvrir**, **Plus tard** et **Ne plus afficher**. Des leçons arrivées ensemble partagent
+une seule notification, dont **Afficher** ouvre la vue Studium. Une leçon que vous y copiez vous-même est
+listée mais pas annoncée. Si `studium.bundlesRoot` désigne un autre dossier, les leçons de la bibliothèque
+sont listées à part, sous **Ta bibliothèque**.
 
 ### De la conversation au panneau
 

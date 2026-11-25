@@ -103,8 +103,11 @@ function harness(opts: { focused?: boolean; muted?: boolean; shown?: Set<string>
   expect(h.actions.length === 0, `nothing happens before the ${DEBOUNCE_MS} ms debounce (got ${h.kinds()})`);
   h.advance(DEBOUNCE_MS);
   expect(h.kinds() === "refresh,notify", `then the list refreshes and the lesson is announced (got ${h.kinds()})`);
+  // Changed: a notice now carries the lessons it announces (review finding 2: lessons that land together share one
+  // notice), so the lesson's fields are read from its single entry; what is checked is unchanged.
   const notice = h.notices()[0];
-  expect(notice?.title === TITLE && notice.steps === 9 && notice.ref === "photosynthese/lesson.json" && notice.path === path,
+  const only = notice?.lessons.length === 1 ? notice.lessons[0] : undefined;
+  expect(only?.title === TITLE && only.steps === 9 && only.ref === "photosynthese/lesson.json" && only.path === path,
     `the notice names the lesson, its steps and its ref (got ${JSON.stringify(notice)})`);
 }
 {
@@ -118,6 +121,53 @@ function harness(opts: { focused?: boolean; muted?: boolean; shown?: Set<string>
   h.advance(DEBOUNCE_MS);
   expect(h.notices().length === 1 && h.actions.filter((a) => a.kind === "refresh").length === 1,
     `three events within the debounce give one refresh and one notice (got ${h.kinds()})`);
+}
+
+// Review finding 2: lessons that land together are announced in one notice, not one each; and only a lesson an assistant
+// built is announced (build.ts always writes a top-level source_plan_id): a lesson copied into the library by hand is
+// listed, not announced.
+{
+  const h = harness();
+  const courses = ["photosynthese", "respiration", "fermentation"];
+  for (const course of courses) {
+    h.watch.lessonEvent(h.writeLesson(course, (l) => { l.metadata.title = course; }));
+    h.advance(100);
+  }
+  h.advance(DEBOUNCE_MS);
+  const notices = h.notices();
+  expect(notices.length === 1, `three lessons landing together give one notice (got ${notices.length})`);
+  expect(JSON.stringify(notices[0]?.lessons?.map((l) => [l.title, l.ref])) === JSON.stringify(courses.map((c) => [c, `${c}/lesson.json`])),
+    `the notice names each of them (got ${JSON.stringify(notices[0])})`);
+  expect(h.actions.filter((a) => a.kind === "refresh").length === 1, `and the list is refreshed once (got ${h.kinds()})`);
+}
+{
+  const h = harness();
+  h.watch.lessonEvent(h.writeLesson("copied", (l) => { delete l.source_plan_id; }));
+  h.advance(DEBOUNCE_MS);
+  expect(h.kinds() === "refresh", `a lesson without a top-level source_plan_id (copied by hand) is listed, not announced (got ${h.kinds()})`);
+  h.watch.lessonEvent(h.writeLesson("nested", (l) => { delete l.source_plan_id; l.provenance = { source_plan_id: SS_ID }; }));
+  h.advance(DEBOUNCE_MS);
+  expect(h.notices().length === 0, "a source_plan_id under provenance does not count: build.ts writes it at the top level");
+}
+{
+  const h = harness();
+  h.watch.lessonEvent(h.writeLesson("copied", (l) => { delete l.source_plan_id; l.metadata.title = "copied"; }));
+  h.watch.lessonEvent(h.writeLesson());
+  h.advance(DEBOUNCE_MS);
+  expect(h.notices().length === 1 && JSON.stringify(h.notices()[0]?.lessons?.map((l) => l.title)) === JSON.stringify([TITLE]),
+    `landing with an assistant's lesson, the copied one is still not announced (got ${JSON.stringify(h.notices())})`);
+}
+{
+  const h = harness({ focused: false });
+  h.watch.lessonEvent(h.writeLesson());
+  h.advance(DEBOUNCE_MS);
+  h.advance(60_000);
+  h.watch.lessonEvent(h.writeLesson("respiration", (l) => { l.metadata.title = "respiration"; }));
+  h.advance(DEBOUNCE_MS);
+  h.state.focused = true;
+  h.watch.windowFocused();
+  expect(h.notices().length === 1 && h.notices()[0]?.lessons?.length === 2,
+    `lessons that landed while the window was in the background share one notice when it comes back (got ${JSON.stringify(h.notices())})`);
 }
 
 // Only <library>/<course>/lesson.json counts: other paths are ignored.
@@ -163,7 +213,9 @@ function harness(opts: { focused?: boolean; muted?: boolean; shown?: Set<string>
   expect(h.kinds() === "refresh", `unfocused: the list refreshes, the notice waits (got ${h.kinds()})`);
   h.state.focused = true;
   h.watch.windowFocused();
-  expect(h.notices().length === 1 && h.notices()[0]!.title === TITLE, `the window comes back: the notice is shown (got ${h.kinds()})`);
+  // Changed: the title is read from the notice's lessons (review finding 2), same check.
+  expect(h.notices().length === 1 && h.notices()[0]!.lessons.length === 1 && h.notices()[0]!.lessons[0]!.title === TITLE,
+    `the window comes back: the notice is shown (got ${h.kinds()})`);
   h.watch.windowFocused();
   expect(h.notices().length === 1, "and only once");
 }

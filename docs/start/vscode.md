@@ -49,9 +49,10 @@ assistant does, step by step, is in [Learn with your assistant](../learn/learn-w
 When `studium.bundlesRoot` is empty, the lessons folder is the checkout's `fixtures/` if the extension runs
 from a Studium checkout, and otherwise your personal library, `~/.studium/library` (or
 `<STUDIUM_HOME>/library`), where the lessons an assistant builds for you are written. The extension creates
-that library at startup if it is missing, and watches it: a lesson written there is listed and announced
-with **Open**, **Later** and **Don't show again**. If `studium.bundlesRoot` names another folder, the
-library's lessons are listed apart, under **Your library**.
+that library at startup if it is missing, and watches it: a lesson an assistant writes there is listed and
+announced with **Open**, **Later** and **Don't show again**. Lessons that land together share one notice,
+whose **Show** opens the Studium view. A lesson you copy there yourself is listed but not announced. If
+`studium.bundlesRoot` names another folder, the library's lessons are listed apart, under **Your library**.
 
 ### From a conversation to the pane
 
