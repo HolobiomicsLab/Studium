@@ -673,10 +673,14 @@ async function chooseBundlesRoot(): Promise<string | undefined> {
   return selected?.[0]?.fsPath;
 }
 
+/** Save the chosen course in the workspace when a folder is open, else in user settings: VS Code refuses to
+ * write workspace settings in a window with no folder, which is how a newcomer usually opens it. */
 async function saveLessonSelection(bundlesRoot: string, bundleRef: string): Promise<void> {
   const configuration = vscode.workspace.getConfiguration("studium");
-  await configuration.update("bundlesRoot", bundlesRoot, vscode.ConfigurationTarget.Workspace);
-  await configuration.update("bundleRef", bundleRef, vscode.ConfigurationTarget.Workspace);
+  const hasWorkspace = Boolean(vscode.workspace.workspaceFolders?.length || vscode.workspace.workspaceFile);
+  const target = hasWorkspace ? vscode.ConfigurationTarget.Workspace : vscode.ConfigurationTarget.Global;
+  await configuration.update("bundlesRoot", bundlesRoot, target);
+  await configuration.update("bundleRef", bundleRef, target);
 }
 
 async function saveAndOpenLesson(context: vscode.ExtensionContext, bundlesRoot: string, bundleRef: string): Promise<void> {

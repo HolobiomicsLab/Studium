@@ -61,7 +61,9 @@ const seen = {
   errors: [] as string[], infos: [] as string[], warnings: [] as Array<{ message: string; options: Json; items: string[] }>,
   panels: [] as any[], tasksRun: [] as any[], commands: new Map<string, (...a: any[]) => any>(),
   outputLines: [] as string[], uriHandler: undefined as any, chatHandler: undefined as any, executed: [] as string[], serializers: new Map<string, any>(), treeProviders: new Map<string, any>(), statusItems: [] as any[],
+  settingTargets: [] as string[],
 };
+let quickPickAnswer: (items: any[]) => any = () => undefined;
 let warningAnswer: ((items: string[]) => string | undefined) = () => undefined;
 const noop = () => ({ dispose() {} });
 class FakeUri {
@@ -97,7 +99,7 @@ const fakeVscode: Json = {
   ThemeIcon: class { constructor(public id: string) {} },
   TreeItemCollapsibleState: { None: 0, Collapsed: 1, Expanded: 2 },
   StatusBarAlignment: { Left: 1, Right: 2 },
-  ViewColumn: { Beside: -2 }, ConfigurationTarget: { Workspace: 2 }, TaskScope: { Workspace: 2 },
+  ViewColumn: { Beside: -2 }, ConfigurationTarget: { Global: 1, Workspace: 2 }, TaskScope: { Workspace: 2 },
   Task: class { constructor(public definition: Json, public scope: unknown, public name: string, public source: string, public execution: any) {} },
   CustomExecution: class { constructor(public callback: () => Promise<any>) {} },
   NotebookCellKind: { Markup: 1, Code: 2 },
@@ -108,7 +110,15 @@ const fakeVscode: Json = {
     getConfiguration: () => ({
       get: (key: string) => settings[key],
       inspect: (key: string) => ({ globalValue: settings[key] }),
-      update: async (key: string, value: unknown) => { settings[key] = value; },
+      // Like VS Code: writing workspace settings with no folder open fails ("Unable to write to Workspace
+      // Settings because no workspace is opened").
+      update: async (key: string, value: unknown, target?: number) => {
+        if (target === 2 && !fakeVscode.workspace.workspaceFolders?.length) {
+          throw new Error("Unable to write to Workspace Settings because no workspace is opened.");
+        }
+        settings[key] = value;
+        seen.settingTargets.push(`${key}:${target}`);
+      },
     }),
     registerNotebookSerializer: noop, openNotebookDocument: async () => ({}), onDidCloseNotebookDocument: noop,
   },
@@ -138,7 +148,7 @@ const fakeVscode: Json = {
       seen.warnings.push({ message, options, items });
       return Promise.resolve(warningAnswer(items));
     },
-    showQuickPick: async () => undefined, showOpenDialog: async () => undefined,
+    showQuickPick: async (items: any[]) => quickPickAnswer(items), showOpenDialog: async () => undefined,
     showNotebookDocument: async () => ({}),
     createWebviewPanel: (viewType: string) => { const p = fakePanel(viewType); seen.panels.push(p); return p; },
   },
@@ -551,6 +561,30 @@ async function main() {
     expect(!pane.posted.slice(before).some((m: Json) => m.type === "action_error"), "and no action error");
     settings["learnerId"] = "e2e-learner";
     pane.dispose();
+  }
+  // A newcomer opens VS Code without a folder, then « Pick a course »: the choice cannot go to workspace settings
+  // (VS Code refuses with no folder open), so it goes to user settings and the lesson opens.
+  {
+    const folders = fakeVscode.workspace.workspaceFolders;
+    (fakeVscode.workspace as Json).workspaceFolders = undefined;
+    const previousRoot = settings["bundlesRoot"];
+    settings["bundlesRoot"] = lib;
+    const errorsBefore = seen.errors.length;
+    const panelsBefore = seen.panels.length;
+    quickPickAnswer = (items) => items.find((i: Json) => i.action === "course" && i.ref === "safe/lesson.json");
+    await seen.commands.get("studium.pickLesson")!();
+    quickPickAnswer = () => undefined;
+    expect(seen.errors.length === errorsBefore, `picking a course with no folder open shows no error (got ${JSON.stringify(seen.errors.slice(errorsBefore))})`);
+    expect(seen.settingTargets.includes("bundleRef:1") && settings["bundleRef"] === "safe/lesson.json",
+      `with no folder open, the chosen course is saved to user settings (got ${JSON.stringify(seen.settingTargets)})`);
+    const pane = seen.panels.length > panelsBefore ? lastPanel() : undefined;
+    expect(!!pane, "with no folder open, the chosen course opens in a pane");
+    if (pane) {
+      await waitFor(() => pane.posted.some((m: Json) => m.type === "render"), "the first scene of the picked course");
+      pane.dispose();
+    }
+    (fakeVscode.workspace as Json).workspaceFolders = folders;
+    settings["bundlesRoot"] = previousRoot;
   }
 }
 
