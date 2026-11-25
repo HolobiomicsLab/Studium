@@ -18,6 +18,23 @@ describe("openLessonLink", () => {
     expect(openLessonLink(PREFIX, "C:\\Users\\Zoé\\lesson.json")).toBe(PREFIX + "C%3A%5CUsers%5CZo%C3%A9%5Clesson.json");
   });
 
+  // Review of the waiting branch, finding 6: encodeURIComponent leaves ( ) ' ! * as they are, and a ")" in the path (a
+  // folder named "smile :)") ended the Markdown link early. They are percent-encoded too (VS Code decodes them once,
+  // as it does any escape), so the link holds only unreserved characters and escapes.
+  it("percent-encodes ( ) ' ! * as well, so that a Markdown link ends where the link does", () => {
+    for (const path of ["/Users/x/smile :)/lesson.json", "/Users/x/Cours (2)/lesson.json", "/tmp/quote'(paren)*!/lesson.json"]) {
+      const link = openLessonLink(PREFIX, path)!;
+      expect(link.slice(PREFIX.length)).toMatch(/^[A-Za-z0-9%._~-]+$/);
+      expect(decodeURIComponent(link.slice(PREFIX.length))).toBe(path);
+      // A CommonMark link destination in ( ) ends at the first unbalanced ")": the whole link comes before it.
+      for (const locale of ["en", "fr"] as const) {
+        const offer = paneOffer(locale, link);
+        const start = offer.indexOf("](") + 2;
+        expect(offer.slice(start, offer.indexOf(")", start))).toBe(link);
+      }
+    }
+  });
+
   it("gives no link for what the pane cannot open from one: a .zip bundle, a file that is not .json, no prefix", () => {
     expect(openLessonLink(PREFIX, "/lib/community/pack.zip")).toBeNull();
     expect(openLessonLink(PREFIX, "/lib/notes.md")).toBeNull();

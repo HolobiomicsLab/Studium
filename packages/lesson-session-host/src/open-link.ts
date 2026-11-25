@@ -6,7 +6,7 @@
 // the study plan's lesson to start or continue — is then offered in the pane first, the chat one word away (« say
 // “here” »): in the pane each step answers at once, in a chat each one waits on the assistant.
 //
-// The link is the prefix and the lesson file's absolute path percent-encoded once. VS Code decodes the query once
+// The link is the prefix and the lesson file's absolute path percent-encoded once, ( ) ' ! * included. VS Code decodes the query once
 // before the extension's URI handler reads it (uri.query), which then takes all that follows "bundle=" as the path
 // (apps/studium-vscode/src/lesson-uri.ts): & + % # and spaces survive. The pane opens a lesson.json from a link,
 // never a .zip bundle. Pure.
@@ -23,7 +23,13 @@ export function openLessonLink(prefix: string, lessonPath: string): string | nul
   if (!prefix.trim()) return null;
   if (!isAbsolute(lessonPath) && !win32.isAbsolute(lessonPath)) return null;
   if (!lessonPath.toLowerCase().endsWith(".json")) return null;
-  return prefix + encodeURIComponent(lessonPath);
+  return prefix + encodeLinkPart(lessonPath);
+}
+
+/** encodeURIComponent, with the ! ' ( ) * it leaves encoded too (review finding 6): a ")" in a path ended the Markdown
+ * link early. VS Code decodes every escape of the query once, these included (vscode-uri-fixture.ts). */
+function encodeLinkPart(text: string): string {
+  return encodeURIComponent(text).replace(/[!'()*]/g, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`);
 }
 
 /** `{lesson_path, open_link}` for `lessonPath`, or null when no link can open it. */

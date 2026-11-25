@@ -73,6 +73,16 @@ const err = (r: OpenLessonResult) => (r.ok ? null : r.error);
   expect(err(parseOpenLessonLink("bundle=/lib/gone/lesson.json", exists))?.key === "uri_not_found", "a missing file is reported");
 }
 
+// Review of the waiting branch, finding 6: the server's link encodes ! ' ( ) * too (lesson-session-host open-link.ts),
+// so that a ")" in a path cannot end the Markdown link; VS Code decodes those escapes once, like any other.
+{
+  const PREFIX = "vscode://holobiomicslab.studium-vscode/open?bundle=";
+  const strict = (s: string) => encodeURIComponent(s).replace(/[!'()*]/g, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`);
+  for (const path of ["/Users/x/smile :)/lesson.json", "/tmp/quote'(paren)*!/lesson.json"]) {
+    expect(bundleOfQuery(vscodeHandsOver(PREFIX + strict(path)).query) === path, `${path}: a link with ( ) ' ! * encoded comes through as it is`);
+  }
+}
+
 if (failures.length) {
   console.error(`FAIL — ${failures.length}/${checks} lesson-uri assertions failed:`);
   for (const f of failures) console.error("  - " + f);
