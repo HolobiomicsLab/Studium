@@ -12,6 +12,7 @@ All notable changes to Studium are recorded here. The format follows [Keep a Cha
 
 - Documentation: a path to play a lesson without a terminal, first in the README, the quickstart and the Marketplace page, and [Classroom workstations](docs/start/classroom-workstations.md) for preconfigured practical-room machines (not tried in a room).
 - Documentation: [Connect Mistral Vibe](docs/start/vibe.md), with an example configuration, from one run in which Vibe with Mistral Large 4 built and played a lesson through `studium-mcp` 0.6.3.
+- **Play a lesson in your browser (experimental).** `studium-mcp play [folder]` starts the lesson API with a browser player on 127.0.0.1, with a token made for the run, and opens the browser: the page lists the lessons and plays them with the renderer of the VS Code pane, the same honesty notices included, with hints, recall ratings, the concept map, French or English, and progress kept as for the server. No VS Code and no assistant; Node and one command are still needed. The player's routes check the Host (DNS rebinding), the Origin and the token, answer no CORS request, serve four tools only, never send an answer key before the answer, and use the server's own learner. Tried once in headless Chrome on macOS: see [Play in your browser](docs/start/browser.md) and the [design record](docs/design-records/specs/2026-11-25-browser-player.md).
 
 ## 0.6.3 — 2026-11-12
 
