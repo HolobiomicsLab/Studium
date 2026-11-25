@@ -37,10 +37,14 @@ export function shippedLessonsRoot(opts: {
  * D4): lessons in ~/.studium/library, durable progress in ~/.studium/data; BUNDLES_ROOT,
  * STUDIUM_DATA_DIR, STUDIUM_HOME, STUDIUM_LEARNER_ID and STUDIUM_EPHEMERAL=1 override them
  * (persistence.ts). STUDIUM_OPEN_LINK says the VS Code extension serves it (D1, D2). `browserLink`: the address of
- * the server's browser player (served-player.ts), which main gives when STUDIUM_OPEN_LINK is unset (owner decision 4). */
+ * the server's browser player (served-player.ts), which main gives when STUDIUM_OPEN_LINK is unset (owner decision 4).
+ * `servesOnePerson`: main's stdio server is one person's process, its default learner one person (D4 review, finding 1);
+ * `studium-mcp play`, which serves the lesson HTTP API, does not say so. */
 export function hostFromEnvironment(
   env: Readonly<Record<string, string | undefined>> = process.env, home: string = homedir(),
-  opts: { shippedRoot?: string | null; browserLink?: (learnerId: string, bundleRef: string) => Promise<string | null> } = {},
+  opts: {
+    shippedRoot?: string | null; browserLink?: (learnerId: string, bundleRef: string) => Promise<string | null>; servesOnePerson?: boolean;
+  } = {},
 ): { host: SessionHost; config: PersistenceConfig; live: boolean } {
   const config = resolvePersistence(env, home);
   const live = env["LITELLM_BASE_URL"] !== undefined && env["LITELLM_BASE_URL"] !== "";
@@ -56,6 +60,7 @@ export function hostFromEnvironment(
     ...(openLink ? { openLink } : {}),
     ...(editorNamesLearner ? { editorNamesLearner } : {}),
     ...(opts.browserLink && !openLink ? { browserLink: opts.browserLink } : {}),
+    ...(opts.servesOnePerson ? { servesOnePerson: true } : {}),
   });
   return { host, config, live };
 }
@@ -117,8 +122,10 @@ export async function main(argv: readonly string[] = process.argv.slice(2)): Pro
   const served: { host?: SessionHost } = {};
   const player = browserPlayerWanted(process.env)
     ? servedPlayer({ host: () => served.host!, log: (line) => process.stderr.write(line) }) : null;
+  // One assistant session of one user: its chat and its browser player are one person (D4 review, finding 1).
   const { host, config, live } = hostFromEnvironment(process.env, homedir(), {
-    shippedRoot: shipped, ...(player ? { browserLink: (learnerId: string, bundleRef: string) => player.linkFor(learnerId, bundleRef) } : {}),
+    shippedRoot: shipped, servesOnePerson: true,
+    ...(player ? { browserLink: (learnerId: string, bundleRef: string) => player.linkFor(learnerId, bundleRef) } : {}),
   });
   served.host = host;
   const server = buildMcpServer(host);

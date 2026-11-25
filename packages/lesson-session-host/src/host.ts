@@ -773,6 +773,12 @@ export interface SessionHostOptions {
   /** D2: the start of a link that opens a lesson in the Studium VS Code pane (STUDIUM_OPEN_LINK); the encoded path
    * of the lesson file is appended (open-link.ts). Absent ⇒ no link is offered. */
   openLink?: string;
+  /** D4 review (2026-11-25), finding 1: this server serves one person — the stdio server an assistant started, one
+   * assistant session of one user, whose chat and browser player play the same default learner in this process. Its
+   * default learner is then one person whatever its id ("anonymous" included): D5 merges their sessions of a lesson
+   * and the stale-answer guard holds (onePerson). Absent ⇒ a server several people may reach (the lesson HTTP API):
+   * a shared default identity is never merged, never guarded. */
+  servesOnePerson?: boolean;
   /** D4 (waiting review 2026-11-25, owner decision 4): when no pane is offered (no openLink), the address of this
    * server's browser player that plays `bundleRef` as `learnerId`, the player started on first need (lesson-mcp's
    * served-player.ts); null when it cannot start. Asked only for a lesson to offer: create_lesson's, and the study
@@ -1029,11 +1035,12 @@ export class SessionHost {
   get editorNamesLearner(): boolean { return this.opts.editorNamesLearner === true; }
   /** D2: the start of a link that opens a lesson in the Studium VS Code pane, or null. */
   get openLink(): string | null { return this.opts.openLink?.trim() || null; }
-  /** D1, review finding 4: whether `learnerId` is one person's — D5 merges their sessions of a lesson and the
-   * stale-answer guard holds. The editor's learner always is, whatever its id ("anonymous" included: the
-   * studium.learnerId of one VS Code user); a shared default identity named by no editor is not. */
+  /** D1 review finding 4 and D4 review finding 1: whether `learnerId` is one person's — D5 merges their sessions of a
+   * lesson and the stale-answer guard holds. A learner nobody shares is; so is the editor's learner whatever its id
+   * ("anonymous" included: the studium.learnerId of one VS Code user), and the default learner of a server that serves
+   * one person (servesOnePerson); a shared default identity on a server several people may reach is not. */
   private onePerson(learnerId: string): boolean {
-    return this.editorNamesLearner || !sharedIdentity(learnerId);
+    return this.editorNamesLearner || (this.opts.servesOnePerson === true && learnerId === this.defaultLearnerId) || !sharedIdentity(learnerId);
   }
 
   /** D4: the address of this server's browser player that plays `bundleRef` as the learner of the call (learnerFor),
@@ -1213,7 +1220,7 @@ export class SessionHost {
         // returns null on missing/parse-error, so a fresh learner falls back to defaultLearnerState.
         prior = await deps.stateStore.load(bundle.bundle_id);
         // D1: what was loaded, to tell later that another process saved over it. A shared default identity is
-        // never guarded, as D5 never merges its sessions: several people may share it — unless the editor names it.
+        // never guarded, as D5 never merges its sessions: several people may share it — unless the editor names it or this server serves one person.
         if (this.onePerson(learnerId)) stateRevision = await deps.stateStore.revision?.(bundle.bundle_id);
       } else {
         deps = this.deps(undefined, clock);
@@ -3173,7 +3180,7 @@ function otherLearnerRefusal(requested: string, editorLearner: string): string {
 }
 
 /** The default identities several people may share (no learner named): their sessions are never
- * merged (D5) and keep no private journal on disk. */
+ * merged (D5) unless the server serves one person (SessionHost.onePerson), and keep no private journal on disk. */
 function sharedIdentity(learnerId: string): boolean {
   return !learnerId.trim() || learnerId === "anonymous" || learnerId === "agent-operator";
 }

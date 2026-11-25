@@ -76,12 +76,13 @@ export function browserReady(locale: DisplayLocale, lesson: ReadyLesson): string
 /** D4 (waiting review 2026-11-25, owner decision 4): when no VS Code extension serves Studium, the server's own browser
  * player is offered instead. Its address is shown as it is, an autolink (<…>): a terminal assistant may show only the
  * text of a markdown link, and the address ends there, so no punctuation is taken for part of it. It lives as long
- * as the assistant's session. */
+ * as the assistant's session. The learner answers there without the chat; nothing promises a speed or a check (review
+ * of decision 4: a written answer a judge model assesses waits for it, and one no judge assesses is rated by the learner). */
 const BROWSER_OFFER: Record<DisplayLocale, string> = {
-  en: "Open it in your web browser: <{link}>. Each step answers there at once; the address works as long as this " +
-    "assistant session. Or say “here” to play it in this chat.",
-  fr: "Ouvre-la dans ton navigateur : <{link}>. Chaque étape y répond aussitôt ; l'adresse vaut tant que dure cette " +
-    "session de l'assistant. Ou dis « ici » pour la suivre dans cette conversation.",
+  en: "Open it in your web browser: <{link}>. You answer each step there, without going through this chat; the address " +
+    "works as long as this assistant session. Or say “here” to play it in this chat.",
+  fr: "Ouvre-la dans ton navigateur : <{link}>. Tu y réponds à chaque étape sans passer par cette conversation ; l'adresse " +
+    "vaut tant que dure cette session de l'assistant. Ou dis « ici » pour la suivre dans cette conversation.",
 };
 
 /** The sentences that offer the browser player first, in `locale`: its address, then the chat one word away. French

@@ -63,7 +63,8 @@ n'ouvre jamais le navigateur de lui-même.
   de garder un seul nom.
 - **L'adresse vit le temps de la session de l'assistant.** Quand l'assistant s'arrête, le lecteur s'arrête
   avec son serveur, et la page le dit : redemandez votre leçon à l'assistant pour avoir une nouvelle
-  adresse. La progression est gardée comme ci-dessous.
+  adresse. Si le serveur répond mais refuse l'adresse (coupée, mal recopiée ou d'une session précédente), la
+  page le dit aussi : redemandez-la à l'assistant. La progression est gardée comme ci-dessous.
 - **Vos réponses restent sur votre ordinateur.** Studium vérifie sur votre ordinateur les réponses données
   dans le navigateur et ne les envoie pas au modèle de l'assistant. C'est vrai seulement sans modèle juge
   configuré (`LITELLM_BASE_URL` vide, le défaut) : avec un juge, vos réponses écrites vont à ce modèle pour
@@ -109,7 +110,9 @@ l'ordinateur partagent ce dossier ; sur un poste partagé, donnez un compte à c
 - Il n'écoute que sur 127.0.0.1 : les autres ordinateurs, du réseau de la salle ou d'ailleurs, ne
   l'atteignent pas.
 - Son adresse porte une clé créée pour ce lancement (depuis un assistant, une clé par apprenant qu'il nomme). Sans elle, rien n'est répondu ; la clé ne vaut plus rien
-  quand le lecteur s'arrête. Ne collez pas l'adresse dans une discussion ou un document partagé.
+  quand le lecteur s'arrête. L'adresse ne marche que sur cet ordinateur, et tant que le lecteur tourne (depuis
+  un assistant, tant que dure cette session de l'assistant) : ne la partagez pas avec d'autres personnes, dans
+  un message ou un document partagé.
 - Les autres sites ouverts dans le même navigateur ne peuvent pas l'appeler : il refuse les requêtes d'autres
   origines et ne leur donne jamais la permission de lire.
 - La page ne reçoit jamais une clé de correction avant votre réponse : la correction reste dans le lecteur.

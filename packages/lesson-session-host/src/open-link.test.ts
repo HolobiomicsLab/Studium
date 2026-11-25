@@ -3,7 +3,7 @@
 // extension's prefix and the lesson file's path percent-encoded once (apps/studium-vscode/src/lesson-uri.ts reads
 // it back, VS Code having decoded the query once). The pane cannot open a .zip bundle from a link.
 import { describe, expect, it } from "vitest";
-import { openLessonLink, paneOffer } from "./open-link.js";
+import { browserOffer, openLessonLink, paneOffer } from "./open-link.js";
 
 const PREFIX = "vscode://holobiomicslab.studium-vscode/open?bundle=";
 
@@ -59,5 +59,22 @@ describe("paneOffer", () => {
   });
   it("never claims that every answer is checked: a step answers at once", () => {
     for (const locale of ["en", "fr"] as const) expect(paneOffer(locale, link)).not.toMatch(/checked|vérifi/);
+  });
+});
+
+// Review of decision 4, nit: the browser offer said each step "answers there at once", which a written answer does not
+// do when a judge model assesses it (the page waits for the judge). Nor is every answer checked (a written answer no
+// judge assesses is rated by the learner), as paneOffer's test says. The offer says what holds in every configuration:
+// the learner answers there, without going through the chat.
+describe("browserOffer", () => {
+  const link = "http://127.0.0.1:5555/play#token=k&from=assistant&lesson=a%2Flesson.json";
+  it("offers the address first, says the answers are given there without the chat, and claims no speed or check", () => {
+    const en = browserOffer("en", link);
+    expect(en).toContain(`<${link}>`);
+    expect(en).toMatch(/You answer each step there, without going through this chat/);
+    const fr = browserOffer("fr", link);
+    expect(fr).toContain(`<${link}>`);
+    expect(fr).toMatch(/Tu y réponds à chaque étape sans passer par cette conversation/);
+    for (const offer of [en, fr]) expect(offer).not.toMatch(/at once|aussitôt|checked|vérifi/);
   });
 });

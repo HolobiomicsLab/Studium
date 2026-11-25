@@ -58,8 +58,9 @@ your current step. Or say "here" to play it in the chat. Studium never opens the
   learner's progress in the chat, and the reverse. The page cannot play another learner. An assistant that
   names you differently from one call to the next makes two learners: ask it to keep one name.
 - **The address lives as long as the assistant session.** When the assistant quits, the player stops with
-  its server, and the page says so: ask the assistant for your lesson again to get a new address. Progress
-  is kept as below.
+  its server, and the page says so: ask the assistant for your lesson again to get a new address. If the
+  server answers but refuses the address (cut, mistyped, or from an earlier session), the page says that too:
+  ask the assistant for it again. Progress is kept as below.
 - **Your answers stay on your computer.** Studium checks the answers you give in the browser on your
   computer and does not send them to the assistant's model. This holds only with no judge model configured
   (`LITELLM_BASE_URL` empty, the default): with one, your written answers go to that model to be assessed.
@@ -101,7 +102,9 @@ student an account or set `STUDIUM_HOME` per student.
 
 - It listens on 127.0.0.1 only: other computers, on the room's network or elsewhere, cannot reach it.
 - Its address carries a key made for this run (from an assistant, a key for each learner it names). Without it, nothing is answered; the key means nothing
-  once the player stops. Do not paste the address in a chat or a shared document.
+  once the player stops. The address works only on this computer, and only while the player runs (from an
+  assistant, while that assistant session runs): do not share it with other people, in a message or a shared
+  document.
 - Other web sites open in the same browser cannot call it: it refuses requests from other origins and
   answers none of them with permission to read.
 - The page never receives an answer key before you answer: grading stays in the player.

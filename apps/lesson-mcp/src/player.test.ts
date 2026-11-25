@@ -2,7 +2,9 @@
 // tool routes and their checks, over a real socket, as a browser on this machine would call them.
 import { afterEach, describe, expect, it } from 'vitest';
 import { createHash } from 'node:crypto';
-import { resolve } from 'node:path';
+import { copyFileSync, mkdirSync, mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
 import { request as httpRequest, type Server } from 'node:http';
 import { SessionHost } from '@studium/lesson-session-host';
 import { createLessonHttpServer } from './http.js';
@@ -11,14 +13,17 @@ import { createPlayer, PlayerKeys, PLAYER_TOOLS } from './player.js';
 const root = resolve(import.meta.dirname, '../../../fixtures');
 const token = 'synthetic-player-token-with-more-than-32-characters';
 const servers: Server[] = [];
+const dirs: string[] = [];
 afterEach(async () => {
   await Promise.all(servers.splice(0).map(s => new Promise<void>(r => { s.closeAllConnections(); s.close(() => r()); })));
+  for (const dir of dirs.splice(0)) rmSync(dir, {recursive:true, force:true});
 });
 
 type Raw = {status:number; headers:Record<string,string|string[]|undefined>; text:string; json:any};
-async function setup(options:{player?:boolean} = {}) {
-  const host = new SessionHost({bundlesRoot:root, live:false, dataDir:null});
-  const server = createLessonHttpServer({host, token, bundlesRoot:root, ...(options.player === false ? {} : {player:createPlayer({host, token})})});
+async function setup(options:{player?:boolean; bundlesRoot?:string} = {}) {
+  const bundlesRoot = options.bundlesRoot ?? root;
+  const host = new SessionHost({bundlesRoot, live:false, dataDir:null});
+  const server = createLessonHttpServer({host, token, bundlesRoot, ...(options.player === false ? {} : {player:createPlayer({host, token})})});
   servers.push(server);
   await new Promise<void>(r => server.listen(0, '127.0.0.1', r));
   const port = (server.address() as {port:number}).port;
@@ -134,6 +139,46 @@ describe('browser player: the tool routes', () => {
       expect(opened.status).toBe(400);
       expect(opened.json.code).toBe('invalid_bundle');
     }
+  });
+});
+
+// Review of decision 4, finding 2 (probe p1): get_panel_view is read through open_lesson_panel, which takes a bundle_ref,
+// and the page's bundle_ref went with it: a lesson on disk that list_lessons does not show opened there.
+describe('browser player: a lesson the list does not show', () => {
+  it('is opened by no route, get_panel_view included', async () => {
+    const bundlesRoot = mkdtempSync(join(tmpdir(), 'player-unlisted-'));
+    dirs.push(bundlesRoot);
+    for (const folder of ['listed', 'community/c1']) {
+      mkdirSync(join(bundlesRoot, folder), {recursive:true});
+      copyFileSync(join(root, 'atomistique-l1/lesson.json'), join(bundlesRoot, folder, 'lesson.json'));
+    }
+    const {tool, view} = await setup({bundlesRoot});
+    const listed = JSON.parse((await tool('list_lessons', {language:'fr'})).json.content[0].text).lessons.map((lesson:{bundle_ref:string}) => lesson.bundle_ref);
+    expect(listed).toEqual(['listed/lesson.json']);
+    const unlisted = 'community/c1/lesson.json';
+    const shown = await view('open_lesson_panel', {bundle_ref:'listed/lesson.json', locale:'fr'});
+    for (const [name, args] of [
+      ['open_lesson_panel', {bundle_ref:unlisted}],
+      ['get_panel_view', {bundle_ref:unlisted}],
+      ['get_panel_view', {session_id:shown.session_id, bundle_ref:unlisted}],
+    ] as const) {
+      const refused = await tool(name, args);
+      expect(refused.status, `${name} ${JSON.stringify(args)}: ${refused.text.slice(0, 200)}`).toBe(400);
+      expect(refused.json.code).toBe('invalid_bundle');
+    }
+    // The session on screen still reads as itself.
+    expect((await view('get_panel_view', {session_id:shown.session_id})).bundle_ref).toBe('listed/lesson.json');
+  });
+});
+
+// Review of decision 4, nit: a body over 1 MiB cut the connection before any answer; the page then saw a network error,
+// which it reads as a server that is gone. The 413 now reaches the client.
+describe('browser player: a body too large', () => {
+  it('is answered 413, not with a closed connection', async () => {
+    const {raw, browser} = await setup();
+    const reply = await raw('POST', '/play/api/tools/list_lessons', browser, JSON.stringify({arguments:{pad:'x'.repeat(1_100_000)}}));
+    expect(reply.status).toBe(413);
+    expect(reply.json.code).toBe('body_too_large');
   });
 });
 

@@ -67,13 +67,21 @@ export function fetchApp(win, token, words) {
   return app;
 }
 
-/** Start the player: open the lesson of the address, else resume the session of this tab, else list the lessons. */
-export async function startBrowserPlayer({ window: win, document: doc, connectMcpApp, renderView }) {
+/** Start the player: open the lesson of the address, else resume the session of this tab, else list the lessons.
+ * `reload` loads the page again (tests replace it). */
+export async function startBrowserPlayer({ window: win, document: doc, connectMcpApp, renderView, reload = () => win.location.reload() }) {
+  // Another address pasted in this tab changes only the fragment, and a browser does not load the page again for that:
+  // the page does, so that the new key and lesson are read (review of decision 4, finding 5).
+  win.addEventListener("hashchange", () => {
+    if (new URLSearchParams(win.location.hash.slice(1)).get("token")) reload();
+  });
   const locale = localeFromLanguage(win.navigator?.language);
   const words = browserPhrases(locale);
   const { token, lesson, fromAssistant } = takeAddress(win);
   if (fromAssistant) {
-    // The server an assistant runs ends with the assistant's session: a new address comes from asking it again.
+    // The server an assistant runs ends with the assistant's session: one that does not answer is gone, and a new
+    // address comes from asking the assistant again. One that answers but refuses the key was given an address
+    // mistyped, cut or out of date: the assistant gives it again (review of decision 4, finding 4).
     words.player_unreachable = words.player_assistant_unreachable;
     words.player_token_rejected = words.player_assistant_token_rejected;
   }
