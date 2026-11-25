@@ -406,6 +406,22 @@ test("the course picker is a styled list in the panel, with each course's langua
   m.dom.window.close();
 });
 
+// BN-3: with no lesson listed, the panel's picker says a lesson the assistant writes appears there in a few minutes. It
+// has no folder action, so it gives no folder advice (it used to say « choose another folder »).
+test("an empty course picker says where the learner's lesson will come from, without folder advice", async () => {
+  const m = setup({ callServerTool: async request => (request.name === "list_lessons" ? { structuredContent: { lessons: [] } } : { structuredContent: { panel: initial } }) });
+  const doc = m.dom.window.document;
+  const bridge = await connectMcpApp(m.app, m.env);
+  bridge.receive({ structuredContent: { panel: { ...initial, actions: [...initial.actions, "pickCourse"] } } });
+  await bridge.act({ type: "pickCourse" });
+  const empty = doc.querySelector("#pane .course-picker .course-picker-empty");
+  assert.ok(empty, "the empty picker has its text");
+  assert.match(empty.textContent, /assistant/);
+  assert.match(empty.textContent, /a few minutes/);
+  assert.doesNotMatch(empty.textContent, /folder/i);
+  m.dom.window.close();
+});
+
 // Panel audit 2026-11-10, A9 and C4: « Ask a question » opens its field in place, in the help ladder.
 test("the question form opens inside the help ladder", async () => {
   const m = informedHost();

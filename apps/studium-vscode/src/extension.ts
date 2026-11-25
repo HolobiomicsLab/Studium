@@ -790,11 +790,14 @@ async function pickLesson(context: vscode.ExtensionContext) {
 }
 
 async function showLessonChoices(bundlesRoot: string, demo: boolean): Promise<LessonPickerChoice | undefined> {
-  const choices = toLessonPickerChoices(discoverCoursesInRoot(bundlesRoot), bundlesRoot, extensionLocale, { demo });
+  const courses = discoverCoursesInRoot(bundlesRoot);
+  const choices = toLessonPickerChoices(courses, bundlesRoot, extensionLocale, { demo });
   return vscode.window.showQuickPick(choices, {
     title: phrase("picker_title", {}, extensionLocale),
-    placeHolder: choices.length === 1
-      ? phrase("picker_empty", {}, extensionLocale)
+    // BN-3: no course in the folder (the demo and the folder action are always listed): say where the learner's lesson
+    // will come from, and to try the demo meanwhile when it ships.
+    placeHolder: courses.length === 0
+      ? phrase(demo ? "picker_empty_demo" : "picker_empty", {}, extensionLocale)
       : phrase("picker_choose", {}, extensionLocale),
     matchOnDescription: true,
     matchOnDetail: true,

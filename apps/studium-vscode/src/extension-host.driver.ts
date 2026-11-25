@@ -973,6 +973,20 @@ async function main() {
     fireConfig("studium.bundlesRoot");
     expect(seen.watchers.filter((w) => !w.disposed && w.pattern === "*/lesson.json" && sameFolder(w.base, libraryRoot)).length === 1
       && !watcherOn(emptyRoot, "*/lesson.json"), "a lessons folder that is the library gets no second watcher");
+
+    // BN-3: the picker of an empty lessons folder says where the learner's lesson will come from (it used to fall back to
+    // « Choose a course to open » whenever the demo was listed); with courses it asks to choose.
+    settings["bundlesRoot"] = emptyRoot;
+    quickPickAnswer = () => undefined;
+    await seen.commands.get("studium.pickLesson")!();
+    const emptyPlaceholder = seen.quickPickOptions.at(-1)?.placeHolder;
+    expect([phrase("picker_empty_demo", {}, "fr"), phrase("picker_empty_demo", {}, "en")].includes(emptyPlaceholder),
+      `no course in the folder: the picker says a lesson the assistant writes appears here, and to try the demo meanwhile (got ${emptyPlaceholder})`);
+    settings["bundlesRoot"] = lib;
+    await seen.commands.get("studium.pickLesson")!();
+    const fullPlaceholder = seen.quickPickOptions.at(-1)?.placeHolder;
+    expect([phrase("picker_choose", {}, "fr"), phrase("picker_choose", {}, "en")].includes(fullPlaceholder), `with courses, it asks to choose one (got ${fullPlaceholder})`);
+    fireConfig("studium.bundlesRoot");
   }
 }
 

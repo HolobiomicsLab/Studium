@@ -82,6 +82,13 @@ const byId = (nodes: TreeNode[], id: string) => nodes.find((n) => n.id === id);
   expect(!byId(buildLessonTree({ courses: [], community: [], onReproductionScene: false }), "library"), "no library option: no group");
 }
 
+// BN-3: an empty lessons folder says where a lesson comes from, not « no courses found ».
+{
+  const empty = byId(buildLessonTree({ courses: [], currentRef: "", community: [], onReproductionScene: false, locale: "en" }), "courses");
+  expect(/assistant/.test(empty?.children?.[0]?.label ?? "") && !/found/.test(empty?.children?.[0]?.label ?? ""),
+    `the empty courses placeholder says an assistant's lesson appears here (got ${empty?.children?.[0]?.label})`);
+}
+
 // VSC-5: the sidebar and picker labels are real translations in both languages, never « français / English ».
 for (const locale of ["fr", "en"] as const) {
   const catalogue = browserPhrases(locale) as Record<string, string>;
