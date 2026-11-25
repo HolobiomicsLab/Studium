@@ -154,8 +154,8 @@ encore mesurées), ou la date de la prochaine révision. Le décompte est rafra�
 fermeture ou à la fin d'une leçon, et avec le bouton de rafraîchissement de la vue Leçons.
 
 Quand rien n'est dû, la barre propose plutôt la leçon que vous suiviez, par exemple
-**Studium · reprendre Découvrir Studium** ; un clic rouvre cette leçon à l'étape où vous vous étiez
-arrêté·e. La vue **Leçons** montre cette même leçon en premier, sous la forme **Reprendre : …**, avec l'étape
+**Studium · reprendre Découvrir Studium** ; un clic rouvre cette leçon à l'étape où vous en étiez. La vue
+**Leçons** montre cette même leçon en premier, sous la forme **Reprendre : …**, avec l'étape
 suivante et, quand la leçon donne sa durée, les minutes restantes ; chaque leçon de la liste montre sa
 progression (**6/12**, ou **terminée**). C'est la progression que VS Code garde sous `studium.learnerId`,
 dans le panneau et `@studium`. Les leçons jouées avec les outils Studium de Copilot, un autre assistant ou
