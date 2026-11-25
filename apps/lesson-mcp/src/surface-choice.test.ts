@@ -269,7 +269,8 @@ describe("C: one line at the end of the first step of a lesson started in the ch
     const { host } = serve();
     const call = await connect(host, ...CODEX);
     const started = await call("start_lesson_session", { bundle_ref: REF, learner_id: "ana" });
-    expect(String(started.presentation.display_markdown)).toMatch(/_For immediate answers, say “panel”: it opens in the Studium panel, where you are\._$/);
+    // Changed: the panel's line said "For immediate answers"; no surface promises speed now (lead, after review G).
+    expect(String(started.presentation.display_markdown)).toMatch(/_For your answers to go straight to Studium, say “panel”: it opens in the Studium panel, where you are\._$/);
     expect(started).toMatchObject({ open_panel: { session_id: started.session_id } });
   });
 
@@ -278,7 +279,8 @@ describe("C: one line at the end of the first step of a lesson started in the ch
     const call = await connect(host, "Visual Studio Code", UI);
     const started = await call("start_lesson_session", { bundle_ref: REF, learner_id: "ana" });
     expect(String(started.presentation.display_markdown))
-      .toContain(`_For immediate answers, follow it in the [Studium pane](${PREFIX}${encodeURIComponent(join(library, REF))})._`);
+      // Changed: the pane's line said "For immediate answers"; no surface promises speed now (lead, after review G).
+      .toContain(`_To answer each step without going through this chat, follow it in the [Studium pane](${PREFIX}${encodeURIComponent(join(library, REF))})._`);
   });
 
   it("adds nothing where the chat is all this client has", async () => {
@@ -289,7 +291,8 @@ describe("C: one line at the end of the first step of a lesson started in the ch
     const call = await connect(host, ...OPENCODE);
     const started = await call("start_lesson_session", { bundle_ref: REF, learner_id: "ana" });
     // Changed: matched "For immediate answers" only, which the browser's line no longer says (review G, finding 2).
-    expect(String(started.presentation.display_markdown)).not.toMatch(/For immediate answers|without going through this chat/);
+    // Changed: also matches the panes' and the panel's new words, so the absence of every line is still checked.
+    expect(String(started.presentation.display_markdown)).not.toMatch(/For immediate answers|without going through this chat|straight to Studium/);
     expect(started).not.toHaveProperty("open_panel");
   });
 });

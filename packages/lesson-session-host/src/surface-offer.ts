@@ -60,20 +60,21 @@ export interface SurfaceOffer {
 }
 
 type Words = Record<OfferedSurface, string>;
-// The browser's words promise no speed (review of decision 4, 6021378; review G, finding 2): a written answer a judge
-// model assesses waits for it there too. They say what holds in every configuration, as browserOffer does.
+// No surface's words promise speed (review of decision 4, 6021378; review G, finding 2; the lead extended it to the
+// panes and the panel): a written answer a judge model assesses waits for it there too. They say what holds in every
+// configuration, as browserOffer does.
 /** A surface offered first, before others. The VS Code pane first and the chat after it is paneOffer (D2). */
 const FIRST: Record<DisplayLocale, Words> = {
   en: {
-    vscode_pane: "[Open it in the Studium pane]({link}): each step answers there at once. The first time, VS Code asks whether Studium may open the link.",
-    assistant_pane: "Open it in the Studium pane: type `{command}`. Each step answers there at once.",
-    panel: "The assistant opens it in the Studium panel: each step answers there at once.",
+    vscode_pane: "[Open it in the Studium pane]({link}): you answer each step there, without going through this chat. The first time, VS Code asks whether Studium may open the link.",
+    assistant_pane: "Open it in the Studium pane: type `{command}`. You answer each step there, without going through this chat.",
+    panel: "The assistant opens it in the Studium panel: your answers go straight to Studium there.",
     browser: "Open it in your web browser: <{link}>. You answer each step there, without going through this chat; the address works as long as this assistant session.",
   },
   fr: {
-    vscode_pane: "[Ouvre-la dans le panneau Studium]({link}) : chaque étape y répond aussitôt. La première fois, VS Code demande si Studium peut ouvrir le lien.",
-    assistant_pane: "Ouvre-la dans le volet Studium : tape `{command}`. Chaque étape y répond aussitôt.",
-    panel: "L'assistant l'ouvre dans le panneau Studium : chaque étape y répond aussitôt.",
+    vscode_pane: "[Ouvre-la dans le panneau Studium]({link}) : tu y réponds à chaque étape sans passer par cette conversation. La première fois, VS Code demande si Studium peut ouvrir le lien.",
+    assistant_pane: "Ouvre-la dans le volet Studium : tape `{command}`. Tu y réponds à chaque étape sans passer par cette conversation.",
+    panel: "L'assistant l'ouvre dans le panneau Studium : tes réponses y vont directement à Studium.",
     browser: "Ouvre-la dans ton navigateur : <{link}>. Tu y réponds à chaque étape sans passer par cette conversation ; l'adresse vaut tant que dure cette session de l'assistant.",
   },
 };
@@ -104,30 +105,30 @@ const CHAT_FIRST: Record<DisplayLocale, string> = {
 };
 const ONCE: Record<DisplayLocale, Words> = {
   en: {
-    assistant_pane: "To answer each step at once, type `{command}`: it opens in the Studium pane.",
-    panel: "To answer each step at once, say “panel”: it opens in the Studium panel.",
-    vscode_pane: "To answer each step at once, [open it in the Studium pane]({link}).",
+    assistant_pane: "To answer each step without going through this chat, type `{command}`: it opens in the Studium pane.",
+    panel: "For your answers to go straight to Studium, say “panel”: it opens in the Studium panel.",
+    vscode_pane: "To answer each step without going through this chat, [open it in the Studium pane]({link}).",
     browser: "To answer each step without going through this chat, open it in your web browser: <{link}>.",
   },
   fr: {
-    assistant_pane: "Pour des réponses immédiates, tape `{command}` : elle s'ouvre dans le volet Studium.",
-    panel: "Pour des réponses immédiates, dis « panneau » : elle s'ouvre dans le panneau Studium.",
-    vscode_pane: "Pour des réponses immédiates, [ouvre-la dans le panneau Studium]({link}).",
+    assistant_pane: "Pour répondre à chaque étape sans passer par cette conversation, tape `{command}` : elle s'ouvre dans le volet Studium.",
+    panel: "Pour que tes réponses aillent directement à Studium, dis « panneau » : elle s'ouvre dans le panneau Studium.",
+    vscode_pane: "Pour répondre à chaque étape sans passer par cette conversation, [ouvre-la dans le panneau Studium]({link}).",
     browser: "Pour répondre à chaque étape sans passer par cette conversation, ouvre-la dans ton navigateur : <{link}>.",
   },
 };
 /** C (lead, 2026-11-25): the line at the end of the first step of a lesson started or resumed in the chat. */
 const START_LINE: Record<DisplayLocale, Words> = {
   en: {
-    assistant_pane: "_For immediate answers, type `{command}`: it opens in the Studium pane, where you are._",
-    panel: "_For immediate answers, say “panel”: it opens in the Studium panel, where you are._",
-    vscode_pane: "_For immediate answers, follow it in the [Studium pane]({link})._",
+    assistant_pane: "_To answer each step without going through this chat, type `{command}`: it opens in the Studium pane, where you are._",
+    panel: "_For your answers to go straight to Studium, say “panel”: it opens in the Studium panel, where you are._",
+    vscode_pane: "_To answer each step without going through this chat, follow it in the [Studium pane]({link})._",
     browser: "_To answer each step without going through this chat, follow it in your web browser: <{link}>_",
   },
   fr: {
-    assistant_pane: "_Pour des réponses immédiates, tape `{command}` : elle s'ouvre dans le volet Studium, là où tu en es._",
-    panel: "_Pour des réponses immédiates, dis « panneau » : elle s'ouvre dans le panneau Studium, là où tu en es._",
-    vscode_pane: "_Pour des réponses immédiates, suis-la dans le [panneau Studium]({link})._",
+    assistant_pane: "_Pour répondre à chaque étape sans passer par cette conversation, tape `{command}` : elle s'ouvre dans le volet Studium, là où tu en es._",
+    panel: "_Pour que tes réponses aillent directement à Studium, dis « panneau » : elle s'ouvre dans le panneau Studium, là où tu en es._",
+    vscode_pane: "_Pour répondre à chaque étape sans passer par cette conversation, suis-la dans le [panneau Studium]({link})._",
     browser: "_Pour répondre à chaque étape sans passer par cette conversation, suis-la dans ton navigateur : <{link}>_",
   },
 };

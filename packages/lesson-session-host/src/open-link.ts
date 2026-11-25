@@ -39,10 +39,12 @@ export function paneLink(prefix: string, lessonPath: string): PaneLink | null {
 }
 
 const OFFER: Record<DisplayLocale, string> = {
-  en: "[Open it in the Studium pane]({link}): each step answers there at once. The first time, VS Code asks whether " +
+  en: "[Open it in the Studium pane]({link}): you answer each step there, without going through this chat. The first " +
+    "time, VS Code asks whether " +
     "Studium may open the link. Or say “here” to play it in this chat. If the link does not open, the lesson is in the " +
     "Studium view, under Lessons.",
-  fr: "[Ouvre-la dans le panneau Studium]({link}) : chaque étape y répond aussitôt. La première fois, VS Code demande si " +
+  fr: "[Ouvre-la dans le panneau Studium]({link}) : tu y réponds à chaque étape sans passer par cette conversation. La " +
+    "première fois, VS Code demande si " +
     "Studium peut ouvrir le lien. Ou dis « ici » pour la suivre dans cette conversation. Si le lien ne s'ouvre pas, la " +
     "leçon est dans la vue Studium, sous Leçons.",
 };

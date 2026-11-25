@@ -107,7 +107,7 @@ démarrage s'il manque. **Ouvrir** joue la leçon dans le panneau et ne modifie 
 
 Avec le serveur de l'extension, Copilot propose ensuite la leçon d'abord dans le panneau Studium : son
 message se termine par **Ouvre-la dans le panneau Studium**, un lien qui ouvre la leçon dans le panneau, où
-chaque étape répond aussitôt. La première fois, VS Code demande si Studium peut ouvrir le lien. Dites plutôt
+vous répondez à chaque étape sans passer par la conversation. La première fois, VS Code demande si Studium peut ouvrir le lien. Dites plutôt
 « ici » pour jouer la leçon dans la conversation. Quand vous demandez à Copilot quoi étudier ensuite, la leçon
 à commencer ou à reprendre vient avec le même lien. Dans VS Code avant la version 1.120 environ, le lien
 s'affiche comme du texte : ouvrez la leçon depuis la vue **Leçons**.

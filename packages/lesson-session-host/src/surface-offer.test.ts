@@ -85,12 +85,34 @@ describe("chatStartLine", () => {
       .toBe(`_Pour répondre à chaque étape sans passer par cette conversation, suis-la dans ton navigateur\xa0: <${BROWSER}>_`);
     expect(chatStartLine("en", offer(["browser", "chat"], { open_link: BROWSER })))
       .toBe(`_To answer each step without going through this chat, follow it in your web browser: <${BROWSER}>_`);
-    expect(chatStartLine("en", offer(["panel", "browser", "chat"], { open_link: BROWSER, open_panel: { bundle_ref: "x" } }))).toMatch(/^_For immediate answers, say “panel”/);
+    // Changed: the panel's line said "For immediate answers"; no surface promises speed now (lead, after review G).
+    expect(chatStartLine("en", offer(["panel", "browser", "chat"], { open_link: BROWSER, open_panel: { bundle_ref: "x" } }))).toMatch(/^_For your answers to go straight to Studium, say “panel”/);
     expect(chatStartLine("fr", offer(["vscode_pane", "chat"], { open_link: PANE }))).toContain(`[panneau Studium](${PANE})`);
     expect(chatStartLine("en", offer(["assistant_pane", "chat"], { command: "/studium photo/lesson.json" }))).toContain("`/studium photo/lesson.json`");
   });
   it("says nothing when the learner's choice is the chat, or when there is nothing better", () => {
     expect(chatStartLine("en", offer(["chat", "browser"], { open_link: BROWSER }))).toBeNull();
     expect(chatStartLine("en", null)).toBeNull();
+  });
+});
+
+describe("no surface promises speed (lead, after review G)", () => {
+  // A written answer a judge model assesses waits for it in the pane, the panel and the browser alike.
+  it("says nothing of immediate answers in any offer or first-step line, in English or French", () => {
+    const surfaces = [
+      offer(["vscode_pane", "browser", "chat"], { open_link: PANE }),
+      offer(["assistant_pane", "browser", "chat"], { command: "/studium photo/lesson.json", open_link: BROWSER }),
+      offer(["panel", "browser", "chat"], { open_link: BROWSER, open_panel: { bundle_ref: "x" } }),
+      offer(["browser", "chat"], { open_link: BROWSER }),
+      offer(["vscode_pane", "chat"], { open_link: PANE }),
+    ];
+    for (const locale of ["en", "fr"] as const) {
+      for (const o of surfaces) {
+        const once = { ...o, first: "chat" as const, order: ["chat", ...o.order.filter((s) => s !== "chat")] };
+        for (const text of [offerSentences(locale, o), offerSentences(locale, once), chatStartLine(locale, o) ?? ""]) {
+          expect(text, `${locale} ${o.first}`).not.toMatch(/at once|aussitôt|immediate|immédiat/i);
+        }
+      }
+    }
   });
 });

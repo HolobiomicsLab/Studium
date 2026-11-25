@@ -100,8 +100,8 @@ it creates that folder at startup if it is missing. **Open** plays the lesson in
 setting.
 
 With the server from the extension, Copilot then offers the lesson in the Studium pane first: its message
-ends with **Open it in the Studium pane**, a link that opens the lesson in the pane, where each step answers
-at once. The first time, VS Code asks whether Studium may open the link. Say "here" instead to play the
+ends with **Open it in the Studium pane**, a link that opens the lesson in the pane, where you answer each step
+without going through the chat. The first time, VS Code asks whether Studium may open the link. Say "here" instead to play the
 lesson in the chat. When you ask Copilot what to study next, the lesson to start or continue comes with the
 same link. In VS Code before about 1.120 the link shows as text: open the lesson from the **Lessons** view.
 
