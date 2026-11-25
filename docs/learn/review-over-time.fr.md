@@ -24,8 +24,9 @@ leçon) et affiche le plan tel quel :
 | **Maintenant** | La seule étape à faire |
 
 L'étape proposée suit un ordre fixe : jouer les révisions dues, sinon reprendre une leçon en cours, sinon
-commencer la leçon suivante, sinon préparer une leçon à partir de vos sources (si vous n'en avez aucune),
-sinon attendre, avec la date de la prochaine révision. Une notion qu'aucune leçon ne peut reposer sous forme
+commencer la leçon suivante, sinon, si vous n'avez aucune leçon à vous, la leçon de démonstration livrée avec
+Studium (« Découvrir Studium », une fois), sinon préparer une leçon à partir de vos sources (si vous n'en avez
+aucune), sinon attendre, avec la date de la prochaine révision. Une notion qu'aucune leçon ne peut reposer sous forme
 de question reste listée, avec la mention « aucune question de révision ne la reprend pour l'instant », mais
 n'est jamais proposée comme étape. Les dates sont des jours du calendrier dans le fuseau horaire de la machine
 qui fait tourner Studium.

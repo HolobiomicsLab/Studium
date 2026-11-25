@@ -13,7 +13,7 @@ has been prepared with these steps yet: see [Limits](#limits).
 |---|---|---|
 | VS Code 1.95 or later | yes | it hosts the lesson pane |
 | The Studium extension | yes | it carries the lesson server and the viewers, and runs them with VS Code's own runtime |
-| A folder of lessons | yes | the extension holds no lesson |
+| A folder of lessons | yes | the extension holds only « Discover Studium », a demo of Studium itself (below) |
 | Node, a terminal, Git, Python | no | only to build lessons with an assistant, to prepare courses, or to contribute |
 | An AI account or a model API key | no | the pane plays a lesson without any model |
 
@@ -73,6 +73,12 @@ settings files. Keep `studium.assets` on `vendor`, `studium.telemetryConsent` of
 
 A student who picks another folder with **Studium: Pick a course** changes only their own user settings,
 or the settings of the folder they opened.
+
+The extension also ships « Discover Studium », a demo lesson of about ten minutes on how Studium and its pane
+work (**Studium: Try the demo lesson**, also offered in the course list, in VS Code's display language). It
+is useful for a first session in the room, before the course. An AI agent drafted it from Studium's
+documentation and no teacher has reviewed it, as its first screen says: review it like any lesson before
+using it with a class. It stays apart from the course folder and writes no setting.
 
 ## Where progress is kept
 

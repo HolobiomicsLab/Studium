@@ -6,6 +6,34 @@ Journal des unités TDD par milestone. Mis à jour à chaque commit significatif
 
 ---
 
+## 2026-11-25 — une leçon de démonstration livrée avec Studium : « Découvrir Studium »
+
+Demande du propriétaire (25 nov.) : une leçon de démonstration pour apprendre les concepts et le mécanisme de
+Studium et son interface. Une installation neuve n'a aucune leçon (ni le VSIX ni le paquet npm n'en portent) :
+la première expérience était la construction d'une leçon (6 min avec Vibe). Branche
+`feat/2026-11-25-discover-studium-lesson`, depuis `integration/2026-11-25-tester-feedback` (`d995d57`). Rien
+n'est poussé.
+
+- La leçon, EN et FR (un bundle par langue, comme le dépôt) : 12 scènes, ~11 min, 5 notions (`studium.relay`,
+  `studium.graph`, `studium.provenance` ← graph, `studium.reviews` ← provenance, `studium.local`). Construite par
+  la voie d'un assistant, `prepare_sources` sur sept pages de `docs/` (CC BY 4.0) puis `create_lesson`
+  (`apps/lesson-mcp/scripts/build-shipped-lessons.ts`) : acceptée au premier appel, lint 0 ERROR. Auto-apprentissage,
+  `drafted_by: agent`, validée par personne, aucun `approval.json` (règle 003). `approve` refuse une leçon
+  d'auto-apprentissage : la marche à suivre pour le propriétaire est dans `apps/lesson-mcp/shipped-lessons-src/README.md`.
+- Hôte (test d'abord) : une troisième racine, `shippedRoot`, cherchée en dernier, jamais écrite ; `list_lessons`
+  la liste à part (`shipped_lessons`) ; `get_study_plan` la propose à qui n'a aucune leçon à soi, avant de
+  rédiger, jamais ensuite ; l'avis dit « Demo lesson shipped with Studium, drafted by an AI agent from Studium's
+  documentation » au lieu de « from your sources ». Corrigé en passant : une notion partagée par deux leçons
+  prend le titre de la leçon où l'apprenant l'a étudiée.
+- Serveur : `shipped-lessons/` à côté du script (VSIX `dist/`, npm, lien `bin`), ou les sources ;
+  `STUDIUM_SHIPPED_LESSONS`. Extension : commande « Essayer la leçon de démonstration », bouton de la vue vide,
+  choix du sélecteur, lien du parcours ; aucun réglage écrit. Paquets : VSIX +13,5 Ko compressés, npm +12,9 Ko.
+- Vérifié : la leçon jouée de bout en bout par le serveur MCP (EN et FR, indice, note de rappel, date de
+  révision ; détour s4 faux → s12 → s5), par le pilote `extension-host` (commande et sélecteur), et par le serveur
+  embarqué du VSIX et le paquet npm préparé lancés seuls.
+
+---
+
 ## 2026-11-25 — choisir un cours sans dossier ouvert ouvre la leçon
 
 Rapport d'un testeur (VS Code fraîchement installé, une leçon construite par un assistant dans
