@@ -26,7 +26,7 @@ trois outils :
 | Outil | Rôle |
 |---|---|
 | `get_authoring_guide {language?, mode?}` | Renvoie la consigne de rédaction, le schéma du brouillon et un exemple minimal. `mode: "teacher"` indique où commence la voie enseignant. |
-| `prepare_sources {sources, goal?, language?}` | Découpe les textes récupérés par l'assistant en passages citables (jusqu'à 20 sources et 200 000 caractères au total). |
+| `prepare_sources {sources, goal?, language?}` | Découpe les textes récupérés par l'assistant, ou les fichiers texte locaux qu'il désigne par leur chemin (Studium les lit), en passages citables (jusqu'à 20 sources et 200 000 caractères au total). |
 | `create_lesson {source_set_id, draft, course_id?, overwrite?}` | Contrôle le brouillon (citations exactes, aucun TODO, graphe de concepts cohérent, linter) et écrit la leçon dans la bibliothèque. |
 
 Les deux outils écrivent dans la bibliothèque de la personne dont l'assistant les appelle,

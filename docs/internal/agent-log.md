@@ -6,6 +6,35 @@ Journal des unités TDD par milestone. Mis à jour à chaque commit significatif
 
 ---
 
+## 2026-11-25 — `prepare_sources` lit un fichier local désigné par son chemin
+
+Retour d'un testeur (INT-STUDIUM-064, changement classé 1) : le temps de construction d'une leçon est
+surtout celui du modèle qui écrit, et la recopie du texte source dans l'appel `prepare_sources` en est
+la plus grosse part (une construction mesurée avec Vibe et Mistral Large 4 : 6 min 02 s pour une source
+de 2 400 caractères). Le propriétaire a accepté que Studium lise un fichier local ; la règle « Studium ne
+va rien chercher » devient : fichiers locaux oui, réseau non.
+
+Tests d'abord, vus rouges puis verts : `source-file.test.ts` (15 cas : mêmes passages que le texte,
+chemin réel, taille et sha256 des octets lus, titre par défaut, chemin relatif et `~/`, lien suivi, BOM ;
+refus sans politique, texte et chemin ensemble ou aucun, fichier absent, dossier, périphérique, PDF,
+docx/zip, binaire, non-UTF-8, extension non textuelle, HTML, taille, dossier de données de Studium, lieux
+de secrets, y compris à travers un lien), deux cas dans `authoring-tools.test.ts` (leçon complète depuis
+un chemin, refus relayés), un dans `server.test.ts` (le serveur stdio refuse sa bibliothèque et son
+dossier de données), un dans `guide.test.ts` (fr et en) et un dans `harness-contract.test.ts`. Aucun
+test existant modifié ; `test-fixtures.ts` déclare `FRENCH_SOURCE` par `satisfies` (le type
+`SourceInput` a désormais `text` et `title` facultatifs).
+
+Code : `source-file.ts` (nouvelle politique de lecture), `source-set.ts` (`path`, champ `file` du
+jeu, enregistré seulement pour un fichier : les jeux d'avant gardent leur id), `authoring-tools.ts`
+(schéma, `files` dans la réponse), `server.ts` (politique : base = dossier de démarrage du serveur,
+refus de la bibliothèque et du dossier de données ; une ligne d'instructions réécrite, toujours 13
+lignes), guide `2026-11-25.1`. L'API HTTP et le canal fichier n'exposent pas les outils d'auteur :
+inchangés. L'extension VS Code embarque le même serveur (`dist/lesson-mcp.cjs`) et en hérite.
+
+Documentation EN/FR : skill self-learner, apprendre avec son assistant, deux tutoriels, rédiger une
+leçon, SECURITY, confidentialité, référence des outils régénérée. Non vérifié : un vrai assistant
+(Vibe, Claude, Copilot) appelant `path` ; Windows (chemins, racines système) ; le gain de temps réel.
+
 ## 2026-11-25 — choisir un cours sans dossier ouvert ouvre la leçon
 
 Rapport d'un testeur (VS Code fraîchement installé, une leçon construite par un assistant dans
