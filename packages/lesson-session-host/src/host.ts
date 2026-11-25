@@ -55,7 +55,7 @@ import {
 import { OffsetClock, checkNowMs } from "./session-clock.js";
 import { calendarDate, checkTimeZone, localTimeZone } from "./calendar.js";
 import { scanCatalog, type Catalog, type CatalogLesson, type LessonRoot } from "./lesson-catalog.js";
-import { buildStudyPlan, scheduleFromMemory, type StudyPlan } from "./study-plan.js";
+import { buildStudyPlan, offeredOutsideChat, scheduleFromMemory, type StudyPlan } from "./study-plan.js";
 import { DRAFTS_DIR, eraseDrafts, eraseLearnerDrafts, unfinishedBuilds } from "./authoring-draft/draft-store.js";
 import {
   emptyStudyRecord, FileStudyRecordStore, InMemoryStudyRecordStore,
@@ -772,6 +772,11 @@ export interface SessionHostOptions {
   /** D2: the start of a link that opens a lesson in the Studium VS Code pane (STUDIUM_OPEN_LINK); the encoded path
    * of the lesson file is appended (open-link.ts). Absent ⇒ no link is offered. */
   openLink?: string;
+  /** D4 (waiting review 2026-11-25, owner decision 4): when no pane is offered (no openLink), the address of this
+   * server's browser player that plays `bundleRef` as `learnerId`, the player started on first need (lesson-mcp's
+   * served-player.ts); null when it cannot start. Asked only for a lesson to offer: create_lesson's, and the study
+   * plan's lesson to start or continue. Absent ⇒ no address is offered. */
+  browserLink?: (learnerId: string, bundleRef: string) => Promise<string | null>;
   live: boolean;
   /** OPTIONAL per-run judgment regenerator. When present, a spot_the_flaw with regenerate_from_run has its
    * flawed_content/claims regenerated from the learner's OWN run (server-side) when they run the capsule —
@@ -1023,6 +1028,19 @@ export class SessionHost {
   get editorNamesLearner(): boolean { return this.opts.editorNamesLearner === true; }
   /** D2: the start of a link that opens a lesson in the Studium VS Code pane, or null. */
   get openLink(): string | null { return this.opts.openLink?.trim() || null; }
+  /** D4: the address of this server's browser player that plays `bundleRef` as the learner of the call (learnerFor),
+   * or null: the VS Code pane is offered instead (openLink), there is no player, or it could not start. */
+  async browserLinkFor(bundleRef: string, learnerId?: string): Promise<string | null> {
+    if (this.openLink || !this.opts.browserLink) return null;
+    try { return await this.opts.browserLink(this.learnerFor(learnerId), bundleRef); } catch { return null; }
+  }
+  /** D4: whether the session `id` plays `learnerId`'s progress — the browser player checks it before it reads or moves
+   * a session for the learner its key was minted for — or null when this server holds no such session. */
+  async sessionPlays(id: string, learnerId: string): Promise<boolean | null> {
+    const entry = this.registry.get(id);
+    if (!entry) return null;
+    return entry.profilePseudonym !== undefined && entry.profilePseudonym === await this.profilePseudonymOf(this.learnerFor(learnerId));
+  }
   /** D1: the learner a call plays: the editor's when it names the learner, else the one named, else the default. */
   learnerFor(requested?: string): string {
     return this.editorNamesLearner ? this.defaultLearnerId : requested ?? this.defaultLearnerId;
@@ -1538,7 +1556,7 @@ export class SessionHost {
       reviewSeconds.set(source.conceptId, scene.estimated_seconds);
       reviewFrom.set(source.conceptId, { bundle_ref: source.bundleRef, title: source.bundle.metadata.title, scene_id: scene.id });
     }
-    return buildStudyPlan({
+    const input = {
       nowMs,
       memory,
       mastery,
@@ -1554,7 +1572,16 @@ export class SessionHost {
       reviewSeconds,
       unfinishedBuild: unfinished[0] ?? null,
       ...(this.openLink ? { paneLinkFor: (lesson: CatalogLesson) => this.paneLinkOf(lesson) } : {}),
-    });
+    };
+    const plan = buildStudyPlan(input);
+    // D4: no pane to offer, the lesson to start or continue is offered in this server's browser player. Its address is
+    // asked for only now that the plan names such a lesson: the player starts on first need, never for a review.
+    const step = plan.next_step;
+    const ref = step.action === "start" || step.action === "continue" ? step.arguments["bundle_ref"] : undefined;
+    const lesson = typeof ref === "string" ? catalog.lessons.find((l) => l.bundle_ref === ref) : undefined;
+    if (!lesson || !offeredOutsideChat(lesson)) return plan;
+    const link = await this.browserLinkFor(lesson.bundle_ref, learnerId);
+    return link ? buildStudyPlan({ ...input, browserLinkFor: (l: CatalogLesson) => (l.bundle_ref === lesson.bundle_ref ? link : null) }) : plan;
   }
 
   /** list_lessons (HJ-5): the lessons on disk now, in the bundles root and the learner's library, with
