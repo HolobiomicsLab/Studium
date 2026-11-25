@@ -166,3 +166,23 @@ describe("D1: the editor's learner is guarded whatever its id", () => {
     expect((await host.create("lesson.json", "anonymous")).sessionId).not.toBe(first.sessionId);
   });
 });
+
+// Review of the waiting branch, finding 5: a session is also set aside when its lesson was rewritten (create_lesson
+// with overwrite: true) and a new session of it saved since. The refusal said « in the Studium pane or another chat »,
+// which was then untrue; it now names both causes, and still points to start_lesson_session.
+describe("D1: the refusal is true when the lesson was rewritten", () => {
+  it("names a rewritten lesson as well as another session", async () => {
+    const bundlesRoot = tmp();
+    writeFileSync(join(bundlesRoot, "lesson.json"), JSON.stringify(LESSON));
+    const host = new SessionHost({ bundlesRoot, dataDir: tmp(), live: false, defaultLearnerId: LEARNER });
+    const first = await host.create("lesson.json");
+    await answer(host, first.sessionId);
+    writeFileSync(join(bundlesRoot, "lesson.json"), JSON.stringify({ ...LESSON, metadata: { ...LESSON.metadata, title: "Two surfaces, revised" } }));
+    const second = await host.create("lesson.json");
+    expect(second.sessionId).not.toBe(first.sessionId);
+    await answer(host, second.sessionId);
+    const refused = answer(host, first.sessionId);
+    await expect(refused).rejects.toThrow(/went on in another session[^\n]*or was rewritten[^\n]*call start_lesson_session/);
+    await expect(refused).rejects.not.toThrow(/in the Studium pane or another chat/);
+  });
+});

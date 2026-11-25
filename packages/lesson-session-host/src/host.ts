@@ -127,16 +127,17 @@ function escapes(base: string, target: string): boolean {
  * « session not found: », which the HTTP adapter maps to a 404. */
 export class SessionHostNotFoundError extends Error {
   /** `erased` (L-11): the learner's data was erased — by forget_session here or in another server on
-   * the same data folder, or the folder itself — while the session was open. `moved_on` (D1): another process
-   * saved the lesson since this session loaded it, and this session would have saved its older state over it. */
+   * the same data folder, or the folder itself — while the session was open. `moved_on` (D1): another session —
+   * another process, or one started here after the lesson was rewritten — saved the lesson since this session loaded
+   * it, and this session would have saved its older state over it. */
   constructor(id: string, cause: "unknown" | "erased" | "moved_on" = "unknown") {
     super(cause === "erased"
       ? `session not found: ${id} (the learner's data was erased while this session was open): call ` +
         "start_lesson_session with the same bundle_ref and learner_id to start the lesson afresh, or " +
         "start_review_session with the same learner_id for a review"
       : cause === "moved_on"
-      ? `session not found: ${id} (this lesson went on in another session since this one loaded it, in the Studium ` +
-        "pane or another chat, and this one would save over it): call start_lesson_session with the same bundle_ref " +
+      ? `session not found: ${id} (this lesson went on in another session since this one loaded it, or was rewritten ` +
+        "and started again, and this one would save over it): call start_lesson_session with the same bundle_ref " +
         "and learner_id to continue where it is now"
       : `session not found: ${id} (the server may have restarted, or the session was closed): call ` +
         "start_lesson_session with the same bundle_ref and learner_id to resume the lesson where it stopped, or " +
