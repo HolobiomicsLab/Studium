@@ -673,21 +673,27 @@ async function chooseBundlesRoot(): Promise<string | undefined> {
   return selected?.[0]?.fsPath;
 }
 
+/** Save the chosen course where the tree, the chat and the notebook read it. A folder or a workspace keeps its own
+ * course; with none open (VS Code just installed) there are no workspace settings to write, so it goes to the user's. */
 async function saveLessonSelection(bundlesRoot: string, bundleRef: string): Promise<void> {
   const configuration = vscode.workspace.getConfiguration("studium");
-  await configuration.update("bundlesRoot", bundlesRoot, vscode.ConfigurationTarget.Workspace);
-  await configuration.update("bundleRef", bundleRef, vscode.ConfigurationTarget.Workspace);
+  const target = vscode.workspace.workspaceFile || vscode.workspace.workspaceFolders?.length
+    ? vscode.ConfigurationTarget.Workspace
+    : vscode.ConfigurationTarget.Global;
+  await configuration.update("bundlesRoot", bundlesRoot, target);
+  await configuration.update("bundleRef", bundleRef, target);
 }
 
+/** Save the choice, then open the lesson from the chosen folder. A settings file that cannot be written (read-only,
+ * malformed, unsaved changes) costs the saved choice, never the lesson: the learner is told and the lesson opens. */
 async function saveAndOpenLesson(context: vscode.ExtensionContext, bundlesRoot: string, bundleRef: string): Promise<void> {
   try {
     await saveLessonSelection(bundlesRoot, bundleRef);
   } catch (error: any) {
-    vscode.window.showErrorMessage(phrase("extension_save_course_failed", { error: error.message }, extensionLocale));
-    return;
+    void vscode.window.showWarningMessage(phrase("extension_save_course_failed", { error: error?.message ?? String(error) }, extensionLocale));
   }
   treeProvider?.refresh();
-  await openLesson(context, bundleRef, "lesson");
+  await openLesson(context, bundleRef, "lesson", { bundlesRoot });
 }
 
 /** Where an open comes from when it is not the settings: an explicit bundles root (a link, "Open this lesson",

@@ -10,6 +10,16 @@ seulement, sans clone, voir
 [Ajouter le serveur à votre assistant](installation.fr.md#ajouter-le-serveur-à-votre-assistant). Chaque
 étape renvoie à la page détaillée.
 
+## Sans terminal
+
+Pour jouer une leçon donnée par un enseignant, ou les leçons de démonstration, VS Code suffit. Installez
+l'extension Studium depuis la vue Extensions, lancez **Studium : Choisir un cours**, choisissez **Choisir un
+autre dossier de cours…** et sélectionnez le dossier de leçons ; les leçons de démonstration sont le dossier
+`fixtures` de l'[archive du dépôt](https://github.com/HolobiomicsLab/studium/archive/refs/heads/main.zip). Ni Node, ni terminal, ni compte d'assistant IA n'interviennent.
+Détails : [VS Code](vscode.fr.md#obtenir-votre-première-leçon) ; pour une salle d'enseignement,
+[Postes de salle de TP](classroom-workstations.fr.md). La suite de cette page construit une leçon à partir
+de vos propres sources, ce qui demande un terminal.
+
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="../assets/diagrams/self-learner-journey-dark.svg">
   <img src="../assets/diagrams/self-learner-journey-light.svg" alt="Parcours de l'apprenant autonome : une demande dans un assistant IA, des références et leurs licences, des passages exacts, une leçon rédigée par l'agent, la relecture du plan, le jeu avec l'avis d'autorat visible, puis les révisions quand les notions arrivent à échéance.">

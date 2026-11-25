@@ -2,7 +2,7 @@
 
 You do not need to write a lesson yourself.
 
-1. In Codex or Claude Code, with the Studium MCP server connected, say **"I want to learn X with Studium"**.
+1. In your assistant (Copilot in agent mode, Codex or Claude Code), with the Studium server connected, say **"I want to learn X with Studium"**.
 2. Your assistant gathers sources on X and builds a lesson from them. Every question cites the passage it
    comes from, and the lesson is saved in your personal library, `~/.studium/library`.
 3. Open it here:

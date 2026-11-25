@@ -9,6 +9,15 @@ connect an assistant with Node only and no checkout, see
 [Add the server to your assistant](installation.md#add-the-server-to-your-assistant). Each step links to
 the page with the details.
 
+## Without a terminal
+
+To play a lesson a teacher gave you, or the demo lessons, you need only VS Code. Install the Studium
+extension from the Extensions view, run **Studium: Pick a course**, choose **Choose another course
+folder…** and select the folder of lessons; the demo lessons are the `fixtures` folder of the
+[repository archive](https://github.com/HolobiomicsLab/studium/archive/refs/heads/main.zip). No Node, terminal or AI account is involved. Details:
+[VS Code](vscode.md#get-your-first-lesson); for a teaching room, [Classroom workstations](classroom-workstations.md).
+The rest of this page builds a lesson from your own sources, which needs a terminal.
+
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="../assets/diagrams/self-learner-journey-dark.svg">
   <img src="../assets/diagrams/self-learner-journey-light.svg" alt="Self-learner journey: a request in an AI assistant, references and their licences, exact passages, an agent-drafted lesson, an outline review, play with the authoring notice visible, then reviews when concepts fall due.">

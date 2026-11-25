@@ -19,9 +19,22 @@ Knowing this saves the first ten minutes:
 | **An AI assistant** connected to the Studium server (Copilot in VS Code, Claude Code, Codex, Cursor) | builds a lesson from the sources you name, and can play it with you in the conversation | answer for you |
 | **This extension** | shows a lesson in a pane, keeps your progress, tells you when reviews are due | build a lesson: right after installation its **Lessons** view says "No lesson found yet" |
 
-So a new lesson starts in an assistant. If a teacher gave you a folder of lessons, go to step 3.
+So a new lesson starts in an assistant. A lesson someone already made plays here with nothing else.
 
-## Get your first lesson
+## Play a lesson you were given
+
+No Node, no terminal and no AI account are needed.
+
+1. Have a folder of lessons: the one your teacher gave you, or the demo lessons, which are the `fixtures`
+   folder of the [repository archive](https://github.com/HolobiomicsLab/studium/archive/refs/heads/main.zip) (about 30 MB; unzip it first).
+2. Select the **Studium** icon in the activity bar, then **Pick a course**, **Choose another course
+   folder…**, and select that folder. The Command Palette offers the same as **Studium: Pick a course**.
+3. Choose a course. It opens in a pane, at its first step.
+
+For computers an IT team prepares for a class, see
+[Classroom workstations](https://github.com/HolobiomicsLab/studium/blob/main/docs/start/classroom-workstations.md).
+
+## Build a lesson from your own sources
 
 ### 1. Connect your assistant to Studium
 
@@ -56,9 +69,7 @@ lesson is saved on your machine, in `~/.studium/library`. Each step is described
 Select the **Studium** icon in the activity bar. The lesson is in the **Lessons** view; use the refresh
 button of the view if VS Code was already open. Select the lesson to play it.
 
-- For a folder of lessons a teacher gave you: run **Studium: Pick a course** from the Command Palette and
-  choose the folder.
-- For a guided tour in five steps: run **Studium: Getting started**.
+For a guided tour in five steps, run **Studium: Getting started**.
 
 ## What a lesson looks like
 
@@ -128,10 +139,24 @@ Le savoir épargne les dix premières minutes :
 | **Un assistant IA** relié au serveur Studium (Copilot dans VS Code, Claude Code, Codex, Cursor) | construit une leçon à partir des sources que vous nommez, et peut la jouer avec vous dans la conversation | répondre à votre place |
 | **Cette extension** | affiche une leçon dans un panneau, garde votre progression, vous dit quand des révisions sont dues | construire une leçon : juste après l'installation, sa vue **Leçons** dit « Aucune leçon trouvée pour l'instant » |
 
-Une nouvelle leçon commence donc dans un assistant. Si un enseignant vous a donné un dossier de leçons,
-passez à l'étape 3.
+Une nouvelle leçon commence donc dans un assistant. Une leçon déjà faite se joue ici sans rien d'autre.
 
-### Obtenir votre première leçon
+### Jouer une leçon qu'on vous a donnée
+
+Ni Node, ni terminal, ni compte d'assistant IA ne sont nécessaires.
+
+1. Munissez-vous d'un dossier de leçons : celui que votre enseignant vous a donné, ou les leçons de
+   démonstration, qui sont le dossier `fixtures` de l'[archive du dépôt](https://github.com/HolobiomicsLab/studium/archive/refs/heads/main.zip) (environ 30 Mo ;
+   décompressez-la d'abord).
+2. Sélectionnez l'icône **Studium** dans la barre d'activité, puis **Choisir un cours**, **Choisir un autre
+   dossier de cours…**, et sélectionnez ce dossier. La palette de commandes offre la même chose avec
+   **Studium : Choisir un cours**.
+3. Choisissez un cours. Il s'ouvre dans un panneau, à sa première étape.
+
+Pour des ordinateurs qu'une équipe informatique prépare pour une classe, voir
+[Postes de salle de TP](https://github.com/HolobiomicsLab/studium/blob/main/docs/start/classroom-workstations.fr.md).
+
+### Construire une leçon à partir de vos sources
 
 **1. Reliez votre assistant à Studium.** Il vous faut Node 20 ou plus récent (`node --version`). Lancez une
 fois, dans un terminal, la ligne de votre assistant, puis redémarrez-le :
@@ -164,9 +189,7 @@ La leçon est enregistrée sur votre machine, dans `~/.studium/library`. Chaque 
 **Leçons** ; utilisez le bouton de rafraîchissement de la vue si VS Code était déjà ouvert. Sélectionnez la
 leçon pour la jouer.
 
-- Pour un dossier de leçons donné par un enseignant : lancez **Studium : Choisir un cours** depuis la
-  palette de commandes et choisissez le dossier.
-- Pour une visite guidée en cinq étapes : lancez **Studium : Prise en main**.
+Pour une visite guidée en cinq étapes, lancez **Studium : Prise en main**.
 
 ### À quoi ressemble une leçon
 

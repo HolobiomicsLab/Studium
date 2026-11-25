@@ -6,6 +6,59 @@ Journal des unités TDD par milestone. Mis à jour à chaque commit significatif
 
 ---
 
+## 2026-11-25 — choisir un cours sans dossier ouvert ouvre la leçon
+
+Rapport d'un testeur (VS Code fraîchement installé, une leçon construite par un assistant dans
+`~/.studium/library`) : au choix de la leçon, l'extension s'arrête sur « Unable to write to... » et
+n'ouvre rien. Cause : `saveLessonSelection` écrivait `studium.bundlesRoot` et `studium.bundleRef`
+avec `ConfigurationTarget.Workspace`, ce que VS Code refuse quand aucun dossier n'est ouvert, et
+`saveAndOpenLesson` abandonnait l'ouverture sur cette erreur.
+
+Test d'abord (`apps/studium-vscode/src/extension-host.driver.ts`, un bloc ajouté, aucune assertion
+changée) : le faux `vscode` refuse désormais, comme VS Code, une écriture Workspace sans dossier, et
+note la cible de chaque écriture. Le bloc a échoué (7 assertions) avec le message exact du testeur,
+puis passe. Correction : la cible est Workspace quand un dossier ou un espace de travail est ouvert,
+Global (réglages utilisateur) sinon ; une écriture qui échoue quand même devient un avertissement et
+la leçon s'ouvre depuis le dossier choisi (`openLesson` reçoit `bundlesRoot`, comme « Ouvrir cette
+leçon »). Le texte de `extension_save_course_failed` le dit (FR et EN). Rien n'est poussé.
+
+---
+
+## 2026-11-25 — un chemin sans terminal, et les postes de salle de TP
+
+Origine : le retour d'un responsable des outils pédagogiques d'une université, qui a testé Studium :
+l'installation (Node dans un terminal, l'extension, la liaison à un assistant) est hors de portée de beaucoup
+d'enseignants et d'étudiants ; il suggère des postes préconfigurés en salle de TP. Branche
+`docs/2026-11-25-non-developer-onboarding`, depuis `dev` (`84184e1`). Rien n'est poussé.
+
+- Constat vérifié dans le code : l'extension du Marketplace embarque `dist/lesson-mcp.cjs` et le lance avec
+  le moteur de VS Code (`ELECTRON_RUN_AS_NODE`) ; une leçon déjà faite se joue donc sans Node ni terminal ni
+  compte d'IA. Le VSIX ne contient aucune leçon (`unzip -l`) et l'extension ne déclare pas le serveur à
+  Copilot : construire une leçon demande toujours Node et une commande.
+- Défaut corrigé (test d'abord, `extension-host.driver.ts`) : « Choisir un cours » écrivait dans les
+  réglages de l'espace de travail, que VS Code refuse quand aucun dossier n'est ouvert ; le choix va
+  maintenant dans les réglages utilisateur dans ce cas. Le faux `vscode` du pilote refuse désormais cette
+  écriture comme le vrai ; le nouveau bloc échouait (3 assertions), il passe (84).
+- Documentation : le chemin sans terminal en tête du README, du démarrage rapide et de la page du Marketplace ;
+  nouvelle page `docs/start/classroom-workstations` (EN/FR), marquée non essayée en salle ; textes de la vue
+  vide et du parcours de prise en main.
+- Vérifié hors VS Code : le serveur embarqué, construit ici, joue `atomistique-l1` copié hors du clone, et
+  depuis une copie en lecture seule avec la progression écrite seulement dans son dossier de données.
+
+---
+
+## 2026-11-25 — Mistral Vibe : page de connexion, d'après un essai réel
+
+Retour d'un testeur de l'université (24–25 novembre) : un branchement avec Mistral serait plus rassurant
+pour un usage universitaire. Essai du jour, Vibe 3.1.3 et Mistral Large 4 sur `studium-mcp` 0.6.3 (npm),
+dossier `STUDIUM_HOME` isolé : 40 outils vus ; leçon de 8 étapes construite depuis des notes de cours de
+2 400 caractères, `create_lesson` accepté au premier appel, 6 min 02 s jusqu'à la première étape ; deux
+tours joués (23 s et 28 s en mode `vibe -p`), un quiz évalué avec la clé. Pages `docs/start/vibe.md` et
+`.fr.md`, exemple `docs/examples/vibe.toml`, lignes dans `harnesses` et `index`. Non essayés : Le Chat,
+l'API Mistral comme juge, le mode interactif, les panneaux. Aucun code changé.
+
+---
+
 ## 2026-11-12 — la version 0.6.3 : le `homepage` du paquet npm
 
 Mots du propriétaire : « Oui, prépare 0.6.3 », après la publication de la 0.6.2.

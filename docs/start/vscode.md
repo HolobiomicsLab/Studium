@@ -25,7 +25,8 @@ The extension shows lessons; it does not build them. Right after installation th
 | You have | Do this |
 |---|---|
 | An AI assistant (Copilot in VS Code, Claude Code, Codex, Cursor) | Connect it to Studium with [one command](installation.md#add-the-server-to-your-assistant), then ask "I want to learn … with Studium" and name your sources. The lesson is written to your personal library, `~/.studium/library`, and appears in the **Lessons** view after a refresh |
-| A lesson a teacher gave you | **Studium: Pick a course**, then choose its folder; or right-click its `lesson.json` and choose **Studium: Open this lesson** |
+| A lesson a teacher gave you | **Studium: Pick a course**, **Choose another course folder…**, then choose its folder; or right-click its `lesson.json` and choose **Studium: Open this lesson** |
+| The demo lessons, without a checkout | download the [repository archive](https://github.com/HolobiomicsLab/studium/archive/refs/heads/main.zip) and unzip it, then **Studium: Pick a course**, **Choose another course folder…**, and choose its `fixtures` folder |
 | A checkout of the repository | **Studium: Pick a course**, then choose `fixtures` for the demo lessons |
 
 With Copilot in agent mode everything stays inside VS Code: see [Connect Copilot](copilot.md). What the
@@ -36,7 +37,7 @@ assistant does, step by step, is in [Learn with your assistant](../learn/learn-w
 | Way | When to use it |
 |---|---|
 | **Studium** icon in the activity bar, then the **Lessons** view | browse the lessons found in your lessons folder |
-| **Studium: Pick a course** | choose a course, or another folder of lessons; the choice is saved in the workspace |
+| **Studium: Pick a course** | choose a course, or another folder of lessons; the choice is saved in the open folder's settings, or in your user settings when no folder is open |
 | **Studium: Open lesson** | reopen the current course (offers the picker if none is set) |
 | Right-click a `lesson.json`, **Studium: Open this lesson** | open that file directly, in the explorer or on the editor tab, without changing settings |
 | A `vscode://` link from your assistant | open the lesson your assistant has just built (below) |

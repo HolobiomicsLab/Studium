@@ -22,7 +22,26 @@ Studium a deux parties. Savoir laquelle fait quoi évite de chercher :
 | **Votre assistant IA**, relié au serveur Studium | construit une leçon à partir des sources que vous indiquez, vous pose ses questions dans la conversation, ramène les idées les jours suivants | répondre à votre place |
 | **L'extension VS Code** | affiche une leçon dans un panneau, avec ses figures, ses équations et ses révisions | construire une leçon : sur une machine neuve, sa vue **Leçons** reste vide tant qu'un assistant n'en a pas construit une |
 
-Une nouvelle leçon commence donc toujours dans un assistant.
+Une nouvelle leçon commence donc toujours dans un assistant. Une leçon déjà faite se joue dans VS Code seul.
+
+### Jouer une leçon sans terminal
+
+Une leçon donnée par un enseignant, ou l'une des leçons de démonstration, se joue dans VS Code sans rien
+d'autre : ni Node, ni terminal, ni compte d'assistant IA.
+
+1. Dans VS Code, ouvrez la vue Extensions, cherchez **Studium** et installez l'extension publiée par
+   HolobiomicsLab.
+2. Munissez-vous d'un dossier de leçons : celui que votre enseignant vous a donné, ou les leçons de
+   démonstration, qui sont le dossier `fixtures` de l'[archive du dépôt](https://github.com/HolobiomicsLab/studium/archive/refs/heads/main.zip) (environ 30 Mo ;
+   décompressez-la d'abord).
+3. Sélectionnez l'icône **Studium** dans la barre d'activité, puis **Choisir un cours**, **Choisir un autre
+   dossier de cours…**, et sélectionnez ce dossier.
+4. Choisissez un cours. Il s'ouvre dans un panneau, à sa première étape.
+
+Construire une nouvelle leçon à partir de vos propres sources demande un assistant, relié comme ci-dessous :
+cette partie demande Node et une commande dans un terminal. Pour une salle d'enseignement où une équipe
+informatique installe Studium pour une classe, voir
+[Postes de salle de TP](docs/start/classroom-workstations.fr.md).
 
 ### 1. Relier votre assistant
 
