@@ -106,11 +106,16 @@ describe("the study plan offers the shipped demo to a learner with no lesson of 
     const en = buildStudyPlan(input({ catalog: catalogOf(DEMO_EN, DEMO_FR), locale: "en" }));
     expect(en.next_step.text).toContain("“Discover Studium”");
     expect(en.next_step.text).toMatch(/shipped with Studium/);
-    expect(en.next_step.text).toMatch(/drafted by an AI agent from Studium's documentation, not checked by a teacher/);
+    // Changed: 2026-11-25, the demo shipped with Studium carries an approval record now, so the plan says who drafted it
+    // and claims nothing about a teacher: whether one validated it is said by the status the record gives (rule 003).
+    expect(en.next_step.text).toMatch(/It was drafted by an AI agent from Studium's documentation\. /);
+    expect(en.next_step.text).not.toMatch(/teacher/);
     expect(en.next_step.text).toMatch(/your own topic/);
     const fr = buildStudyPlan(input({ catalog: catalogOf(DEMO_EN, DEMO_FR), locale: "fr" }));
     expect(fr.next_step.text).toMatch(/«\s?Découvrir Studium\s?»/u); // French spacing inside the guillemets
     expect(fr.next_step.text).toMatch(/livrée avec Studium/);
+    expect(fr.next_step.text).toMatch(/rédigée par l'IA à partir de la documentation de Studium\. /);
+    expect(fr.next_step.text).not.toMatch(/enseignant/);
     expect(fr.display_markdown).toContain(fr.next_step.text);
   });
 
@@ -179,6 +184,9 @@ describe("a host with a shipped lessons root", () => {
     expect(empty.display_markdown).toMatch(/Shipped with Studium/);
     expect(empty.display_markdown).toContain("Discover Studium");
     expect(empty.display_markdown).not.toContain("Découvrir Studium"); // the other language is in the JSON only
+    // 2026-11-25: the note under the shipped lessons says who drafted them and claims nothing about a teacher.
+    expect(empty.display_markdown).toMatch(/drafted by an AI agent from Studium's documentation\. It stays apart from your lessons\./);
+    expect(empty.display_markdown).not.toMatch(/teacher/);
     put(library, "mine/lesson.json", lesson("mine", "Mine", "en"));
     const mine = await host(library, shippedRoot()).listLessons({ language: "en" });
     expect(mine.lessons.map((l) => l.bundle_ref)).toEqual(["mine/lesson.json"]);

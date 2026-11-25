@@ -858,7 +858,8 @@ async function main() {
   // 2026-11-25: a fresh install has no lesson. « Try the demo lesson » (welcome view, picker, walkthrough) opens the
   // « Discover Studium » lesson shipped with Studium, in VS Code's display language (here en, while the last lesson
   // played was French), from the shipped folder: it never
-  // becomes the learner's course setting, and its first screen says it ships with Studium and no teacher checked it.
+  // becomes the learner's course setting. Changed: 2026-11-25, its first screen said it ships with Studium and no teacher
+  // checked it; the owner approved it since, so it has no self-study notice and the pane names the record's reviewer.
   {
     const savedRoot = settings["bundlesRoot"];
     settings["bundlesRoot"] = emptyRoot;
@@ -872,7 +873,14 @@ async function main() {
       if (pane) await waitFor(() => pane.posted.some((m: Json) => m.type === "render" || m.type === "error"), `the demo lesson (${what})`);
       const render = pane?.posted.find((m: Json) => m.type === "render");
       expect(render?.view?.bundle_ref === "discover-studium-en/lesson.json", `${what}: the English demo opens (got ${render?.view?.bundle_ref})`);
-      expect(JSON.stringify(render ?? {}).includes("Demo lesson shipped with Studium"), `${what}: its notice says it ships with Studium`);
+      // Changed: 2026-11-25, was « its notice says it ships with Studium »: the approved demo has no self-study notice,
+      // and the pane names the reviewer its approval record names (read from approval.json, not written here).
+      const reviewer = JSON.parse(readFileSync(join(repoRoot, "apps/lesson-mcp/shipped-lessons/discover-studium-en/approval.json"), "utf8")).reviewer;
+      const view = (render?.view ?? {}) as Json;
+      expect(view.authoring?.mode === "teacher" && view.authoring?.notice == null && view.authoring?.validated === true,
+        `${what}: a teacher-mode lesson with no self-study notice, validated (got ${JSON.stringify(view.authoring)})`);
+      expect(view.voices?.scene?.reviewed === true && view.voices?.scene?.name === reviewer && view.voices?.scene?.drafted_by === "agent",
+        `${what}: the pane says an AI agent drafted it and ${reviewer} validated it (got ${JSON.stringify(view.voices)})`);
       pane?.dispose();
     };
     expect(seen.commands.has("studium.openDemoLesson"), "the studium.openDemoLesson command is registered");

@@ -15,7 +15,8 @@ seulement, sans clone, voir
 Pour voir comment fonctionne Studium, installez l'extension Studium depuis la vue Extensions et lancez
 **Studium : Essayer la leçon de démonstration** (ou **Essayer la leçon de démonstration** dans sa vue **Leçons**
 vide) : « Découvrir Studium », une dizaine de minutes, est livrée avec l'extension ; un agent d'IA l'a rédigée
-à partir de la documentation de Studium et aucun enseignant ne l'a encore vérifiée. Pour jouer une leçon donnée
+à partir de la documentation de Studium et le responsable du projet l'a approuvée, sous le nom beta-testeur, sans
+l'avoir lue. Pour jouer une leçon donnée
 par un enseignant, ou les leçons de démonstration du dépôt, VS Code suffit aussi : lancez **Studium : Choisir un cours**, choisissez **Choisir un
 autre dossier de cours…** et sélectionnez le dossier de leçons ; les leçons de démonstration sont le dossier
 `fixtures` de l'[archive du dépôt](https://github.com/HolobiomicsLab/studium/archive/refs/heads/main.zip). Ni Node, ni terminal, ni compte d'assistant IA n'interviennent.

@@ -70,7 +70,7 @@ A self-study lesson starts with a notice in the lesson's language (French for a 
 |---|---|
 | learner | "Self-authored lesson: quiz and spot-the-flaw keys were written by the learner (open book)." |
 | agent | "AI-drafted lesson from your sources, not checked by a teacher: each item cites its passage; tell the assistant about a key that looks wrong." |
-| agent, in the demo lesson shipped with Studium | "Demo lesson shipped with Studium, drafted by an AI agent from Studium's documentation, not checked by a teacher: each item cites its passage; tell the assistant about a key that looks wrong." Its `authoring` block also carries `shipped: true`. |
+| agent, in a self-study lesson shipped with Studium | "Demo lesson shipped with Studium, drafted by an AI agent from Studium's documentation, not checked by a teacher: each item cites its passage; tell the assistant about a key that looks wrong." Its `authoring` block also carries `shipped: true`. |
 
 | Judge | Second sentence |
 |---|---|
@@ -78,6 +78,10 @@ A self-study lesson starts with a notice in the lesson's language (French for a 
 | configured | "Production scenes are assessed by the model." |
 
 A lesson that holds a reproduction adds a third sentence: "Executed reproductions carry an external assessment."
+
+« Discover Studium », the demo lesson shipped with Studium, has `mode: "teacher"`: it shows none of these notices,
+and what its first screen says about validation comes from its approval record. Its receipt records that the project's
+owner approved it without opening any scene.
 
 The texts are defined in [`authoring.ts`](../../packages/lesson-session-host/src/authoring.ts).
 
@@ -120,7 +124,7 @@ The server reads the record and reports `approval.matches`: any edit to `lesson.
 The project's rule 003 is strict human-in-the-loop: no content is released to students without a teacher's validation. In practice:
 
 - a teacher bundle reads as validated only with an approval record bound to its exact bytes (`approve` also writes the name in `validated_by`, which grants nothing on its own);
-- a self-study or agent-drafted lesson is for the learner who made it, and says so in its notice;
+- a self-study lesson, whether the learner or an agent drafted it, is for the learner who made it, and says so in its notice; an agent-drafted lesson in teacher mode, such as the demo shipped with Studium, has no notice and reads as validated only through its approval record, like any teacher bundle;
 - a learner's contribution reaches other learners only after a teacher's decision, see [Learner contributions](../teach/learner-contributions.md).
 
 Studium makes provenance visible; it does not certify that a lesson is correct. The [privacy and limits](privacy-and-limits.md) page says what hashes, quotes and run checks do and do not prove.

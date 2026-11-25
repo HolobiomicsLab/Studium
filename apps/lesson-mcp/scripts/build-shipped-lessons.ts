@@ -4,23 +4,27 @@
 // and the npm package (apps/lesson-mcp/shipped-lessons/), through the authoring route an assistant uses:
 // prepare_sources over Studium's own documentation pages, then create_lesson over the draft. The library
 // functions are the ones the MCP tools call (packages/lesson-session-host/src/authoring-draft), so the
-// quotes are checked character for character, the linter runs, and the lesson records the truth: a
-// self-study lesson drafted by an AI agent, validated by nobody.
+// quotes are checked character for character and the linter runs. The lesson records who drafted it, an AI
+// agent (drafted_by "agent", author_is_learner false), and the authoring mode sources.json names in
+// authoring_mode: create_lesson always writes a self-study lesson, which experience_packet.py approve refuses,
+// so "teacher" is set after it, before the copy. A teacher-mode lesson is validated only by an approval record
+// bound to its exact bytes: the build writes none, and a rebuild leaves any existing record stale until approve
+// runs again (shipped-lessons-src/README.md).
 //
 //   pnpm --filter @studium/lesson-mcp exec tsx scripts/build-shipped-lessons.ts [--now 2026-11-25T12:00:00Z]
 //
-// Inputs, in shipped-lessons-src/discover-studium/: sources.json (the pages, their URL and licence) and
-// draft.<lang>.json (the LessonDraft). A quote's passage_id may be written `doc:<key>`: it is replaced by
-// the id of the one passage of that page holding the quote, so the draft survives a renumbering of the
-// passages; create_lesson then checks the quote itself. Outputs: shipped-lessons/discover-studium-<lang>/
+// Inputs, in shipped-lessons-src/discover-studium/: sources.json (the pages, their URL and licence, the
+// authoring mode) and draft.<lang>.json (the LessonDraft). A quote's passage_id may be written `doc:<key>`: it
+// is replaced by the id of the one passage of that page holding the quote, so the draft survives a renumbering
+// of the passages; create_lesson then checks the quote itself. Outputs: shipped-lessons/discover-studium-<lang>/
 // lesson.json and shipped-lessons-src/discover-studium/source-set.<lang>.json (what the lesson may cite,
 // named by the lesson's source_plan_id). Nothing is written under ~/.studium: the library is a temporary
 // folder.
-import { copyFile, mkdtemp, readFile, rm } from "node:fs/promises";
+import { copyFile, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { createLesson, prepareSources } from "@studium/lesson-session-host";
+import { createLesson, lintBundleData, prepareSources } from "@studium/lesson-session-host";
 
 const APP = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const REPO = resolve(APP, "../..");
@@ -34,7 +38,21 @@ type SourceInput = Parameters<typeof prepareSources>[1][number];
 const normalizeQuoteText = (text: string) => text.normalize("NFC").replace(/[‘’ʼ]/g, "'").replace(/\s+/g, " ").trim();
 
 interface SourceEntry { key: string; path: string; title: string; url: string; license: string }
-interface Inputs { goal: Record<string, string>; sources: Record<string, SourceEntry[]> }
+type AuthoringMode = "teacher" | "self_study";
+interface Inputs { goal: Record<string, string>; sources: Record<string, SourceEntry[]>; authoring_mode?: AuthoringMode }
+
+/** The `validated_by` marker of a teacher-mode lesson no one approved yet (experience_packet.py DEFAULT_VALIDATED_BY);
+ * `approve` replaces it with the reviewer's name. */
+const TEACHER_DRAFT_VALIDATED_BY = "DRAFT — not validated";
+
+/** sources.json `authoring_mode`: "teacher" or "self_study" (create_lesson's own, when absent). */
+function authoringModeOf(inputs: Inputs): AuthoringMode {
+  const mode = inputs.authoring_mode ?? "self_study";
+  if (mode !== "teacher" && mode !== "self_study") {
+    throw new Error(`sources.json: authoring_mode is "teacher" or "self_study", not ${JSON.stringify(mode)}`);
+  }
+  return mode;
+}
 
 function nowFromArgs(argv: readonly string[]): Date {
   const at = argv.indexOf("--now");
@@ -64,7 +82,7 @@ function resolveQuotes(draft: DraftQuotes, passages: ReadonlyArray<{ id: string;
   }
 }
 
-async function build(language: (typeof LANGUAGES)[number], inputs: Inputs, now: Date): Promise<void> {
+async function build(language: (typeof LANGUAGES)[number], inputs: Inputs, now: Date, mode: AuthoringMode): Promise<void> {
   const library = await mkdtemp(join(tmpdir(), "studium-shipped-"));
   try {
     const entries = inputs.sources[language] ?? [];
@@ -82,11 +100,21 @@ async function build(language: (typeof LANGUAGES)[number], inputs: Inputs, now: 
       process.exitCode = 1;
       return;
     }
-    await copyFile(result.lesson_path, join(OUTPUTS, courseId, "lesson.json"));
+    // create_lesson wrote a self-study lesson: set the mode sources.json names, keeping who drafted it, and lint
+    // what ships (the findings create_lesson returned were those of the self-study lesson).
+    const lesson = JSON.parse(await readFile(result.lesson_path, "utf8")) as {
+      metadata: { authoring: Record<string, unknown> }; validated_by: string;
+    };
+    lesson.metadata.authoring = { ...lesson.metadata.authoring, mode, drafted_by: "agent", author_is_learner: false };
+    if (mode === "teacher") lesson.validated_by = TEACHER_DRAFT_VALIDATED_BY;
+    const outputDir = join(OUTPUTS, courseId);
+    const lint = lintBundleData(lesson, { bundleDir: outputDir });
+    if (lint.findings.some((f) => f.level === "ERROR")) process.exitCode = 1;
+    await writeFile(join(outputDir, "lesson.json"), `${JSON.stringify(lesson, null, 2)}\n`, "utf8");
     await copyFile(join(library, "_sources", `${set.source_set_id}.json`), join(INPUTS, `source-set.${language}.json`));
-    const findings = result.findings.map((f) => `  ${f.level} ${f.code}: ${f.message}`).join("\n");
+    const findings = lint.findings.map((f) => `  ${f.level} ${f.code}: ${f.message}`).join("\n");
     process.stdout.write(`${courseId}: ${result.bundle.scenes.length} scenes, ${result.bundle.metadata.duration_minutes} min, ` +
-      `source set ${set.source_set_id} (${set.passages.length} passages)\n  key classes ${JSON.stringify(result.key_classes)}\n${findings}\n`);
+      `source set ${set.source_set_id} (${set.passages.length} passages), mode ${mode}\n  key classes ${JSON.stringify(result.key_classes)}\n${findings}\n`);
   } finally {
     await rm(library, { recursive: true, force: true });
   }
@@ -94,4 +122,5 @@ async function build(language: (typeof LANGUAGES)[number], inputs: Inputs, now: 
 
 const inputs = JSON.parse(await readFile(join(INPUTS, "sources.json"), "utf8")) as Inputs;
 const now = nowFromArgs(process.argv.slice(2));
-for (const language of LANGUAGES) await build(language, inputs, now);
+const mode = authoringModeOf(inputs);
+for (const language of LANGUAGES) await build(language, inputs, now, mode);

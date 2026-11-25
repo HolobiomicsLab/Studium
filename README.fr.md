@@ -33,8 +33,8 @@ d'autre : ni Node, ni terminal, ni compte d'assistant IA.
    HolobiomicsLab.
 2. Pour voir d'abord comment fonctionne Studium, sélectionnez l'icône **Studium** dans la barre d'activité,
    puis **Essayer la leçon de démonstration** : « Découvrir Studium » (une dizaine de minutes, en français ou en
-   anglais) est livrée avec l'extension. Un agent d'IA l'a rédigée à partir de la documentation de Studium et
-   aucun enseignant ne l'a encore vérifiée, comme le dit son premier écran.
+   anglais) est livrée avec l'extension. Un agent d'IA l'a rédigée à partir de la documentation de Studium ; le
+   responsable du projet l'a approuvée, sous le nom beta-testeur, sans l'avoir lue.
 3. Pour d'autres leçons, munissez-vous d'un dossier de leçons : celui que votre enseignant vous a donné, ou les leçons de
    démonstration, qui sont le dossier `fixtures` de l'[archive du dépôt](https://github.com/HolobiomicsLab/studium/archive/refs/heads/main.zip) (environ 30 Mo ;
    décompressez-la d'abord).

@@ -51,7 +51,7 @@
         "studium.relay"
       ],
       "estimated_seconds": 40,
-      "markdown": "Cette leçon est livrée avec Studium et prend une dizaine de minutes. Elle te montre comment fonctionne Studium en te le faisant utiliser : chaque mécanisme est expliqué à l'étape où tu le rencontres.\n\n**Regarde d'abord le haut de l'écran.** L'avis qui s'y trouve dit qui a écrit cette leçon et ce qui est évalué. Il vaut aussi pour cette leçon : un agent d'IA l'a rédigée à partir de la documentation de Studium, et aucun enseignant ne l'a encore vérifiée. Dans le panneau VS Code, l'avis est la bannière au-dessus de l'étape ; dans une conversation, ton assistant le montre sur le premier écran.\n\n**Tu réponds, l'assistant relaie.** Studium pose les questions et garde les clés de réponse. Quand tu joues avec un assistant (Copilot, Claude Code, Codex ou un autre), il montre chaque étape telle que Studium l'a écrite, attend ta réponse et transmet tes propres mots. Il ne doit jamais répondre, choisir ou noter à ta place.\n\nContinue quand tu es prêt·e.",
+      "markdown": "Cette leçon est livrée avec Studium et prend une dizaine de minutes. Elle te montre comment fonctionne Studium en te le faisant utiliser : chaque mécanisme est expliqué à l'étape où tu le rencontres.\n\n**Regarde d'abord le haut de l'écran.** Studium y dit si quelqu'un a validé cette version exacte de la leçon, et qui : dans le panneau VS Code ou le navigateur, une pastille au-dessus de l'étape ; dans une conversation, ton assistant le montre sur le premier écran. Cette leçon a été rédigée par un agent d'IA à partir de la documentation de Studium.\n\n**Tu réponds, l'assistant relaie.** Studium pose les questions et garde les clés de réponse. Quand tu joues avec un assistant (Copilot, Claude Code, Codex ou un autre), il montre chaque étape telle que Studium l'a écrite, attend ta réponse et transmet tes propres mots. Il ne doit jamais répondre, choisir ou noter à ta place.\n\nContinue quand tu es prêt·e.",
       "quotes": [
         {
           "passage_id": "doc:assistant",
@@ -184,11 +184,11 @@
       "question": "Qui a écrit la clé qui vérifie tes réponses aux questions de cette leçon ?",
       "choices": [
         {
-          "text": "Un agent d'IA, à partir de la documentation de Studium ; aucun enseignant ne l'a encore vérifiée",
+          "text": "Un agent d'IA, à partir de la documentation de Studium",
           "correct": true
         },
         {
-          "text": "Un enseignant, qui a validé la leçon",
+          "text": "Un enseignant, qui a écrit la leçon",
           "correct": false
         },
         {
@@ -196,19 +196,15 @@
           "correct": false
         }
       ],
-      "feedback_correct": "Exact, et l'avis en haut de la leçon le disait. Une leçon ne se lit comme validée que si le registre d'approbation d'un enseignant correspond à son fichier exact.",
-      "feedback_incorrect": "Pas celle-ci. Relis l'avis en haut de la leçon.",
+      "feedback_correct": "Exact, et la première étape le disait. Une leçon ne se lit comme validée que si un registre d'approbation correspond à son fichier exact, et ce registre nomme qui l'a approuvée.",
+      "feedback_incorrect": "Pas celle-ci. Relis la première étape de la leçon.",
       "hints": [
-        "L'avis en haut de la leçon dit qui l'a rédigée."
+        "La première étape de la leçon dit qui l'a rédigée."
       ],
       "quotes": [
         {
           "passage_id": "doc:honesty",
           "text": "Le registre d'approbation est la seule source du statut validé."
-        },
-        {
-          "passage_id": "doc:honesty",
-          "text": "Leçon de démonstration livrée avec Studium, rédigée par l'IA à partir de la documentation de Studium, non vérifiée par un enseignant"
         }
       ]
     },
@@ -318,7 +314,7 @@
         "studium.local"
       ],
       "estimated_seconds": 60,
-      "markdown": "Studium garde ta progression sur ta propre machine.\n\n- Avec un assistant, les leçons qu'il construit pour toi vont dans `~/.studium/library` et ta progression dans `~/.studium/data`, dans des dossiers nommés par un pseudonyme, jamais par ton identifiant. L'extension VS Code garde sa propre progression dans le stockage de VS Code.\n- La télémétrie de classe est désactivée sauf si tu l'acceptes.\n- **Ce qui sort de ta machine**, c'est ce que lit ton assistant : s'il tourne sur un modèle distant, les étapes qu'il montre et les réponses qu'il relaie vont au fournisseur de ce modèle, selon ses conditions. Jouer dans le panneau VS Code ne demande aucun compte d'IA.\n- Pour effacer ta progression, demande à ton assistant d'oublier tes données, ou lance **Studium : Oublier mes données** dans VS Code.\n\nCette leçon est livrée avec Studium, dans l'extension VS Code et le paquet npm. Elle reste à part de ta bibliothèque : elle ne remplace jamais une de tes leçons. Quand tu as fini, construis une leçon à partir de tes propres sources : dis à ton assistant « je veux apprendre … avec Studium ».",
+      "markdown": "Studium garde ta progression sur ta propre machine.\n\n- Avec un assistant, les leçons qu'il construit pour toi vont dans `~/.studium/library` et ta progression dans `~/.studium/data`, dans des dossiers nommés par un pseudonyme, jamais par ton identifiant. Le panneau VS Code garde sa progression dans le stockage de VS Code, et Copilot aussi quand il utilise le serveur que propose l'extension : les deux la partagent alors.\n- La télémétrie de classe est désactivée sauf si tu l'acceptes.\n- **Ce qui sort de ta machine**, c'est ce que lit ton assistant : s'il tourne sur un modèle distant, les étapes qu'il montre et les réponses qu'il relaie vont au fournisseur de ce modèle, selon ses conditions. Jouer dans le panneau VS Code ne demande aucun compte d'IA.\n- Pour effacer ta progression, demande à ton assistant d'oublier tes données, ou lance **Studium : Oublier mes données** dans VS Code.\n\nCette leçon est livrée avec Studium, dans l'extension VS Code et le paquet npm. Elle reste à part de ta bibliothèque : elle ne remplace jamais une de tes leçons. Quand tu as fini, construis une leçon à partir de tes propres sources : dis à ton assistant « je veux apprendre … avec Studium ».",
       "quotes": [
         {
           "passage_id": "doc:privacy",

@@ -70,7 +70,7 @@ Une leçon d'auto-apprentissage commence par un avis dans sa langue (en françai
 |---|---|
 | l'apprenant | « Leçon auto-rédigée : les quiz et les défauts à repérer ont une clé écrite par l'apprenant (livre ouvert). » |
 | un agent | « Leçon rédigée par l'IA à partir de tes sources, non vérifiée par un enseignant : chaque question cite son passage ; signale à l'agent une clé qui te semble fausse. » |
-| un agent, dans la leçon de démonstration livrée avec Studium | « Leçon de démonstration livrée avec Studium, rédigée par l'IA à partir de la documentation de Studium, non vérifiée par un enseignant : chaque question cite son passage ; signale à l'agent une clé qui te semble fausse. » Son bloc `authoring` porte aussi `shipped: true`. |
+| un agent, dans une leçon d'auto-apprentissage livrée avec Studium | « Leçon de démonstration livrée avec Studium, rédigée par l'IA à partir de la documentation de Studium, non vérifiée par un enseignant : chaque question cite son passage ; signale à l'agent une clé qui te semble fausse. » Son bloc `authoring` porte aussi `shipped: true`. |
 
 | Juge | Seconde phrase |
 |---|---|
@@ -78,6 +78,10 @@ Une leçon d'auto-apprentissage commence par un avis dans sa langue (en françai
 | configuré | « Les scènes de production sont évaluées par le modèle. » |
 
 Une leçon qui contient une reproduction ajoute une troisième phrase : « Les reproductions exécutées portent une évaluation externe. »
+
+« Découvrir Studium », la leçon de démonstration livrée avec Studium, a `mode: "teacher"` : elle n'affiche aucun de
+ces avis, et ce que son premier écran dit de sa validation vient de son registre d'approbation. Son reçu indique que
+le responsable du projet l'a approuvée sans en ouvrir aucune scène.
 
 Les textes sont définis dans [`authoring.ts`](../../packages/lesson-session-host/src/authoring.ts).
 
@@ -120,7 +124,7 @@ Le serveur lit ce registre et indique `approval.matches` : toute modification d
 La règle 003 du projet impose une validation humaine stricte : aucun contenu n'est diffusé aux étudiants sans validation par un enseignant. En pratique :
 
 - un bundle d'enseignant ne se lit comme validé qu'avec un registre d'approbation lié à ses octets exacts (`approve` écrit aussi le nom dans `validated_by`, qui seul n'accorde rien) ;
-- une leçon d'auto-apprentissage ou rédigée par un agent est destinée à l'apprenant qui l'a produite, et son avis le dit ;
+- une leçon d'auto-apprentissage, que l'apprenant ou un agent l'ait rédigée, est destinée à l'apprenant qui l'a produite, et son avis le dit ; une leçon rédigée par un agent en mode enseignant, comme la démonstration livrée avec Studium, n'a pas d'avis et ne se lit comme validée qu'avec son registre d'approbation, comme tout bundle d'enseignant ;
 - la contribution d'un apprenant n'atteint d'autres apprenants qu'après la décision d'un enseignant, voir [Contributions des apprenants](../teach/learner-contributions.fr.md).
 
 Studium rend la provenance visible ; il ne certifie pas qu'une leçon est juste. La page [Confidentialité et limites](privacy-and-limits.fr.md) précise ce que prouvent, ou non, les empreintes, les citations et les contrôles d'exécution.

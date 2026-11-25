@@ -65,7 +65,7 @@ const FR = {
   // The demo lesson shipped with Studium (2026-11-25)
   demo_pick_label: "$(mortar-board) Découvrir Studium — leçon de démonstration",
   demo_pick_description: "livrée avec Studium · une dizaine de minutes",
-  demo_pick_detail: "Rédigée par l'IA à partir de la documentation de Studium, non vérifiée par un enseignant. Elle reste à part de tes cours.",
+  demo_pick_detail: "Rédigée par l'IA à partir de la documentation de Studium. Elle reste à part de tes cours.",
   demo_missing: "Studium : la leçon de démonstration est introuvable ({path}). Réinstalle l'extension.",
   reviews_next: "Prochaine révision : {date}",
   // H3 / I-3: each group of the Reviews node in its own words (as the study plan names them).
@@ -151,7 +151,7 @@ const EN: Record<HostPhraseKey, string> = {
   // The demo lesson shipped with Studium (2026-11-25)
   demo_pick_label: "$(mortar-board) Discover Studium — demo lesson",
   demo_pick_description: "shipped with Studium · about ten minutes",
-  demo_pick_detail: "Drafted by an AI agent from Studium's documentation, not checked by a teacher. It stays apart from your courses.",
+  demo_pick_detail: "Drafted by an AI agent from Studium's documentation. It stays apart from your courses.",
   demo_missing: "Studium: the demo lesson is missing ({path}). Reinstall the extension.",
   reviews_next: "Next review: {date}",
   reviews_group_due: "to review",

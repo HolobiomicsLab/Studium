@@ -35,10 +35,15 @@ const bundle = (title: string, target: string, language: string, validatedBy: st
   const demo = withDemo.at(-2);
   expect(demo?.action === "demo" && withDemo.length === picks.length + 1, "with the shipped demo, the picker offers it just before the folder action");
   expect(/Discover Studium/.test(demo?.label ?? "") && /shipped with Studium/.test(demo?.description ?? ""), "the demo choice is named and says it ships with Studium (en)");
-  expect(/not checked by a teacher/.test(demo?.detail ?? ""), "the demo choice says no teacher checked it (en)");
+  // Changed: 2026-11-25, the demo carries an approval record now: its choice says who drafted it and claims nothing about a
+  // teacher, so it stays true whether the record matches, is stale or is missing.
+  expect(/^Drafted by an AI agent from Studium's documentation\./.test(demo?.detail ?? "") && !/teacher/.test(demo?.detail ?? ""),
+    `the demo choice says who drafted it and claims nothing about a teacher (en; got ${demo?.detail})`);
   const demoFr = toLessonPickerChoices([], "/courses", "fr", { demo: true });
   expect(demoFr[0]?.action === "demo" && /Découvrir Studium/.test(demoFr[0]?.label ?? "") && /livrée avec Studium/.test(demoFr[0]?.description ?? ""),
     "an empty folder still offers the demo first (fr)");
+  expect(/^Rédigée par l'IA à partir de la documentation de Studium\./.test(demoFr[0]?.detail ?? "") && !/enseignant/.test(demoFr[0]?.detail ?? ""),
+    `the demo choice says who drafted it and claims nothing about a teacher (fr; got ${demoFr[0]?.detail})`);
 }
 
 // Approval state comes from approval.json bound to the bytes of the lesson; validated_by text never shows.
