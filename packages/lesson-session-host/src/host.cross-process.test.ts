@@ -123,3 +123,46 @@ describe("D1: two servers on one data folder, one learner", () => {
     expect(plan.in_progress).toEqual([expect.objectContaining({ bundle_ref: "lesson.json", scenes_completed: 3 })]);
   });
 });
+
+// Review of the waiting branch, finding 4: the guard held only for a learner id nobody shares. With studium.learnerId
+// set to "anonymous" or "agent-operator", the chat's server kept no stamp of what it loaded, and its stale answer saved
+// over the pane's progress. When the editor names the learner, that learner is one person, whatever the id: the guard
+// holds, and a second start in the chat finds its open session (D5), as for any named learner.
+describe("D1: the editor's learner is guarded whatever its id", () => {
+  for (const id of ["anonymous", "agent-operator"]) {
+    it(`an answer from the chat that the pane moved on is refused for the editor's learner "${id}"`, async () => {
+      const bundlesRoot = tmp();
+      writeFileSync(join(bundlesRoot, "lesson.json"), JSON.stringify(LESSON));
+      const dataDir = tmp();
+      const chat = new SessionHost({ bundlesRoot, dataDir, live: false, defaultLearnerId: id, editorNamesLearner: true });
+      const pane = () => new SessionHost({ bundlesRoot, dataDir, live: false });
+      const inChat = await chat.create("lesson.json");
+      await answer(chat, inChat.sessionId);
+      const paneHost = pane();
+      const inPane = await paneHost.create("lesson.json", id);
+      await answer(paneHost, inPane.sessionId);
+      await answer(paneHost, inPane.sessionId);
+      await expect(answer(chat, inChat.sessionId)).rejects.toThrow(/went on in another session/);
+      expect((await pane().create("lesson.json", id)).resume).toMatchObject({ kind: "resumed", scene_id: "q3", scenes_completed: 3 });
+    });
+
+    it(`a second start in the chat finds the session already open for the editor's learner "${id}"`, async () => {
+      const bundlesRoot = tmp();
+      writeFileSync(join(bundlesRoot, "lesson.json"), JSON.stringify(LESSON));
+      const chat = new SessionHost({ bundlesRoot, dataDir: tmp(), live: false, defaultLearnerId: id, editorNamesLearner: true });
+      const inChat = await chat.create("lesson.json");
+      await answer(chat, inChat.sessionId);
+      const again = await chat.create("lesson.json");
+      expect(again.sessionId).toBe(inChat.sessionId);
+      expect(again.resume.kind).toBe("already_open");
+    });
+  }
+
+  it("leaves a shared id on a server where the editor does not name the learner as it was: never merged", async () => {
+    const bundlesRoot = tmp();
+    writeFileSync(join(bundlesRoot, "lesson.json"), JSON.stringify(LESSON));
+    const host = new SessionHost({ bundlesRoot, dataDir: tmp(), live: false });
+    const first = await host.create("lesson.json", "anonymous");
+    expect((await host.create("lesson.json", "anonymous")).sessionId).not.toBe(first.sessionId);
+  });
+});

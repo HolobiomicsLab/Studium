@@ -1023,6 +1023,12 @@ export class SessionHost {
   get editorNamesLearner(): boolean { return this.opts.editorNamesLearner === true; }
   /** D2: the start of a link that opens a lesson in the Studium VS Code pane, or null. */
   get openLink(): string | null { return this.opts.openLink?.trim() || null; }
+  /** D1, review finding 4: whether `learnerId` is one person's — D5 merges their sessions of a lesson and the
+   * stale-answer guard holds. The editor's learner always is, whatever its id ("anonymous" included: the
+   * studium.learnerId of one VS Code user); a shared default identity named by no editor is not. */
+  private onePerson(learnerId: string): boolean {
+    return this.editorNamesLearner || !sharedIdentity(learnerId);
+  }
   /** D1: the learner a call plays: the editor's when it names the learner, else the one named, else the default. */
   learnerFor(requested?: string): string {
     return this.editorNamesLearner ? this.defaultLearnerId : requested ?? this.defaultLearnerId;
@@ -1144,7 +1150,7 @@ export class SessionHost {
       const resolved = await loadResolvedBundle(this.roots(), bundleRef, shuffleSaltFor(learnerId));
       const bundle = resolved.bundle;
       // D5: the learner already plays this lesson in this server — that session goes on.
-      const open = sharedIdentity(learnerId) ? undefined : this.openLessonOf(profilePseudonym, bundle);
+      const open = this.onePerson(learnerId) ? this.openLessonOf(profilePseudonym, bundle) : undefined;
       // D1: unless another process saved the lesson since that session loaded it (the learner went on in the pane, or
       // in another chat): that session is set aside, and this one starts from what is saved.
       if (open && await this.movedOn(open[1])) this.setAsideMovedOn(open[0]);
@@ -1176,8 +1182,8 @@ export class SessionHost {
         // returns null on missing/parse-error, so a fresh learner falls back to defaultLearnerState.
         prior = await deps.stateStore.load(bundle.bundle_id);
         // D1: what was loaded, to tell later that another process saved over it. A shared default identity is
-        // never guarded, as D5 never merges its sessions: several people may share it.
-        if (!sharedIdentity(learnerId)) stateRevision = await deps.stateStore.revision?.(bundle.bundle_id);
+        // never guarded, as D5 never merges its sessions: several people may share it — unless the editor names it.
+        if (this.onePerson(learnerId)) stateRevision = await deps.stateStore.revision?.(bundle.bundle_id);
       } else {
         deps = this.deps(undefined, clock);
       }
