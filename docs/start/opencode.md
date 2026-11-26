@@ -76,7 +76,7 @@ A lesson ready to play is offered in your web browser first: the assistant shows
 going through the chat; say "here" to play it in the chat instead. The address lives as long as the OpenCode session, and plays the
 learner id OpenCode passed. Your answers there are checked by Studium on your computer and do not go to
 the model, as long as no judge model is configured. `STUDIUM_BROWSER_PLAYER=off` in `environment` turns
-this off. Not yet tried with OpenCode itself: only scripts have checked it.
+this off. Tried once in `opencode web` (see Limits).
 
 OpenCode 1.19.6 announces no MCP Apps at connection, so the browser comes first. In a run of 25 November
 2026, the model started a lesson in the chat at once, as asked, and relayed its first step without the
@@ -89,8 +89,13 @@ address once ([Where a lesson is offered first](harness-panels.md#where-a-lesson
 - One run supports the 1.x configuration and the Mistral model: OpenCode 1.19.6 on macOS, 25 November 2026,
   with `mistral/mistral-large-4` through `opencode run`, the command-line form. Asked where to start with an
   empty library, it showed the first step of the demo lesson shipped with Studium in 23 seconds; it built a
-  lesson of 9 steps from course notes of about 2,400 characters, named by path, in 3 minutes 4 seconds. The web
-  interface was started and its page answered, but no lesson was played in it. The v2 configuration above was
-  not run that day.
+  lesson of 9 steps from course notes of about 2,400 characters, named by path, in 3 minutes 4 seconds. The v2 configuration above was not run that day.
+- One run of the web interface: OpenCode 1.19.6 on macOS, 26 November 2026, `opencode web` with
+  `mistral/mistral-large-4`. The two requests were sent through the server's API, the one its page uses, and
+  the page was read in a headless browser. Asked in French to learn from the same notes, named by path, the
+  assistant announced the wait after 12 seconds, showed a sketch and built a lesson of 13 steps in 2 minutes
+  45 seconds (one refusal, resent with only the scenes it named). Its last message gave the browser player's
+  address, which the page showed as a link. Two steps answered in the browser, then "ici" in the chat: the chat
+  resumed at step 3 of 13. Both messages together cost about 0.09 USD.
 - Older OpenCode versions use another configuration shape.
 - An open model offered by your provider is neither free, local nor equal in quality by default.
