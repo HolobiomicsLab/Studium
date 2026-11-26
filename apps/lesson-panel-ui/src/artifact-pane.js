@@ -14,7 +14,7 @@
  *   hint, turn_result, recall_rated {sceneId, grade, completion?}, action_pending, action_settled, action_notice,
  *   action_error {message, action?, sceneId?}, loading, error
  * Pane → host (window.__send): respond, turn, hint, end, run, rateRecall, reviewNow, restartLesson,
- *   pickCourse.
+ *   pickCourse, revisit {scene_id} and resume (a step already done, read only, and back).
  * Concepts (reviewDue, completion.consolidated / practised / not_measured, and to_revisit from older hosts) arrive
  * as {id, label} (practised ones also carry `answers`, the graded answers counted); a bare string is an id.
  * The pane never holds an answer key: the host strips it (publicScene) and releases the feedback with
@@ -179,7 +179,8 @@ let renderView;
   // verdict of the answer before, whose feedback the learner already read and left. Only such a view
   // skips that feedback: the same verdict on any other view is a new answer (a question replayed and
   // answered the same way) and is shown.
-  const KEEPS_SCENE = new Set(["openMap", "closeMap", "hint", "ask", "prompt", "setAttention", "setLanguage", "replan"]);
+  // A revisit and its resume keep the current scene too: resume shows it again as the learner left it.
+  const KEEPS_SCENE = new Set(["openMap", "closeMap", "hint", "ask", "prompt", "setAttention", "setLanguage", "replan", "revisit", "resume"]);
   let sameSceneAwaited = false;
 
   // The scene on screen: every answer names it (expected_scene_id), so that a duplicate or late answer is
@@ -610,6 +611,8 @@ let renderView;
     const total = state.progress && Number(state.progress.total);
     if (total && memory.total && total !== memory.total) memory = freshMemory(); // another lesson
     if (total) memory.total = total;
+    // A step already done, read only: it is not where the learner is, so it places nothing and records nothing.
+    if (isObject(state.revisit)) { renderRevisit(state); return; }
     remember(scene);
     placeScene(state, scene);
     const verdict = isObject(state.verdict) ? state.verdict : null;
@@ -741,6 +744,7 @@ let renderView;
     if (assets) root.append(assets);
     const ladder = helpLadder(state, sc);
     root.append(renderControls(sc, state, ladder, lang));
+    restoreDraft(root, takeDraft());
     if (ladder) root.append(ladder);
     const proposals = promptsRegion(state);
     if (proposals) root.append(proposals);
@@ -1010,6 +1014,8 @@ let renderView;
       head.append(el("div", { class: "session-strip" }, sessionLine(state, true), paneMenu(state)));
       head.append(el("p", { class: "orientation-line visually-hidden", "data-waiting": state.orientation.waiting }, state.status_line));
       if (state.progress) head.append(progressRail(state.progress, false, placement(state)));
+      const steps = revisitSteps(state);
+      if (steps) head.append(steps);
       const voice = voiceChip(isObject(state.voices) ? state.voices.scene : null);
       if (voice) meta.append(voice);
       if (meta.childNodes.length) head.append(meta);
@@ -1019,6 +1025,8 @@ let renderView;
       meta.append(paneMenu(state));
       head.append(meta);
       if (state.progress) head.append(progressRail(state.progress, true, null));
+      const steps = revisitSteps(state);
+      if (steps) head.append(steps);
       const voice = voiceText(isObject(state.voices) ? state.voices.scene : null);
       if (voice) head.append(el("p", { class: "voice voice-scene" }, voice));
     }
@@ -1236,6 +1244,128 @@ let renderView;
     return rail;
   }
 
+  // --- revisiting a step already done (owner decision 2026-11-26, « précédent ») ----------------------
+  // Going back is a read-only revisit, never a rewind. The server lists the main-path steps already done
+  // (progress.done) and offers revisit; each is a button beside the rail, named for the step. The rail
+  // itself stays a progressbar, whose children are not interactive.
+  function revisitSteps(state) {
+    const offered = Array.isArray(state.actions) ? state.actions : [];
+    const done = isObject(state.progress) && Array.isArray(state.progress.done)
+      ? state.progress.done.filter((s) => isObject(s) && typeof s.scene_id === "string" && s.scene_id && Number.isFinite(Number(s.index))) : [];
+    if (!offered.includes("revisit") || !done.length) return null;
+    const on = isObject(state.revisit) ? state.revisit.scene_id : null;
+    const list = el("ol", { class: "revisit-steps-list" });
+    for (const step of done) {
+      const label = t("pane_revisit_step", { index: Number(step.index), title: String(step.title || "") });
+      const button = el("button", {
+        type: "button", class: "st-button st-button--quiet revisit-step", "data-scene-id": step.scene_id,
+        "aria-label": label, title: label, "aria-current": step.scene_id === on ? "step" : null,
+      }, String(Number(step.index)));
+      button.addEventListener("click", () => openRevisit(step.scene_id));
+      list.append(el("li", {}, button));
+    }
+    return el("nav", { class: "revisit-steps", "aria-label": t("pane_revisit_nav") }, list);
+  }
+
+  // What the current screen held when the learner left it for a revisit: the text typed in its answer boxes,
+  // given back when the same scene comes back right after the revisit (resume). Nowhere else: a scene shown
+  // later for another reason starts empty, as before.
+  let revisitDraft = null;
+  let lastPaintWasRevisit = false;
+  function openRevisit(sceneId) {
+    if (!lastPaintWasRevisit) {
+      revisitDraft = sceneOnScreen
+        ? { sceneId: sceneOnScreen, values: [...document.querySelectorAll("#pane .controls textarea")].map((box) => box.value) } : null;
+    }
+    postAction({ type: "revisit", scene_id: sceneId }, t("pane_updating"));
+  }
+  function takeDraft() {
+    const draft = lastPaintWasRevisit ? revisitDraft : null;
+    revisitDraft = null;
+    lastPaintWasRevisit = false;
+    return draft;
+  }
+  function restoreDraft(root, draft) {
+    if (!draft || draft.sceneId !== sceneOnScreen) return;
+    const boxes = [...root.querySelectorAll(".controls textarea")];
+    if (boxes.length !== draft.values.length) return;
+    boxes.forEach((box, i) => {
+      if (!draft.values[i]) return;
+      box.value = draft.values[i];
+      box.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+  }
+
+  const REVISIT_RESULTS = { right: ["correct", "pane_correct"], wrong: ["incorrect", "pane_incorrect"], unassessed: ["keyword-only", "pane_uncertified"] };
+  function renderRevisit(state) {
+    const root = resetPane();
+    const r = state.revisit;
+    const sc = isObject(state.scene) ? state.scene : {};
+    const lang = contentLanguage(state);
+    const position = Number(r.index) || 1;
+    const total = Number(r.total) || (isObject(state.progress) ? Number(state.progress.total) : 1) || 1;
+    // The banner first: it says what this screen is, and holds the one way back.
+    const bannerTitle = el("h1", { class: "revisit-title", id: nextId("revisit-title") }, t("pane_revisit_banner", { position, total }));
+    const resume = el("button", { type: "button", class: "st-button st-button--primary revisit-resume" }, t("pane_revisit_resume"));
+    resume.addEventListener("click", () => postAction({ type: "resume" }, t("pane_updating")));
+    const banner = el("section", { class: "revisit-banner st-notice", role: "region", "aria-labelledby": bannerTitle.id, tabindex: "-1" },
+      bannerTitle, el("p", { class: "revisit-note" }, t("pane_revisit_note")), resume);
+    root.append(banner);
+    // Where the learner is stays on the rail, with the step on screen marked among those already done.
+    const head = el("header", { class: "scene-head revisit-head" });
+    if (hasOrientation(state)) head.append(el("div", { class: "session-strip" }, sessionLine(state, true)));
+    if (state.progress) head.append(progressRail(state.progress, false, hasOrientation(state) ? placement(state) : null));
+    const steps = revisitSteps(state);
+    if (steps) head.append(steps);
+    const chip = typeChip(sc.type);
+    if (chip) head.append(el("div", { class: "scene-meta" }, chip));
+    head.append(el("h2", { class: "scene-title", lang }, sc.title || r.title || ""));
+    root.append(head);
+    // The step's content, as it was shown: its text, its choices (no longer to pick), its figures.
+    const body = el("div", { class: "scene-body", lang });
+    sceneBody(sc).forEach((node) => body.append(node));
+    const yours = typeof r.your_answer === "string" && r.your_answer ? r.your_answer : null;
+    if (Array.isArray(sc.choices) && sc.choices.length) {
+      const list = el("ul", { class: "revisit-choices" });
+      sc.choices.forEach((c) => {
+        const mine = yours !== null && String(c.text || "") === yours;
+        list.append(el("li", { class: mine ? "is-yours" : null }, el("span", { html: inlineMarkdown(String(c.text == null ? "" : c.text)) }),
+          mine ? el("span", { class: "revisit-mine" }, " — " + t("pane_revisit_your_choice")) : null));
+      });
+      body.append(list);
+    }
+    if (body.childNodes.length) root.append(body);
+    const assets = assetsSection(state);
+    if (assets) root.append(assets);
+    root.append(revisitRecord(r, yours, lang));
+    ui.status = el("p", { id: "action-status", class: "action-status", role: "status", "aria-live": "polite" });
+    root.append(ui.status);
+    markScrollRegions(root);
+    lastPaintWasRevisit = true;
+    announce(t("pane_revisit_live", { position, title: sc.title || r.title || "" }));
+    focusQuietly(banner);
+  }
+
+  // What the session recorded of the step's answer, and what the server kept of it for this screen.
+  function revisitRecord(r, yours, lang) {
+    const record = el("section", { class: "revisit-record", "aria-label": t("pane_revisit_your_answer") });
+    if (r.answered !== true) { record.append(el("p", { class: "revisit-no-answer" }, t("pane_revisit_no_answer"))); return record; }
+    const outcome = REVISIT_RESULTS[r.result];
+    if (outcome) {
+      record.append(el("p", { class: "revisit-result", "data-verdict": outcome[0] },
+        el("span", { "aria-hidden": "true" }, VERDICT_SYMBOL[outcome[0]] || ""), " ", t(outcome[1])));
+    }
+    const kept = memory.answers.get(r.scene_id);
+    const fallback = !yours && isObject(kept) && typeof kept.text === "string" && kept.text ? kept.text : null;
+    const answer = yours || fallback;
+    if (answer) record.append(el("p", { class: "pane-label st-eyebrow" }, t("pane_revisit_your_answer")), el("blockquote", { class: "revisit-answer", lang }, answer));
+    if (typeof r.feedback === "string" && r.feedback) {
+      record.append(el("p", { class: "pane-label st-eyebrow" }, t("pane_revisit_feedback")), el("div", { class: "prose revisit-feedback", lang, html: renderMarkdown(r.feedback) }));
+    }
+    if (!answer && !r.feedback) record.append(el("p", { class: "revisit-not-kept" }, t("pane_revisit_not_kept")));
+    return record;
+  }
+
   // Why this scene is shown, in learner words. The engine's rule id and reason code serve the
   // teacher's journal; the pane never prints them (VSC-2).
   const NAV_CARDS = {
@@ -1389,6 +1519,7 @@ let renderView;
 
   function renderFeedbackStep(fb) {
     const root = resetPane();
+    takeDraft();
     const v = fb.verdict;
     const kind = verdictKind(v);
     const state = isObject(fb.state) ? fb.state : {};
@@ -1401,6 +1532,8 @@ let renderView;
     if (hasOrientation(state)) {
       const strip = el("div", { class: "feedback-strip" }, el("div", { class: "session-strip" }, sessionLine(state, false)));
       if (state.progress) strip.append(progressRail(state.progress, false, placement(state)));
+      const steps = revisitSteps(state);
+      if (steps) strip.append(steps);
       step.append(strip);
     }
     step.append(el("p", { class: "st-eyebrow" }, t("pane_feedback_eyebrow")), title);
