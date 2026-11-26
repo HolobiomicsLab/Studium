@@ -4,7 +4,7 @@
   "goal": "Comprendre comment fonctionne Studium et me repérer dans son interface en l'utilisant",
   "target": "Personnes qui découvrent Studium",
   "discipline": "Studium",
-  "duration_minutes": 11,
+  "duration_minutes": 10,
   "concepts": [
     {
       "id": "studium.relay",
@@ -51,7 +51,7 @@
         "studium.relay"
       ],
       "estimated_seconds": 40,
-      "markdown": "Cette leçon est livrée avec Studium et prend une dizaine de minutes. Elle te montre comment fonctionne Studium en te le faisant utiliser : chaque mécanisme est expliqué à l'étape où tu le rencontres.\n\n**Regarde d'abord le haut de l'écran.** Studium y dit si quelqu'un a validé cette version exacte de la leçon, et qui : dans le panneau VS Code ou le navigateur, une pastille au-dessus de l'étape ; dans une conversation, ton assistant le montre sur le premier écran. Cette leçon a été rédigée par un agent d'IA à partir de la documentation de Studium.\n\n**Tu réponds, l'assistant relaie.** Studium pose les questions et garde les clés de réponse. Quand tu joues avec un assistant (Copilot, Claude Code, Codex ou un autre), il montre chaque étape telle que Studium l'a écrite, attend ta réponse et transmet tes propres mots. Il ne doit jamais répondre, choisir ou noter à ta place.\n\nContinue quand tu es prêt·e.",
+      "markdown": "Cette leçon est livrée avec Studium et prend une dizaine de minutes. Elle te montre comment fonctionne Studium en te le faisant utiliser : chaque mécanisme est expliqué à l'étape où tu le rencontres.\n\n**Regarde d'abord le haut de l'écran.** Studium y dit si quelqu'un a validé cette version exacte de la leçon, et qui : une pastille au-dessus de l'étape ou, quand un assistant te montre la leçon, les premières lignes de cette étape. Cette leçon a été rédigée par un agent d'IA à partir de la documentation de Studium.\n\n**Tu réponds, l'assistant relaie.** Studium pose les questions et garde les clés de réponse. Quand tu joues avec un assistant (Copilot, Claude Code, Codex ou un autre), il montre chaque étape telle que Studium l'a écrite, attend ta réponse et transmet tes propres mots. Il ne doit jamais répondre, choisir ou noter à ta place.\n\nContinue quand tu es prêt·e.",
       "quotes": [
         {
           "passage_id": "doc:assistant",
@@ -66,7 +66,7 @@
         "studium.relay"
       ],
       "estimated_seconds": 40,
-      "question": "Tu joues cette leçon avec un assistant. Qui doit donner la réponse à cette question ?\n\nAvant de répondre, tu peux dire ta confiance, de 0 (pas sûr·e) à 4 (très sûr·e) : dans le panneau VS Code, touche un chiffre dans la rangée sous les choix ; dans une conversation, dis-la avec ta réponse, par exemple « A, confiance 3 », et ton assistant peut la transmettre. C'est facultatif. Studium compare cette confiance avec ce que montrent tes réponses.",
+      "question": "Suppose que tu joues cette leçon avec un assistant. Qui doit donner la réponse à cette question ?\n\nAvant de répondre, tu peux dire ta confiance, de 0 (pas sûr·e) à 4 (très sûr·e) : touche un chiffre dans la rangée sous les choix ou, avec un assistant, dis-la avec ta réponse, par exemple « A, confiance 3 », et il peut la transmettre. C'est facultatif. Studium compare cette confiance avec ce que montrent tes réponses.",
       "choices": [
         {
           "text": "Toi : l'assistant montre l'étape et transmet tes propres mots",
@@ -99,8 +99,8 @@
       "concept_refs": [
         "studium.graph"
       ],
-      "estimated_seconds": 60,
-      "markdown": "Une leçon Studium n'est pas qu'une suite d'écrans. Chaque étape, une *scène*, est rattachée à une ou plusieurs **notions**, et les notions sont reliées dans un graphe typé, le Learning Workflow Graph : une arête comme `prerequisite_for` dit qu'une idée doit être en place avant une autre.\n\nCette leçon a cinq notions. Deux liens comptent ici : *Qui détient la clé* demande d'abord *Un cours est un graphe*, et *Les révisions espacées* demande *Qui détient la clé*.\n\nLe graphe aide à choisir la suite. Quand tu arrives à une notion dont un prérequis manque encore, la leçon peut faire un **détour** par une question sur ce prérequis, puis revenir. Après deux erreurs de suite sur la même notion, elle rejoue l'étape. C'est la remédiation.\n\n**Essaie :** ouvre la carte des notions. Dans le panneau VS Code, appuie sur **Carte des notions** sous l'étape ; dans une conversation, demande « où en suis-je ? ». Chaque notion indique son état : acquise, à revoir, en cours, vue mais pas encore évaluée, ou à venir.",
+      "estimated_seconds": 50,
+      "markdown": "Une leçon Studium n'est pas qu'une suite d'écrans. Chaque étape, une *scène*, est rattachée à une ou plusieurs **notions**, et les notions sont reliées dans un graphe typé, le Learning Workflow Graph : une arête comme `prerequisite_for` dit qu'une idée doit être en place avant une autre.\n\nCette leçon a cinq notions. Deux liens comptent ici : *Qui détient la clé* demande d'abord *Un cours est un graphe*, et *Les révisions espacées* demande *Qui détient la clé*.\n\nLe graphe aide à choisir la suite. Quand tu arrives à une notion dont un prérequis manque encore, la leçon peut faire un **détour** par une question sur ce prérequis, puis revenir. Après deux erreurs de suite sur la même notion, elle rejoue l'étape. C'est la remédiation.\n\n**Essaie :** ouvre la carte des notions. Appuie sur **Carte des notions** sous l'étape ou, avec un assistant, demande « où en suis-je ? ». Chaque notion indique son état : acquise, à revoir, en cours, vue mais pas encore évaluée, ou à venir.",
       "quotes": [
         {
           "passage_id": "doc:how",
@@ -119,7 +119,7 @@
         "studium.graph"
       ],
       "estimated_seconds": 40,
-      "question": "Dans cette leçon, *Qui détient la clé* demande *Un cours est un graphe*. Que peut-il se passer si tu y arrives alors que *Un cours est un graphe* manque encore ?\n\nTu bloques ? Demande un **indice** : le bouton **Indice** dans le panneau, ou « un indice, s'il te plaît » dans une conversation. Une bonne réponse donnée après un indice compte un peu moins pour ta maîtrise et revient plus tôt en révision.",
+      "question": "Dans cette leçon, *Qui détient la clé* demande *Un cours est un graphe*. Que peut-il se passer si tu y arrives alors que *Un cours est un graphe* manque encore ?\n\nTu bloques ? Demande un **indice** : appuie sur **Indice** ou, avec un assistant, dis « un indice, s'il te plaît ». Une bonne réponse donnée après un indice compte un peu moins pour ta maîtrise et revient plus tôt en révision.",
       "choices": [
         {
           "text": "La leçon fait un détour par une question sur le prérequis manquant, puis revient",
@@ -157,8 +157,8 @@
       "concept_refs": [
         "studium.provenance"
       ],
-      "estimated_seconds": 60,
-      "markdown": "Chaque réponse est évaluée par qui détient sa clé, et Studium te dit qui c'est.\n\n- Un **quiz** est vérifié avec la clé que son auteur a écrite. Ici l'auteur est un agent d'IA ; dans le panneau, la ligne au-dessus du verdict le dit : « Évalué par la clé rédigée par l'IA — vérifie-la avec le passage cité ».\n- Une **réponse rédigée** (une explication, une comparaison) n'est évaluée que par un juge modèle, quand il y en a un. Sans juge, Studium ne fait pas semblant : il te montre une référence et tu te compares toi-même. Il ne compte jamais de mots-clés.\n- Seules les réponses évaluées font bouger ta **maîtrise**.\n\n**Sources.** Chaque question de cette leçon cite un passage de la documentation de Studium. Studium a refusé d'écrire la leçon tant que chaque citation ne correspondait pas à son passage au caractère près. Les passages apparaissent après ta réponse, quand tu quittes l'étape : ils ne donnent jamais la réponse. Une citation exacte prouve un lien textuel, pas que la question s'en sert bien : si une clé te paraît fausse, dis-le.",
+      "estimated_seconds": 50,
+      "markdown": "Chaque réponse est évaluée par qui détient sa clé, et Studium te dit qui c'est.\n\n- Un **quiz** est vérifié avec la clé que son auteur a écrite. Ici l'auteur est un agent d'IA ; le verdict le dit : « Évalué par la clé rédigée par l'IA — vérifie-la avec le passage cité ».\n- Une **réponse rédigée** (une explication, une comparaison) n'est évaluée que par un juge modèle, quand il y en a un. Sans juge, Studium ne fait pas semblant : il te montre une référence et tu te compares toi-même. Il ne compte jamais de mots-clés.\n- Seules les réponses évaluées font bouger ta **maîtrise**.\n\n**Sources.** Chaque question de cette leçon cite un passage de la documentation de Studium. Studium a refusé d'écrire la leçon tant que chaque citation ne correspondait pas à son passage au caractère près. Les passages apparaissent après ta réponse, quand tu quittes l'étape : ils ne donnent jamais la réponse. Une citation exacte prouve un lien textuel, pas que la question s'en sert bien : si une clé te paraît fausse, dis-le.",
       "quotes": [
         {
           "passage_id": "doc:honesty",
@@ -260,7 +260,7 @@
       "concept_refs": [
         "studium.reviews"
       ],
-      "estimated_seconds": 60,
+      "estimated_seconds": 50,
       "markdown": "Studium fait revenir une notion quand tu es sur le point de l'oublier. Pour chaque notion, il tient un modèle de mémoire, FSRS (Free Spaced Repetition Scheduler), qui estime tes chances de t'en souvenir maintenant.\n\n- Une réponse à un quiz planifie une révision à elle seule : fausse, elle compte comme « again » ; juste après un indice, comme « hard » ; juste, comme « good ».\n- Après une réponse rédigée qu'aucun juge n'a évaluée, **ta note de rappel** fixe la prochaine révision. C'est ton propre jugement : elle ne change donc jamais ta maîtrise.\n- Une étape de lecture ou un point de confiance ne planifie rien.\n\n**Où apparaissent les révisions ensuite.** Le dernier écran de cette leçon donne la date de ta prochaine révision. Plus tard, dans VS Code, la barre d'état compte ce qui t'attend (« Studium · 2 à réviser ») et la barre latérale a une entrée Révisions. Avec un assistant, demande « Qu'est-ce que je révise avec Studium aujourd'hui ? » : il lit ton plan d'étude, puis joue les révisions dues, toutes leçons confondues.",
       "quotes": [
         {
@@ -313,8 +313,8 @@
       "concept_refs": [
         "studium.local"
       ],
-      "estimated_seconds": 60,
-      "markdown": "Studium garde ta progression sur ta propre machine.\n\n- Avec un assistant, les leçons qu'il construit pour toi vont dans `~/.studium/library` et ta progression dans `~/.studium/data`, dans des dossiers nommés par un pseudonyme, jamais par ton identifiant. Le panneau VS Code garde sa progression dans le stockage de VS Code, et Copilot aussi quand il utilise le serveur que propose l'extension : les deux la partagent alors.\n- La télémétrie de classe est désactivée sauf si tu l'acceptes.\n- **Ce qui sort de ta machine**, c'est ce que lit ton assistant : s'il tourne sur un modèle distant, les étapes qu'il montre et les réponses qu'il relaie vont au fournisseur de ce modèle, selon ses conditions. Jouer dans le panneau VS Code ne demande aucun compte d'IA.\n- Pour effacer ta progression, demande à ton assistant d'oublier tes données, ou lance **Studium : Oublier mes données** dans VS Code.\n\nCette leçon est livrée avec Studium, dans l'extension VS Code et le paquet npm. Elle reste à part de ta bibliothèque : elle ne remplace jamais une de tes leçons. Quand tu as fini, construis une leçon à partir de tes propres sources : dis à ton assistant « je veux apprendre … avec Studium ».",
+      "estimated_seconds": 50,
+      "markdown": "Studium garde ta progression sur ta propre machine.\n\n- Avec un assistant, les leçons qu'il construit pour toi vont dans `~/.studium/library` et ta progression dans `~/.studium/data`, dans des dossiers nommés par un pseudonyme, jamais par ton identifiant. Dans VS Code, l'extension Studium garde ta progression dans le stockage de VS Code, et Copilot aussi quand il utilise le serveur que propose l'extension : les deux la partagent alors.\n- La télémétrie de classe est désactivée sauf si tu l'acceptes.\n- **Ce qui sort de ta machine**, c'est ce que lit ton assistant : s'il tourne sur un modèle distant, les étapes qu'il montre et les réponses qu'il relaie vont au fournisseur de ce modèle, selon ses conditions. Jouer dans VS Code ne demande aucun compte d'IA.\n- Pour effacer ta progression, lance **Studium : Oublier mes données** dans VS Code ou, avec un assistant, demande-lui d'oublier tes données.\n\nCette leçon est livrée avec Studium, dans l'extension VS Code et le paquet npm. Elle reste à part de ta bibliothèque : elle ne remplace jamais une de tes leçons. Quand tu as fini, construis une leçon à partir de tes propres sources : avec un assistant, dis « je veux apprendre … avec Studium ».",
       "quotes": [
         {
           "passage_id": "doc:privacy",
@@ -333,7 +333,7 @@
         "studium.local"
       ],
       "estimated_seconds": 40,
-      "question": "Tu joues cette leçon avec un assistant qui tourne sur un modèle distant. Qu'est-ce qui sort de ta machine ?",
+      "question": "Suppose que tu joues cette leçon avec un assistant qui tourne sur un modèle distant. Qu'est-ce qui sort de ta machine ?",
       "choices": [
         {
           "text": "Ce que l'assistant lit et relaie, envoyé au fournisseur de son modèle",

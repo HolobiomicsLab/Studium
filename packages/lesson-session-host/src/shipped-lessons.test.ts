@@ -178,9 +178,13 @@ describe("a host with a shipped lessons root", () => {
     const library = tempRoot();
     const empty = await host(library, shippedRoot()).listLessons({ language: "en" });
     expect(empty.lessons).toEqual([]);
-    expect(empty.shipped_lessons.map((l) => [l.bundle_ref, l.source])).toEqual([
-      ["discover-studium-en/lesson.json", "shipped"], ["discover-studium-fr/lesson.json", "shipped"],
-    ]);
+    // Changed: 2026-11-26 (D7), list_lessons {language: "en"} listed the demo in both languages; it lists only the one in
+    // the language asked for when that version exists. Without a language, both, so a player can still switch.
+    expect(empty.shipped_lessons.map((l) => [l.bundle_ref, l.source])).toEqual([["discover-studium-en/lesson.json", "shipped"]]);
+    const fr = await host(library, shippedRoot()).listLessons({ language: "fr" });
+    expect(fr.shipped_lessons.map((l) => l.bundle_ref)).toEqual(["discover-studium-fr/lesson.json"]);
+    const any = await host(library, shippedRoot()).listLessons();
+    expect(any.shipped_lessons.map((l) => l.bundle_ref)).toEqual(["discover-studium-en/lesson.json", "discover-studium-fr/lesson.json"]);
     expect(empty.display_markdown).toMatch(/Shipped with Studium/);
     expect(empty.display_markdown).toContain("Discover Studium");
     expect(empty.display_markdown).not.toContain("Découvrir Studium"); // the other language is in the JSON only
@@ -211,7 +215,15 @@ describe("a host with a shipped lessons root", () => {
     expect(started.authoring).toMatchObject({ shipped: true });
     const listed = await h.listLessons({ language: "en" });
     expect(listed.lessons).toEqual([]);
-    expect(listed.shipped_lessons).toHaveLength(2);
+    // Changed: 2026-11-26 (D7), was two: only the English version, the language asked for.
+    expect(listed.shipped_lessons.map((l) => l.bundle_ref)).toEqual(["discover-studium-en/lesson.json"]);
+  });
+
+  it("lists every shipped lesson when none is in the language asked for (D7)", async () => {
+    const shipped = tempRoot();
+    put(shipped, "discover-studium-fr/lesson.json", lesson("self-study-discover-studium-fr", "Découvrir Studium", "fr", "studium.graph"));
+    const listed = await host(tempRoot(), shipped).listLessons({ language: "en" });
+    expect(listed.shipped_lessons.map((l) => l.bundle_ref)).toEqual(["discover-studium-fr/lesson.json"]);
   });
 
   it("plays the learner's own lesson when it has the same ref as a shipped one", async () => {

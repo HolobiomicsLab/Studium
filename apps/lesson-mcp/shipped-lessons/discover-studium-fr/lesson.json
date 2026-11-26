@@ -95,7 +95,7 @@
       "note": "Comprendre comment fonctionne Studium et me repérer dans son interface en l'utilisant"
     },
     "discipline": "Studium",
-    "duration_minutes": 11,
+    "duration_minutes": 10,
     "language": "fr",
     "target": "Personnes qui découvrent Studium",
     "title": "Découvrir Studium"
@@ -137,11 +137,11 @@
           "degraded": false,
           "enricher_version": "studium-authoring-draft/1",
           "perspicacite_mode_used": "passages",
-          "timestamp": "2026-11-25T21:00:00.000Z"
+          "timestamp": "2026-11-26T10:00:00.000Z"
         }
       },
       "id": "s1-intro",
-      "markdown": "Cette leçon est livrée avec Studium et prend une dizaine de minutes. Elle te montre comment fonctionne Studium en te le faisant utiliser : chaque mécanisme est expliqué à l'étape où tu le rencontres.\n\n**Regarde d'abord le haut de l'écran.** Studium y dit si quelqu'un a validé cette version exacte de la leçon, et qui : dans le panneau VS Code ou le navigateur, une pastille au-dessus de l'étape ; dans une conversation, ton assistant le montre sur le premier écran. Cette leçon a été rédigée par un agent d'IA à partir de la documentation de Studium.\n\n**Tu réponds, l'assistant relaie.** Studium pose les questions et garde les clés de réponse. Quand tu joues avec un assistant (Copilot, Claude Code, Codex ou un autre), il montre chaque étape telle que Studium l'a écrite, attend ta réponse et transmet tes propres mots. Il ne doit jamais répondre, choisir ou noter à ta place.\n\nContinue quand tu es prêt·e.",
+      "markdown": "Cette leçon est livrée avec Studium et prend une dizaine de minutes. Elle te montre comment fonctionne Studium en te le faisant utiliser : chaque mécanisme est expliqué à l'étape où tu le rencontres.\n\n**Regarde d'abord le haut de l'écran.** Studium y dit si quelqu'un a validé cette version exacte de la leçon, et qui : une pastille au-dessus de l'étape ou, quand un assistant te montre la leçon, les premières lignes de cette étape. Cette leçon a été rédigée par un agent d'IA à partir de la documentation de Studium.\n\n**Tu réponds, l'assistant relaie.** Studium pose les questions et garde les clés de réponse. Quand tu joues avec un assistant (Copilot, Claude Code, Codex ou un autre), il montre chaque étape telle que Studium l'a écrite, attend ta réponse et transmet tes propres mots. Il ne doit jamais répondre, choisir ou noter à ta place.\n\nContinue quand tu es prêt·e.",
       "objective_refs": [],
       "title": "Bienvenue",
       "type": "intro"
@@ -185,7 +185,7 @@
           "degraded": false,
           "enricher_version": "studium-authoring-draft/1",
           "perspicacite_mode_used": "passages",
-          "timestamp": "2026-11-25T21:00:00.000Z"
+          "timestamp": "2026-11-26T10:00:00.000Z"
         }
       },
       "feedback_correct": "Exact. Studium garde les clés et l'assistant ne fait que relayer : ta réponse, avec tes mots.",
@@ -195,7 +195,7 @@
       ],
       "id": "s2-quiz",
       "objective_refs": [],
-      "question": "Tu joues cette leçon avec un assistant. Qui doit donner la réponse à cette question ?\n\nAvant de répondre, tu peux dire ta confiance, de 0 (pas sûr·e) à 4 (très sûr·e) : dans le panneau VS Code, touche un chiffre dans la rangée sous les choix ; dans une conversation, dis-la avec ta réponse, par exemple « A, confiance 3 », et ton assistant peut la transmettre. C'est facultatif. Studium compare cette confiance avec ce que montrent tes réponses.",
+      "question": "Suppose que tu joues cette leçon avec un assistant. Qui doit donner la réponse à cette question ?\n\nAvant de répondre, tu peux dire ta confiance, de 0 (pas sûr·e) à 4 (très sûr·e) : touche un chiffre dans la rangée sous les choix ou, avec un assistant, dis-la avec ta réponse, par exemple « A, confiance 3 », et il peut la transmettre. C'est facultatif. Studium compare cette confiance avec ce que montrent tes réponses.",
       "title": "Qui répond",
       "type": "quiz"
     },
@@ -204,7 +204,7 @@
       "concept_refs": [
         "studium.graph"
       ],
-      "estimated_seconds": 60,
+      "estimated_seconds": 50,
       "evidence": {
         "bibliographic_refs": [
           {
@@ -230,11 +230,11 @@
           "degraded": false,
           "enricher_version": "studium-authoring-draft/1",
           "perspicacite_mode_used": "passages",
-          "timestamp": "2026-11-25T21:00:00.000Z"
+          "timestamp": "2026-11-26T10:00:00.000Z"
         }
       },
       "id": "s3-concept",
-      "markdown": "Une leçon Studium n'est pas qu'une suite d'écrans. Chaque étape, une *scène*, est rattachée à une ou plusieurs **notions**, et les notions sont reliées dans un graphe typé, le Learning Workflow Graph : une arête comme `prerequisite_for` dit qu'une idée doit être en place avant une autre.\n\nCette leçon a cinq notions. Deux liens comptent ici : *Qui détient la clé* demande d'abord *Un cours est un graphe*, et *Les révisions espacées* demande *Qui détient la clé*.\n\nLe graphe aide à choisir la suite. Quand tu arrives à une notion dont un prérequis manque encore, la leçon peut faire un **détour** par une question sur ce prérequis, puis revenir. Après deux erreurs de suite sur la même notion, elle rejoue l'étape. C'est la remédiation.\n\n**Essaie :** ouvre la carte des notions. Dans le panneau VS Code, appuie sur **Carte des notions** sous l'étape ; dans une conversation, demande « où en suis-je ? ». Chaque notion indique son état : acquise, à revoir, en cours, vue mais pas encore évaluée, ou à venir.",
+      "markdown": "Une leçon Studium n'est pas qu'une suite d'écrans. Chaque étape, une *scène*, est rattachée à une ou plusieurs **notions**, et les notions sont reliées dans un graphe typé, le Learning Workflow Graph : une arête comme `prerequisite_for` dit qu'une idée doit être en place avant une autre.\n\nCette leçon a cinq notions. Deux liens comptent ici : *Qui détient la clé* demande d'abord *Un cours est un graphe*, et *Les révisions espacées* demande *Qui détient la clé*.\n\nLe graphe aide à choisir la suite. Quand tu arrives à une notion dont un prérequis manque encore, la leçon peut faire un **détour** par une question sur ce prérequis, puis revenir. Après deux erreurs de suite sur la même notion, elle rejoue l'étape. C'est la remédiation.\n\n**Essaie :** ouvre la carte des notions. Appuie sur **Carte des notions** sous l'étape ou, avec un assistant, demande « où en suis-je ? ». Chaque notion indique son état : acquise, à revoir, en cours, vue mais pas encore évaluée, ou à venir.",
       "objective_refs": [],
       "title": "Un cours est un graphe",
       "type": "concept"
@@ -287,7 +287,7 @@
           "degraded": false,
           "enricher_version": "studium-authoring-draft/1",
           "perspicacite_mode_used": "passages",
-          "timestamp": "2026-11-25T21:00:00.000Z"
+          "timestamp": "2026-11-26T10:00:00.000Z"
         }
       },
       "feedback_correct": "Oui. Le graphe fait partie du fichier de la leçon : un enseignant peut le lire et le corriger, et la leçon s'en sert pour choisir l'étape suivante.",
@@ -298,7 +298,7 @@
       ],
       "id": "s4-quiz",
       "objective_refs": [],
-      "question": "Dans cette leçon, *Qui détient la clé* demande *Un cours est un graphe*. Que peut-il se passer si tu y arrives alors que *Un cours est un graphe* manque encore ?\n\nTu bloques ? Demande un **indice** : le bouton **Indice** dans le panneau, ou « un indice, s'il te plaît » dans une conversation. Une bonne réponse donnée après un indice compte un peu moins pour ta maîtrise et revient plus tôt en révision.",
+      "question": "Dans cette leçon, *Qui détient la clé* demande *Un cours est un graphe*. Que peut-il se passer si tu y arrives alors que *Un cours est un graphe* manque encore ?\n\nTu bloques ? Demande un **indice** : appuie sur **Indice** ou, avec un assistant, dis « un indice, s'il te plaît ». Une bonne réponse donnée après un indice compte un peu moins pour ta maîtrise et revient plus tôt en révision.",
       "title": "Quand un prérequis manque",
       "type": "quiz"
     },
@@ -307,7 +307,7 @@
       "concept_refs": [
         "studium.provenance"
       ],
-      "estimated_seconds": 60,
+      "estimated_seconds": 50,
       "evidence": {
         "bibliographic_refs": [
           {
@@ -342,11 +342,11 @@
           "degraded": false,
           "enricher_version": "studium-authoring-draft/1",
           "perspicacite_mode_used": "passages",
-          "timestamp": "2026-11-25T21:00:00.000Z"
+          "timestamp": "2026-11-26T10:00:00.000Z"
         }
       },
       "id": "s5-concept",
-      "markdown": "Chaque réponse est évaluée par qui détient sa clé, et Studium te dit qui c'est.\n\n- Un **quiz** est vérifié avec la clé que son auteur a écrite. Ici l'auteur est un agent d'IA ; dans le panneau, la ligne au-dessus du verdict le dit : « Évalué par la clé rédigée par l'IA — vérifie-la avec le passage cité ».\n- Une **réponse rédigée** (une explication, une comparaison) n'est évaluée que par un juge modèle, quand il y en a un. Sans juge, Studium ne fait pas semblant : il te montre une référence et tu te compares toi-même. Il ne compte jamais de mots-clés.\n- Seules les réponses évaluées font bouger ta **maîtrise**.\n\n**Sources.** Chaque question de cette leçon cite un passage de la documentation de Studium. Studium a refusé d'écrire la leçon tant que chaque citation ne correspondait pas à son passage au caractère près. Les passages apparaissent après ta réponse, quand tu quittes l'étape : ils ne donnent jamais la réponse. Une citation exacte prouve un lien textuel, pas que la question s'en sert bien : si une clé te paraît fausse, dis-le.",
+      "markdown": "Chaque réponse est évaluée par qui détient sa clé, et Studium te dit qui c'est.\n\n- Un **quiz** est vérifié avec la clé que son auteur a écrite. Ici l'auteur est un agent d'IA ; le verdict le dit : « Évalué par la clé rédigée par l'IA — vérifie-la avec le passage cité ».\n- Une **réponse rédigée** (une explication, une comparaison) n'est évaluée que par un juge modèle, quand il y en a un. Sans juge, Studium ne fait pas semblant : il te montre une référence et tu te compares toi-même. Il ne compte jamais de mots-clés.\n- Seules les réponses évaluées font bouger ta **maîtrise**.\n\n**Sources.** Chaque question de cette leçon cite un passage de la documentation de Studium. Studium a refusé d'écrire la leçon tant que chaque citation ne correspondait pas à son passage au caractère près. Les passages apparaissent après ta réponse, quand tu quittes l'étape : ils ne donnent jamais la réponse. Une citation exacte prouve un lien textuel, pas que la question s'en sert bien : si une clé te paraît fausse, dis-le.",
       "objective_refs": [],
       "title": "Qui détient la clé",
       "type": "concept"
@@ -390,7 +390,7 @@
           "degraded": false,
           "enricher_version": "studium-authoring-draft/1",
           "perspicacite_mode_used": "passages",
-          "timestamp": "2026-11-25T21:00:00.000Z"
+          "timestamp": "2026-11-26T10:00:00.000Z"
         }
       },
       "feedback_correct": "Exact, et la première étape le disait. Une leçon ne se lit comme validée que si un registre d'approbation correspond à son fichier exact, et ce registre nomme qui l'a approuvée.",
@@ -435,7 +435,7 @@
           "degraded": false,
           "enricher_version": "studium-authoring-draft/1",
           "perspicacite_mode_used": "passages",
-          "timestamp": "2026-11-25T21:00:00.000Z"
+          "timestamp": "2026-11-26T10:00:00.000Z"
         }
       },
       "id": "s7-explain_back",
@@ -484,7 +484,7 @@
       "concept_refs": [
         "studium.reviews"
       ],
-      "estimated_seconds": 60,
+      "estimated_seconds": 50,
       "evidence": {
         "bibliographic_refs": [
           {
@@ -510,7 +510,7 @@
           "degraded": false,
           "enricher_version": "studium-authoring-draft/1",
           "perspicacite_mode_used": "passages",
-          "timestamp": "2026-11-25T21:00:00.000Z"
+          "timestamp": "2026-11-26T10:00:00.000Z"
         }
       },
       "id": "s8-concept",
@@ -558,7 +558,7 @@
           "degraded": false,
           "enricher_version": "studium-authoring-draft/1",
           "perspicacite_mode_used": "passages",
-          "timestamp": "2026-11-25T21:00:00.000Z"
+          "timestamp": "2026-11-26T10:00:00.000Z"
         }
       },
       "feedback_correct": "Oui. Ta note est ton propre jugement : elle planifie, elle ne mesure pas.",
@@ -577,7 +577,7 @@
       "concept_refs": [
         "studium.local"
       ],
-      "estimated_seconds": 60,
+      "estimated_seconds": 50,
       "evidence": {
         "bibliographic_refs": [
           {
@@ -603,11 +603,11 @@
           "degraded": false,
           "enricher_version": "studium-authoring-draft/1",
           "perspicacite_mode_used": "passages",
-          "timestamp": "2026-11-25T21:00:00.000Z"
+          "timestamp": "2026-11-26T10:00:00.000Z"
         }
       },
       "id": "s10-concept",
-      "markdown": "Studium garde ta progression sur ta propre machine.\n\n- Avec un assistant, les leçons qu'il construit pour toi vont dans `~/.studium/library` et ta progression dans `~/.studium/data`, dans des dossiers nommés par un pseudonyme, jamais par ton identifiant. Le panneau VS Code garde sa progression dans le stockage de VS Code, et Copilot aussi quand il utilise le serveur que propose l'extension : les deux la partagent alors.\n- La télémétrie de classe est désactivée sauf si tu l'acceptes.\n- **Ce qui sort de ta machine**, c'est ce que lit ton assistant : s'il tourne sur un modèle distant, les étapes qu'il montre et les réponses qu'il relaie vont au fournisseur de ce modèle, selon ses conditions. Jouer dans le panneau VS Code ne demande aucun compte d'IA.\n- Pour effacer ta progression, demande à ton assistant d'oublier tes données, ou lance **Studium : Oublier mes données** dans VS Code.\n\nCette leçon est livrée avec Studium, dans l'extension VS Code et le paquet npm. Elle reste à part de ta bibliothèque : elle ne remplace jamais une de tes leçons. Quand tu as fini, construis une leçon à partir de tes propres sources : dis à ton assistant « je veux apprendre … avec Studium ».",
+      "markdown": "Studium garde ta progression sur ta propre machine.\n\n- Avec un assistant, les leçons qu'il construit pour toi vont dans `~/.studium/library` et ta progression dans `~/.studium/data`, dans des dossiers nommés par un pseudonyme, jamais par ton identifiant. Dans VS Code, l'extension Studium garde ta progression dans le stockage de VS Code, et Copilot aussi quand il utilise le serveur que propose l'extension : les deux la partagent alors.\n- La télémétrie de classe est désactivée sauf si tu l'acceptes.\n- **Ce qui sort de ta machine**, c'est ce que lit ton assistant : s'il tourne sur un modèle distant, les étapes qu'il montre et les réponses qu'il relaie vont au fournisseur de ce modèle, selon ses conditions. Jouer dans VS Code ne demande aucun compte d'IA.\n- Pour effacer ta progression, lance **Studium : Oublier mes données** dans VS Code ou, avec un assistant, demande-lui d'oublier tes données.\n\nCette leçon est livrée avec Studium, dans l'extension VS Code et le paquet npm. Elle reste à part de ta bibliothèque : elle ne remplace jamais une de tes leçons. Quand tu as fini, construis une leçon à partir de tes propres sources : avec un assistant, dis « je veux apprendre … avec Studium ».",
       "objective_refs": [],
       "title": "Où vivent tes données",
       "type": "concept"
@@ -651,7 +651,7 @@
           "degraded": false,
           "enricher_version": "studium-authoring-draft/1",
           "perspicacite_mode_used": "passages",
-          "timestamp": "2026-11-25T21:00:00.000Z"
+          "timestamp": "2026-11-26T10:00:00.000Z"
         }
       },
       "feedback_correct": "Exact. Studium garde son état sur ta machine ; le fournisseur de l'assistant voit ce que l'assistant lit. Choisis un assistant dont les conditions te conviennent.",
@@ -661,7 +661,7 @@
       ],
       "id": "s11-quiz",
       "objective_refs": [],
-      "question": "Tu joues cette leçon avec un assistant qui tourne sur un modèle distant. Qu'est-ce qui sort de ta machine ?",
+      "question": "Suppose que tu joues cette leçon avec un assistant qui tourne sur un modèle distant. Qu'est-ce qui sort de ta machine ?",
       "title": "Ce qui sort de ta machine",
       "type": "quiz"
     },
@@ -704,7 +704,7 @@
           "degraded": false,
           "enricher_version": "studium-authoring-draft/1",
           "perspicacite_mode_used": "passages",
-          "timestamp": "2026-11-25T21:00:00.000Z"
+          "timestamp": "2026-11-26T10:00:00.000Z"
         }
       },
       "feedback_correct": "Oui. Tu peux lire tout le graphe d'une leçon dans sa carte des notions, et un enseignant peut le lire et le corriger dans le fichier de la leçon.",
@@ -720,7 +720,7 @@
     }
   ],
   "schema_version": "1.4",
-  "source_plan_id": "ss-91f3444c9ca54c0b",
-  "validated_at": "2026-11-25T21:49:57Z",
+  "source_plan_id": "ss-0d2511ac255dac49",
+  "validated_at": "2026-11-26T09:54:50Z",
   "validated_by": "beta-testeur"
 }

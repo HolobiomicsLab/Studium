@@ -1,6 +1,6 @@
 {
   "schema": "studium-source-set/1",
-  "source_set_id": "ss-91f3444c9ca54c0b",
+  "source_set_id": "ss-0d2511ac255dac49",
   "goal": "Comprendre comment fonctionne Studium et me repérer dans son interface en l'utilisant",
   "language": "fr",
   "min_chars": 200,
@@ -65,8 +65,8 @@
       "title": "Documentation de Studium — Guide étudiant",
       "url": "https://github.com/HolobiomicsLab/studium/blob/main/docs/learn/student-guide.fr.md",
       "license": "CC-BY-4.0",
-      "sha256": "5367733b94313e7acd840f99692f1f2387d4171d88e20f46e629c1a96d86cbb9",
-      "chars": 8254,
+      "sha256": "e8ebff810eea9606f78143e83d98e3a768f5a5ef0fa58665bb05c17c184b04fc",
+      "chars": 8262,
       "passages": 19
     }
   ],
@@ -779,7 +779,7 @@
     {
       "id": "p:documentation-de-studium-guide-etudiant:18",
       "source_id": "documentation-de-studium-guide-etudiant",
-      "text": "## Interrompre et reprendre\n\n- **Pause.** Dites « on s'arrête là » : l'assistant appelle `end_session`, qui ferme la séance et garde votre progression. Fermer une fenêtre n'efface rien. - **Reprise.** Relancez la même leçon avec le même identifiant : Studium reprend à la première étape inachevée. Une leçon terminée recommence au début, comme une reprise. - **Plusieurs endroits.** Le panneau VS Code et un assistant gardent des progressions distinctes. Deux assistants la partagent s'ils utilisent le même dossier de données et le même identifiant. Copilot avec le serveur que propose l'extension Studium la partage avec le panneau : même dossier, même apprenant. - **Effacement.** Demandez à l'assistant d'oublier vos données pour une leçon, ou toutes vos données (`forget_session`) ; il vous dit ensuite ce qui reste sur le disque. Voir [apprendre avec votre assistant](learn-with-your-assistant.fr.md#7-fermer-ou-oublier). Dans VS Code, **Studium : Oublier mes données** efface ce que garde l'extension, pas les données d'un assistant. Les dossiers d'expérience et l'historique de l'assistant suivent leurs propres règles de conservation."
+      "text": "## Interrompre et reprendre\n\n- **Pause.** Dites « on s'arrête là » : l'assistant appelle `end_session`, qui ferme la séance et garde votre progression. Fermer une fenêtre n'efface rien. - **Reprise.** Relancez la même leçon avec le même identifiant : Studium reprend à la première étape inachevée. Une leçon terminée recommence au début, comme une reprise. - **Plusieurs endroits.** Le panneau VS Code et un assistant gardent des progressions distinctes, sauf Copilot avec le serveur que propose l'extension Studium, qui partage celle du panneau : même dossier, même apprenant. Deux assistants la partagent s'ils utilisent le même dossier de données et le même identifiant. - **Effacement.** Demandez à l'assistant d'oublier vos données pour une leçon, ou toutes vos données (`forget_session`) ; il vous dit ensuite ce qui reste sur le disque. Voir [apprendre avec votre assistant](learn-with-your-assistant.fr.md#7-fermer-ou-oublier). Dans VS Code, **Studium : Oublier mes données** efface ce que garde l'extension, pas les données d'un assistant. Les dossiers d'expérience et l'historique de l'assistant suivent leurs propres règles de conservation."
     },
     {
       "id": "p:documentation-de-studium-guide-etudiant:19",

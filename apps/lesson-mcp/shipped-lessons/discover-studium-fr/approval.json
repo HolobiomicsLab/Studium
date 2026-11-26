@@ -1,11 +1,11 @@
 {
-  "bundle_sha256": "ad75b8f9d92ca8887af67edc36ce4d73e2deead144d37090e260f48404cefa11",
+  "bundle_sha256": "1a79ff3614be1138c455885df02a411d8226199412b82f72359cbff7f88bb703",
   "checklist": {},
   "lint": {
     "errors": 0,
     "warnings": 8
   },
-  "reviewed_at": "2026-11-25T21:49:57Z",
+  "reviewed_at": "2026-11-26T09:54:50Z",
   "reviewer": "beta-testeur",
   "schema": "studium-approval/1",
   "tool": "experience_packet.py approve 1.0"

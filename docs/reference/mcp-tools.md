@@ -148,7 +148,7 @@ Start here: what the learner should do now. Reviews due (with dates), concepts t
 
 ### list_lessons
 
-List the lessons this server can start, from BUNDLES_ROOT and the learner's library, read afresh (a lesson written a moment ago is listed): bundle_ref (pass it to start_lesson_session), title, language, concepts, who wrote it (authoring.mode, drafted_by), and with learner_id the learner's status (new | in_progress | completed). `query` keeps the lessons whose title, ref, discipline or concepts contain every word of it. The lessons shipped with Studium (the « Discover Studium » demo) come apart, in shipped_lessons (source "shipped"). display_markdown is the list in `language`, ready to show.
+List the lessons this server can start, from BUNDLES_ROOT and the learner's library, read afresh (a lesson written a moment ago is listed): bundle_ref (pass it to start_lesson_session), title, language, concepts, who wrote it (authoring.mode, drafted_by), and with learner_id the learner's status (new | in_progress | completed). `query` keeps the lessons whose title, ref, discipline or concepts contain every word of it. The lessons shipped with Studium (the « Discover Studium » demo) come apart, in shipped_lessons (source "shipped"): with `language`, only the one in that language when there is one. display_markdown is the list in `language`, ready to show.
 
 | Field | Type | Required | Description |
 |---|---|---|---|
