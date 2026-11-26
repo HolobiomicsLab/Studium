@@ -95,7 +95,7 @@
       "note": "Understand how Studium works and find my way around its interface by using it"
     },
     "discipline": "Studium",
-    "duration_minutes": 11,
+    "duration_minutes": 10,
     "language": "en",
     "target": "Newcomers to Studium",
     "title": "Discover Studium"
@@ -137,11 +137,11 @@
           "degraded": false,
           "enricher_version": "studium-authoring-draft/1",
           "perspicacite_mode_used": "passages",
-          "timestamp": "2026-11-25T21:00:00.000Z"
+          "timestamp": "2026-11-26T10:00:00.000Z"
         }
       },
       "id": "s1-intro",
-      "markdown": "This lesson ships with Studium and takes about ten minutes. It shows how Studium works by making you use it: each mechanism is explained on the step where you meet it.\n\n**Look at the top of the screen first.** Studium says there whether someone validated this exact version of the lesson, and who: in the VS Code pane or the browser, a chip above the step; in a chat, your assistant shows it on the first screen. This lesson was drafted by an AI agent from Studium's own documentation.\n\n**You answer, the assistant relays.** Studium asks the questions and keeps the answer keys. When you play through an assistant (Copilot, Claude Code, Codex or another), it shows each step as Studium wrote it, waits for your answer and passes your own words on. It must never answer, choose or rate for you.\n\nContinue when you are ready.",
+      "markdown": "This lesson ships with Studium and takes about ten minutes. It shows how Studium works by making you use it: each mechanism is explained on the step where you meet it.\n\n**Look at the top of the screen first.** Studium says there whether someone validated this exact version of the lesson, and who: a chip above the step or, when an assistant shows you the lesson, the first lines of this step. This lesson was drafted by an AI agent from Studium's own documentation.\n\n**You answer, the assistant relays.** Studium asks the questions and keeps the answer keys. When you play through an assistant (Copilot, Claude Code, Codex or another), it shows each step as Studium wrote it, waits for your answer and passes your own words on. It must never answer, choose or rate for you.\n\nContinue when you are ready.",
       "objective_refs": [],
       "title": "Welcome",
       "type": "intro"
@@ -185,7 +185,7 @@
           "degraded": false,
           "enricher_version": "studium-authoring-draft/1",
           "perspicacite_mode_used": "passages",
-          "timestamp": "2026-11-25T21:00:00.000Z"
+          "timestamp": "2026-11-26T10:00:00.000Z"
         }
       },
       "feedback_correct": "Right. Studium keeps the keys and the assistant only relays: your answer, in your words.",
@@ -195,7 +195,7 @@
       ],
       "id": "s2-quiz",
       "objective_refs": [],
-      "question": "You play this lesson through an assistant. Who should give the answer to this question?\n\nBefore you answer, you may say how confident you are, from 0 (not confident) to 4 (very confident): in the VS Code pane, tap a number in the row under the choices; in a chat, say it with your answer, for example \"A, confidence 3\", and your assistant can pass it on. It is optional. Studium compares that confidence with what your answers show.",
+      "question": "Suppose you play this lesson through an assistant. Who should give the answer to this question?\n\nBefore you answer, you may say how confident you are, from 0 (not confident) to 4 (very confident): tap a number in the row under the choices or, with an assistant, say it with your answer, for example \"A, confidence 3\", and it can pass it on. It is optional. Studium compares that confidence with what your answers show.",
       "title": "Who answers",
       "type": "quiz"
     },
@@ -204,7 +204,7 @@
       "concept_refs": [
         "studium.graph"
       ],
-      "estimated_seconds": 60,
+      "estimated_seconds": 50,
       "evidence": {
         "bibliographic_refs": [
           {
@@ -230,11 +230,11 @@
           "degraded": false,
           "enricher_version": "studium-authoring-draft/1",
           "perspicacite_mode_used": "passages",
-          "timestamp": "2026-11-25T21:00:00.000Z"
+          "timestamp": "2026-11-26T10:00:00.000Z"
         }
       },
       "id": "s3-concept",
-      "markdown": "A Studium lesson is more than a list of screens. Each step, a *scene*, is tied to one or more **concepts**, and the concepts are linked in a typed graph, the Learning Workflow Graph: an edge such as `prerequisite_for` says that one idea must be in place before another.\n\nThis lesson has five concepts. Two links matter here: *Who holds the key* needs *A course is a graph* first, and *Spaced reviews* needs *Who holds the key*.\n\nThe graph helps decide what comes next. When you reach a concept whose prerequisite is still missing, the lesson can make a **detour** to a question on that prerequisite, then come back. After two errors in a row on the same concept, it replays the step. That is remediation.\n\n**Try it:** open the concept map. In the VS Code pane, press **Concept map** under the step; in a chat, ask \"where am I?\". Each concept shows its state: acquired, to review, in progress, seen but not assessed yet, or upcoming.",
+      "markdown": "A Studium lesson is more than a list of screens. Each step, a *scene*, is tied to one or more **concepts**, and the concepts are linked in a typed graph, the Learning Workflow Graph: an edge such as `prerequisite_for` says that one idea must be in place before another.\n\nThis lesson has five concepts. Two links matter here: *Who holds the key* needs *A course is a graph* first, and *Spaced reviews* needs *Who holds the key*.\n\nThe graph helps decide what comes next. When you reach a concept whose prerequisite is still missing, the lesson can make a **detour** to a question on that prerequisite, then come back. After two errors in a row on the same concept, it replays the step. That is remediation.\n\n**Try it:** open the concept map. Press **Concept map** under the step or, with an assistant, ask \"where am I?\". Each concept shows its state: acquired, to review, in progress, seen but not assessed yet, or upcoming.",
       "objective_refs": [],
       "title": "A course is a graph",
       "type": "concept"
@@ -287,7 +287,7 @@
           "degraded": false,
           "enricher_version": "studium-authoring-draft/1",
           "perspicacite_mode_used": "passages",
-          "timestamp": "2026-11-25T21:00:00.000Z"
+          "timestamp": "2026-11-26T10:00:00.000Z"
         }
       },
       "feedback_correct": "Yes. The graph is part of the lesson file, so a teacher can read and correct it, and the lesson uses it to choose the next step.",
@@ -298,7 +298,7 @@
       ],
       "id": "s4-quiz",
       "objective_refs": [],
-      "question": "In this lesson, *Who holds the key* needs *A course is a graph*. What can happen if you reach it while *A course is a graph* is still missing?\n\nStuck? Ask for a **hint**: the **Hint** button in the pane, or \"a hint, please\" in a chat. A right answer given after a hint counts a little less toward your mastery, and comes back sooner for review.",
+      "question": "In this lesson, *Who holds the key* needs *A course is a graph*. What can happen if you reach it while *A course is a graph* is still missing?\n\nStuck? Ask for a **hint**: press **Hint** or, with an assistant, say \"a hint, please\". A right answer given after a hint counts a little less toward your mastery, and comes back sooner for review.",
       "title": "When a prerequisite is missing",
       "type": "quiz"
     },
@@ -307,7 +307,7 @@
       "concept_refs": [
         "studium.provenance"
       ],
-      "estimated_seconds": 60,
+      "estimated_seconds": 50,
       "evidence": {
         "bibliographic_refs": [
           {
@@ -342,11 +342,11 @@
           "degraded": false,
           "enricher_version": "studium-authoring-draft/1",
           "perspicacite_mode_used": "passages",
-          "timestamp": "2026-11-25T21:00:00.000Z"
+          "timestamp": "2026-11-26T10:00:00.000Z"
         }
       },
       "id": "s5-concept",
-      "markdown": "Every answer is assessed by whoever holds its key, and Studium tells you who that is.\n\n- A **quiz** is checked against the key its author wrote. Here the author is an AI agent; in the pane, the line over the verdict says so: \"Assessed by the AI-drafted key — check it against the cited passage\".\n- A **written answer** (an explanation, a comparison) is assessed only by a judge model, when one is configured. Without one, Studium does not pretend: it shows you a reference and you compare yourself. It never counts keywords.\n- Only assessed answers move your **mastery**.\n\n**Sources.** Each question of this lesson cites a passage of Studium's documentation. Studium refused to write the lesson until every quotation matched its passage character for character. The passages appear after you answer, when you leave the step, so they never give the answer away. An exact quote proves a textual link, not that the question uses it well: if a key looks wrong to you, say so.",
+      "markdown": "Every answer is assessed by whoever holds its key, and Studium tells you who that is.\n\n- A **quiz** is checked against the key its author wrote. Here the author is an AI agent; the verdict says so: \"Assessed by the AI-drafted key — check it against the cited passage\".\n- A **written answer** (an explanation, a comparison) is assessed only by a judge model, when one is configured. Without one, Studium does not pretend: it shows you a reference and you compare yourself. It never counts keywords.\n- Only assessed answers move your **mastery**.\n\n**Sources.** Each question of this lesson cites a passage of Studium's documentation. Studium refused to write the lesson until every quotation matched its passage character for character. The passages appear after you answer, when you leave the step, so they never give the answer away. An exact quote proves a textual link, not that the question uses it well: if a key looks wrong to you, say so.",
       "objective_refs": [],
       "title": "Who holds the key",
       "type": "concept"
@@ -390,7 +390,7 @@
           "degraded": false,
           "enricher_version": "studium-authoring-draft/1",
           "perspicacite_mode_used": "passages",
-          "timestamp": "2026-11-25T21:00:00.000Z"
+          "timestamp": "2026-11-26T10:00:00.000Z"
         }
       },
       "feedback_correct": "Right, and the first step said so. A lesson reads as validated only when an approval record matches its exact file, and that record names who approved it.",
@@ -435,7 +435,7 @@
           "degraded": false,
           "enricher_version": "studium-authoring-draft/1",
           "perspicacite_mode_used": "passages",
-          "timestamp": "2026-11-25T21:00:00.000Z"
+          "timestamp": "2026-11-26T10:00:00.000Z"
         }
       },
       "id": "s7-explain_back",
@@ -484,7 +484,7 @@
       "concept_refs": [
         "studium.reviews"
       ],
-      "estimated_seconds": 60,
+      "estimated_seconds": 50,
       "evidence": {
         "bibliographic_refs": [
           {
@@ -510,7 +510,7 @@
           "degraded": false,
           "enricher_version": "studium-authoring-draft/1",
           "perspicacite_mode_used": "passages",
-          "timestamp": "2026-11-25T21:00:00.000Z"
+          "timestamp": "2026-11-26T10:00:00.000Z"
         }
       },
       "id": "s8-concept",
@@ -558,7 +558,7 @@
           "degraded": false,
           "enricher_version": "studium-authoring-draft/1",
           "perspicacite_mode_used": "passages",
-          "timestamp": "2026-11-25T21:00:00.000Z"
+          "timestamp": "2026-11-26T10:00:00.000Z"
         }
       },
       "feedback_correct": "Yes. Your rating is your own judgement: it schedules, it does not measure.",
@@ -577,7 +577,7 @@
       "concept_refs": [
         "studium.local"
       ],
-      "estimated_seconds": 60,
+      "estimated_seconds": 50,
       "evidence": {
         "bibliographic_refs": [
           {
@@ -603,11 +603,11 @@
           "degraded": false,
           "enricher_version": "studium-authoring-draft/1",
           "perspicacite_mode_used": "passages",
-          "timestamp": "2026-11-25T21:00:00.000Z"
+          "timestamp": "2026-11-26T10:00:00.000Z"
         }
       },
       "id": "s10-concept",
-      "markdown": "Studium keeps your progress on your own machine.\n\n- With an assistant, the lessons it builds for you go to `~/.studium/library` and your progress to `~/.studium/data`, in folders named by a pseudonym, never by your id. The VS Code pane keeps its progress in VS Code's storage, and so does Copilot when it uses the server the extension offers: the two then share it.\n- Class telemetry is off unless you opt in.\n- **What leaves your machine** is what your assistant reads: if it runs on a remote model, the steps it shows and the answers it relays go to that model's provider, under the provider's terms. Playing in the VS Code pane needs no AI account.\n- To erase your progress, ask your assistant to forget your data, or run **Studium: Forget my data** in VS Code.\n\nThis lesson ships with Studium, inside the VS Code extension and the npm package. It stays apart from your library: it never replaces a lesson of yours. When you are done, build a lesson from your own sources: tell your assistant \"I want to learn … with Studium\".",
+      "markdown": "Studium keeps your progress on your own machine.\n\n- With an assistant, the lessons it builds for you go to `~/.studium/library` and your progress to `~/.studium/data`, in folders named by a pseudonym, never by your id. In VS Code, the Studium extension keeps your progress in VS Code's storage, and so does Copilot when it uses the server the extension offers: the two then share it.\n- Class telemetry is off unless you opt in.\n- **What leaves your machine** is what your assistant reads: if it runs on a remote model, the steps it shows and the answers it relays go to that model's provider, under the provider's terms. Playing in VS Code needs no AI account.\n- To erase your progress, run **Studium: Forget my data** in VS Code or, with an assistant, ask it to forget your data.\n\nThis lesson ships with Studium, inside the VS Code extension and the npm package. It stays apart from your library: it never replaces a lesson of yours. When you are done, build a lesson from your own sources: with an assistant, say \"I want to learn … with Studium\".",
       "objective_refs": [],
       "title": "Where your data lives",
       "type": "concept"
@@ -651,7 +651,7 @@
           "degraded": false,
           "enricher_version": "studium-authoring-draft/1",
           "perspicacite_mode_used": "passages",
-          "timestamp": "2026-11-25T21:00:00.000Z"
+          "timestamp": "2026-11-26T10:00:00.000Z"
         }
       },
       "feedback_correct": "Right. Studium keeps its state on your machine; the assistant's provider sees what the assistant reads. Choose an assistant whose terms suit you.",
@@ -661,7 +661,7 @@
       ],
       "id": "s11-quiz",
       "objective_refs": [],
-      "question": "You play this lesson through an assistant that runs on a remote model. What leaves your machine?",
+      "question": "Suppose you play this lesson through an assistant that runs on a remote model. What leaves your machine?",
       "title": "What leaves your machine",
       "type": "quiz"
     },
@@ -704,7 +704,7 @@
           "degraded": false,
           "enricher_version": "studium-authoring-draft/1",
           "perspicacite_mode_used": "passages",
-          "timestamp": "2026-11-25T21:00:00.000Z"
+          "timestamp": "2026-11-26T10:00:00.000Z"
         }
       },
       "feedback_correct": "Yes. You can read the whole graph of a lesson in its concept map, and a teacher can read and correct it in the lesson file.",
@@ -720,7 +720,7 @@
     }
   ],
   "schema_version": "1.4",
-  "source_plan_id": "ss-8a7a00c5c6c35e82",
-  "validated_at": "2026-11-25T21:49:57Z",
+  "source_plan_id": "ss-b01c347780c9e9ff",
+  "validated_at": "2026-11-26T09:54:50Z",
   "validated_by": "beta-testeur"
 }

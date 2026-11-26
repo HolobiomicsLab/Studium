@@ -1,0 +1,85 @@
+{
+  "bundle_ref": "self-study-discover-studium-en",
+  "bundle_sha256": "08f1e65b48492dafb1b36d695d90dcc5e12f9a5b35b9eecb091fac439154d6b9",
+  "decided_at": "2026-11-26T09:54:50Z",
+  "decision": "approved",
+  "items": [
+    {
+      "consequence": "wording",
+      "id": "s1-intro",
+      "opened": false,
+      "sha256": "8fc9bced032cb4f8152ef36fce6f5d80cf3d0373b4f1fff4ed315ee2b7b64ac9"
+    },
+    {
+      "consequence": "grading",
+      "id": "s2-quiz",
+      "opened": false,
+      "sha256": "3df10e417dee42b36fae09fa519e967e84d9afcdaf168e3ebf063ae798d80f64"
+    },
+    {
+      "consequence": "wording",
+      "id": "s3-concept",
+      "opened": false,
+      "sha256": "1db4aa921aa9208c52d714af9fd1c0d53056a419b932f389cc27a44e75538662"
+    },
+    {
+      "consequence": "grading",
+      "id": "s4-quiz",
+      "opened": false,
+      "sha256": "8b69eea5d5ba4a20f108ddbae75b26634fb6cf3c9f86f1ba6f9aed69315c082d"
+    },
+    {
+      "consequence": "wording",
+      "id": "s5-concept",
+      "opened": false,
+      "sha256": "dcfcb8edfd0cd33122d6dde5186e8c5d5f68ee5e7554521be7003854e910e426"
+    },
+    {
+      "consequence": "grading",
+      "id": "s6-quiz",
+      "opened": false,
+      "sha256": "eaa7e1ebe229196f83b8864757070b22ac05485db391970ea6e83a68ac790d0e"
+    },
+    {
+      "consequence": "grading",
+      "id": "s7-explain_back",
+      "opened": false,
+      "sha256": "db95dbc9189c30ba648e28e623325188eab2baf3a8f55c1e3224e00147115343"
+    },
+    {
+      "consequence": "wording",
+      "id": "s8-concept",
+      "opened": false,
+      "sha256": "bdfe3b5563b7b826d845bc701c2311522e2ba0712b3b59e52fd1e31722635e85"
+    },
+    {
+      "consequence": "grading",
+      "id": "s9-quiz",
+      "opened": false,
+      "sha256": "9257c4480bd6334950d984ce86c7bf401de1c4bc4cc82fde5bef36ba242925c6"
+    },
+    {
+      "consequence": "wording",
+      "id": "s10-concept",
+      "opened": false,
+      "sha256": "d9d6b2cdd66828dcabafe8c2a5d17d735cf8bc2020de1bb01ac4ed585c101800"
+    },
+    {
+      "consequence": "grading",
+      "id": "s11-quiz",
+      "opened": false,
+      "sha256": "b1bb58d1ce6c125fa65bf0cd5c43b6b3398c3998045eab5936a09582f91cf211"
+    },
+    {
+      "consequence": "grading",
+      "id": "s12-quiz",
+      "opened": false,
+      "sha256": "16694be91f9d9adb8b5f7f9ff824bc4a9f7f3458d2c621f5f9637a382d6ebfde"
+    }
+  ],
+  "not_opened": 12,
+  "note": "Approbation enregistrée par l'agent sur la délégation du propriétaire du 26 nov. 2026 (« Oui vas y pour 1-4 »), comme pour la version précédente approuvée sans lecture le 25 nov. ; l'agent a réécrit la leçon (décision D7 : formulation neutre quant à la surface, une seule durée) ; personne n'a relu les scènes.",
+  "opened": 0,
+  "reviewer": "beta-testeur",
+  "schema": "studium/review-receipt/v1"
+}

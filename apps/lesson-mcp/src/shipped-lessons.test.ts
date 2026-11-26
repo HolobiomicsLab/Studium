@@ -10,6 +10,7 @@
 // that every passage it quotes is still in the documentation page it cites.
 import { afterAll, describe, expect, it } from "vitest";
 import { createHash } from "node:crypto";
+import { execFileSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
@@ -145,6 +146,61 @@ describe("the shipped « Discover Studium » lessons", () => {
     }
   });
 
+  // D7 (2026-11-26): the demo is the first lesson everyone plays, in the VS Code pane, the browser or a chat. Its text names
+  // the control on screen ("press Concept map under the step; with an assistant, ask …"), never a surface the learner may
+  // not have: no "in the VS Code pane, …", no "in a chat, …", no "tell your assistant …". The drafts are checked too, so
+  // that a rebuild cannot bring the wording back.
+  it("give no instruction that assumes a surface: no 'VS Code pane', no 'tell the assistant' (D7)", () => {
+    const SURFACE_INSTRUCTIONS: Record<string, RegExp[]> = {
+      en: [/\bvs code pane\b/, /\bin the pane\b/, /\btell (the|your) assistant\b/, /\bin a chat\b/],
+      fr: [/\bpanneau vs code\b/, /\bdans le panneau\b/, /\bdis(-le)? à (ton|l')assistant\b/, /\bdans une conversation\b/],
+    };
+    for (const language of LANGUAGES) {
+      for (const [what, value] of [["lesson.json", bundleOf(language).scenes], [`draft.${language}.json`, draftOf(language).scenes]] as const) {
+        const text = stringsOf(value).join("\n").toLowerCase();
+        for (const pattern of SURFACE_INSTRUCTIONS[language]!) expect(text, `${language} ${what}: ${pattern}`).not.toMatch(pattern);
+      }
+    }
+  });
+
+  // D7: the welcome text said "about ten minutes" while metadata.duration_minutes, which the header shows, said 11.
+  it("state one duration: the welcome text, metadata.duration_minutes and the scenes' estimated seconds agree (D7)", () => {
+    const SAID: Record<string, Record<number, string>> = {
+      en: { 10: "about ten minutes", 11: "about eleven minutes", 12: "about twelve minutes" },
+      fr: { 10: "une dizaine de minutes", 11: "environ onze minutes", 12: "environ douze minutes" },
+    };
+    for (const language of LANGUAGES) {
+      const bundle = bundleOf(language);
+      const minutes = bundle.metadata.duration_minutes as number;
+      const seconds = bundle.scenes.reduce((sum: number, scene: Json) => sum + (scene.estimated_seconds as number), 0);
+      expect(Math.ceil(seconds / 60), `${language}: ${seconds} s of scenes`).toBe(minutes);
+      expect(draftOf(language).duration_minutes ?? minutes).toBe(minutes);
+      expect(SAID[language]![minutes], `${language}: a wording for ${minutes} minutes`).toBeDefined();
+      expect(bundle.scenes[0].markdown, `${language}: the welcome step says ${minutes} minutes`).toContain(SAID[language]![minutes]);
+    }
+  });
+
+  // D7: the shipped lessons are what the build script makes of the drafts, not hand edits. The script rebuilds them into a
+  // temporary folder (--out) at the date the shipped ones were built (their enrichment timestamp); approve then rewrote
+  // validated_by and validated_at and normalized the JSON, so those two fields are left out and the JSON is compared
+  // parsed. So are the ids the build derives from the whole documentation pages (the source set's id and the passages'
+  // numbers): an edit elsewhere in a cited page changes them without changing the lesson, and the quote test above
+  // already fails when a quoted sentence goes.
+  it("match a rebuild from their drafts (D7)", () => {
+    const out = temp("studium-rebuild-");
+    const built = bundleOf("en").scenes[0].evidence.enrichment_metadata.timestamp as string;
+    execFileSync(process.execPath, ["--import", "tsx", join(APP, "scripts", "build-shipped-lessons.ts"), "--now", built, "--out", out],
+      { cwd: APP, stdio: "pipe", timeout: 120_000 });
+    const comparable = (bundle: Json): Json => {
+      const { validated_by: _by, validated_at: _at, source_plan_id: _plan, ...rest } = bundle;
+      return JSON.parse(JSON.stringify(rest, (key, value) => (key === "perspicacite_doc_id" ? undefined : value)));
+    };
+    for (const language of LANGUAGES) {
+      const rebuilt = JSON.parse(readFileSync(join(out, `discover-studium-${language}`, "lesson.json"), "utf8")) as Json;
+      expect(comparable(bundleOf(language)), `${language}: rebuild with scripts/build-shipped-lessons.ts, then approve again`).toEqual(comparable(rebuilt));
+    }
+  }, 120_000);
+
   it("quote, character for character, passages still in the documentation pages they cite", () => {
     const fold = (text: string) => text.normalize("NFC").replace(/[‘’ʼ]/g, "'").replace(/\s+/g, " ").trim();
     for (const language of LANGUAGES) {
@@ -172,7 +228,9 @@ describe("a newcomer plays the demo through the MCP server", () => {
       });
       const listed = await call("list_lessons", { learner_id: "newcomer", language });
       expect(listed.lessons).toEqual([]);
-      expect(listed.shipped_lessons.map((l: Json) => [l.bundle_ref, l.source])).toEqual(LANGUAGES.map((l) => [refOf(l), "shipped"]));
+      // Changed: 2026-11-26 (D7), list_lessons {language} listed the demo in both languages; it lists only the one in the
+      // language asked for, since that version exists (the other stays startable by its ref, and listed without a language).
+      expect(listed.shipped_lessons.map((l: Json) => [l.bundle_ref, l.source])).toEqual([[refOf(language), "shipped"]]);
       expect(listed.display_markdown).toMatch(language === "en" ? /Shipped with Studium/ : /Livrée avec Studium/);
 
       const started = await call(plan.next_step.tool, plan.next_step.arguments);

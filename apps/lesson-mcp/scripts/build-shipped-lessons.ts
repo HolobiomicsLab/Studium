@@ -11,7 +11,10 @@
 // bound to its exact bytes: the build writes none, and a rebuild leaves any existing record stale until approve
 // runs again (shipped-lessons-src/README.md).
 //
-//   pnpm --filter @studium/lesson-mcp exec tsx scripts/build-shipped-lessons.ts [--now 2026-11-25T12:00:00Z]
+//   pnpm --filter @studium/lesson-mcp exec tsx scripts/build-shipped-lessons.ts [--now 2026-11-25T12:00:00Z] [--out DIR]
+//
+// --out DIR writes the lessons to DIR/discover-studium-<lang>/lesson.json and the source sets to DIR/source-set.<lang>.json
+// instead of the shipped folders: src/shipped-lessons.test.ts rebuilds there and compares (D7, 2026-11-26).
 //
 // Inputs, in shipped-lessons-src/discover-studium/: sources.json (the pages, their URL and licence, the
 // authoring mode) and draft.<lang>.json (the LessonDraft). A quote's passage_id may be written `doc:<key>`: it
@@ -20,7 +23,7 @@
 // lesson.json and shipped-lessons-src/discover-studium/source-set.<lang>.json (what the lesson may cite,
 // named by the lesson's source_plan_id). Nothing is written under ~/.studium: the library is a temporary
 // folder.
-import { copyFile, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -62,6 +65,15 @@ function nowFromArgs(argv: readonly string[]): Date {
   return value;
 }
 
+/** --out DIR: where the lessons and source sets go instead of the shipped folders, or null. */
+function outFromArgs(argv: readonly string[]): string | null {
+  const at = argv.indexOf("--out");
+  if (at < 0) return null;
+  const dir = argv[at + 1];
+  if (!dir) throw new Error("--out takes a directory");
+  return resolve(dir);
+}
+
 /** Replace each `doc:<key>` passage_id with the id of the one passage of that page holding the quote. */
 interface DraftQuotes { scenes: Array<{ quotes?: Array<{ passage_id: string; text: string }> }> }
 
@@ -82,7 +94,7 @@ function resolveQuotes(draft: DraftQuotes, passages: ReadonlyArray<{ id: string;
   }
 }
 
-async function build(language: (typeof LANGUAGES)[number], inputs: Inputs, now: Date, mode: AuthoringMode): Promise<void> {
+async function build(language: (typeof LANGUAGES)[number], inputs: Inputs, now: Date, mode: AuthoringMode, out: string | null): Promise<void> {
   const library = await mkdtemp(join(tmpdir(), "studium-shipped-"));
   try {
     const entries = inputs.sources[language] ?? [];
@@ -107,11 +119,12 @@ async function build(language: (typeof LANGUAGES)[number], inputs: Inputs, now: 
     };
     lesson.metadata.authoring = { ...lesson.metadata.authoring, mode, drafted_by: "agent", author_is_learner: false };
     if (mode === "teacher") lesson.validated_by = TEACHER_DRAFT_VALIDATED_BY;
-    const outputDir = join(OUTPUTS, courseId);
+    const outputDir = join(out ?? OUTPUTS, courseId);
+    if (out) await mkdir(outputDir, { recursive: true });
     const lint = lintBundleData(lesson, { bundleDir: outputDir });
     if (lint.findings.some((f) => f.level === "ERROR")) process.exitCode = 1;
     await writeFile(join(outputDir, "lesson.json"), `${JSON.stringify(lesson, null, 2)}\n`, "utf8");
-    await copyFile(join(library, "_sources", `${set.source_set_id}.json`), join(INPUTS, `source-set.${language}.json`));
+    await copyFile(join(library, "_sources", `${set.source_set_id}.json`), join(out ?? INPUTS, `source-set.${language}.json`));
     const findings = lint.findings.map((f) => `  ${f.level} ${f.code}: ${f.message}`).join("\n");
     process.stdout.write(`${courseId}: ${result.bundle.scenes.length} scenes, ${result.bundle.metadata.duration_minutes} min, ` +
       `source set ${set.source_set_id} (${set.passages.length} passages), mode ${mode}\n  key classes ${JSON.stringify(result.key_classes)}\n${findings}\n`);
@@ -123,4 +136,5 @@ async function build(language: (typeof LANGUAGES)[number], inputs: Inputs, now: 
 const inputs = JSON.parse(await readFile(join(INPUTS, "sources.json"), "utf8")) as Inputs;
 const now = nowFromArgs(process.argv.slice(2));
 const mode = authoringModeOf(inputs);
-for (const language of LANGUAGES) await build(language, inputs, now, mode);
+const out = outFromArgs(process.argv.slice(2));
+for (const language of LANGUAGES) await build(language, inputs, now, mode, out);

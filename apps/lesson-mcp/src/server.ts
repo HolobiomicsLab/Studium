@@ -159,7 +159,8 @@ export function studyOperations(
       "written a moment ago is listed): bundle_ref (pass it to start_lesson_session), title, language, concepts, who " +
       "wrote it (authoring.mode, drafted_by), and with learner_id the learner's status (new | in_progress | completed). " +
       "`query` keeps the lessons whose title, ref, discipline or concepts contain every word of it. The lessons shipped " +
-      "with Studium (the « Discover Studium » demo) come apart, in shipped_lessons (source \"shipped\"). display_markdown " +
+      "with Studium (the « Discover Studium » demo) come apart, in shipped_lessons (source \"shipped\"): with `language`, only " +
+      "the one in that language when there is one. display_markdown " +
       "is the list in `language`, ready to show.",
       { query: z.string().max(200).optional(), learner_id: z.string().min(1).max(200).optional(), language: languageArg },
       async ({ query, learner_id, language }) => host.listLessons({

@@ -1651,7 +1651,8 @@ export class SessionHost {
    * the learner's progress when `learnerId` is given. `query` keeps lessons whose title, ref,
    * discipline or concepts contain every word of it (case and accents ignored). L-4: display_markdown
    * speaks `language` (fr|en), else the language of the learner's last lesson, else of the newest
-   * lesson on disk, else English. */
+   * lesson on disk, else English. D7: with `language`, shipped_lessons holds only the shipped lesson in that language
+   * when there is one, else every one. */
   async listLessons(opts: { query?: string; learnerId?: string; language?: DisplayLocale } = {}): Promise<LessonListing> {
     // D1: when the editor names the learner, the listing shows that learner's progress, learner_id given or not.
     if (this.editorNamesLearner) opts = { ...opts, learnerId: this.defaultLearnerId };
@@ -1682,7 +1683,11 @@ export class SessionHost {
       ...(progress ? { status: progress(l) } : {}),
     }));
     const listed = all.filter((l) => l.source !== "shipped");
-    const shipped = all.filter((l) => l.source === "shipped");
+    const everyShipped = all.filter((l) => l.source === "shipped");
+    // D7 (2026-11-26): asked in a language, only the shipped lesson in that language when that version exists, so a
+    // player lists one demo; without a language, or when none is in it, every one (a player can still switch).
+    const askedShipped = language === undefined ? [] : everyShipped.filter((l) => displayLocale(l.language) === language);
+    const shipped = askedShipped.length ? askedShipped : everyShipped;
     const newestLesson = [...catalog.lessons].filter((l) => l.root !== "shipped").sort((a, b) => b.modified_at - a.modified_at)[0];
     const locale = language ?? displayLocale(learnerLanguage ?? newestLesson?.language ?? DEFAULT_LOCALE);
     // The chat shows the shipped lessons in the list's language when there is one; the JSON keeps them all.
