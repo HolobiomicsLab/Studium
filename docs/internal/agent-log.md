@@ -22,7 +22,9 @@ pour le point 2 précédent »). Branche `feat/2026-11-27-review-past-steps`, su
 - Contrat d'interaction (TS et Python) et `InteractionAct` : `revisit`, `resume`. Mod Claude Code : lit ces vues.
 - Rendu partagé (`artifact-pane.js`) : boutons numérotés sous le rail (`aria-label` « Revoir l'étape N : titre »),
   bandeau qui prend le focus, contenu, réponse et retour, un bouton « Reprendre où j'en étais » ; la réponse commencée
-  revient au retour, le focus sur la scène.
+  revient au retour, le focus sur la scène. Sous une barre segmentée (30 étapes ou moins), chaque bouton est aligné
+  sous son segment (on revient « par la barre de progression »), vérifié dans le lecteur navigateur avec Chromium
+  sans tête sur « Découvrir Studium » : relecture d'une intro et d'un quiz juste, puis reprise.
 - Tests : lesson-panel (10), hôte (4), MCP (1), rendu (4), lecteur navigateur (1), pilotes webview-pane et
   extension-host (blocs nouveaux), mod (1). Docs VS Code, navigateur, guide de l'étudiant (EN, FR), outils MCP
   régénérés, CHANGELOG.

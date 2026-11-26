@@ -1246,15 +1246,20 @@ let renderView;
 
   // --- revisiting a step already done (owner decision 2026-11-26, « précédent ») ----------------------
   // Going back is a read-only revisit, never a rewind. The server lists the main-path steps already done
-  // (progress.done) and offers revisit; each is a button beside the rail, named for the step. The rail
-  // itself stays a progressbar, whose children are not interactive.
+  // (progress.done) and offers revisit; each is a button named for the step. The rail itself stays a
+  // progressbar, whose children are not interactive; under a segmented rail (30 steps or fewer) each button
+  // sits right under its own segment, so the learner goes back "through the progress bar" (owner, 26 Nov).
   function revisitSteps(state) {
     const offered = Array.isArray(state.actions) ? state.actions : [];
     const done = isObject(state.progress) && Array.isArray(state.progress.done)
       ? state.progress.done.filter((s) => isObject(s) && typeof s.scene_id === "string" && s.scene_id && Number.isFinite(Number(s.index))) : [];
     if (!offered.includes("revisit") || !done.length) return null;
     const on = isObject(state.revisit) ? state.revisit.scene_id : null;
-    const list = el("ol", { class: "revisit-steps-list" });
+    const total = Math.max(1, Number(state.progress.total) || 1);
+    const aligned = total <= 30;
+    const list = el("ol", aligned
+      ? { class: "revisit-steps-list is-aligned", style: `--revisit-cols:${total}` }
+      : { class: "revisit-steps-list" });
     for (const step of done) {
       const label = t("pane_revisit_step", { index: Number(step.index), title: String(step.title || "") });
       const button = el("button", {
@@ -1262,7 +1267,8 @@ let renderView;
         "aria-label": label, title: label, "aria-current": step.scene_id === on ? "step" : null,
       }, String(Number(step.index)));
       button.addEventListener("click", () => openRevisit(step.scene_id));
-      list.append(el("li", {}, button));
+      const index = Number(step.index);
+      list.append(el("li", aligned && index >= 1 && index <= total ? { style: `grid-column:${index}` } : {}, button));
     }
     return el("nav", { class: "revisit-steps", "aria-label": t("pane_revisit_nav") }, list);
   }
