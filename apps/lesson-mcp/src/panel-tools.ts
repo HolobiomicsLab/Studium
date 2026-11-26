@@ -3,7 +3,7 @@ import { z } from "zod";
 import type { McpServer, RegisteredTool } from "@modelcontextprotocol/sdk/server/mcp.js";
 import {
   SessionHost, ResponseInputSchema, publicPresentation, publicTransition, loadResolvedBundle,
-  orientationOf, statusLine, voicesOf, helpOf,
+  orientationOf, statusLine, voicesOf, helpOf, type AnswerSurface,
 } from "@studium/lesson-session-host";
 import { scanCatalog } from "../../../packages/lesson-session-host/src/lesson-catalog.js";
 import { reviewContext } from "../../../packages/lesson-panel/src/pane-messages.js";
@@ -21,15 +21,20 @@ export const PANEL_TOOL_NAMES = ["open_lesson_panel", "get_panel_view", "panel_a
 // The extension is CJS; source tsx and bundled builds expose it differently.
 const { inlineImageAsset } = (Reflect.get(imageAssets, "default") as typeof imageAssets | undefined) ?? imageAssets;
 
-/** Adapt the existing host operations; disk access stays outside lesson-panel. */
-export function hostBackend(host: SessionHost, bundlesRoot: string): PanelBackend {
+/** Adapt the existing host operations; disk access stays outside lesson-panel. `answeredOn`: the surface a session's
+ * answers arrive from (follow-up to decision 4, B), which the host records; absent, none is recorded. */
+export function hostBackend(host: SessionHost, bundlesRoot: string, answeredOn?: (sessionId: string) => AnswerSurface | undefined): PanelBackend {
   return {
     getCurrentScene: async id => publicPresentation(host.currentPresentation(id)),
     getSceneArtifacts: async id => host.sceneArtifacts(id),
     getSessionState: async id => host.getState(id),
     // A panel, a pane and a form are the fast lane: the companion brief says so (companion.ts).
-    submitResponse: async (id, input, expectedSceneId) =>
-      publicTransition(await host.respond(id, ResponseInputSchema.parse(input), "fast", expectedSceneId === undefined ? {} : { expectedSceneId })),
+    submitResponse: async (id, input, expectedSceneId) => {
+      const surface = answeredOn?.(id);
+      return publicTransition(await host.respond(id, ResponseInputSchema.parse(input), "fast", {
+        ...(expectedSceneId === undefined ? {} : { expectedSceneId }), ...(surface === undefined ? {} : { answeredOn: surface }),
+      }));
+    },
     submitTurn: async (id, text) => {
       await host.submitTurn(id, text);
       return { reasoning: host.lastReasoning(id), tutor: host.lastTutorMove(id) };
@@ -112,12 +117,13 @@ const CONTINUE_ON: Record<1 | 2, string> = {
 const CONTINUE_ON_PANE = "Surface: pane. A native pane adapter shows the lesson and takes the learner's actions; if no pane is " +
   "shown to the learner, call get_panel_view with this session_id and surface: \"text\", then play in the conversation.";
 
-/** The view as its reader needs it. A panel or a pane draws it and takes its labels from `strings`,
- * the interface's phrase catalogue (some 24 kB). Below a panel nothing draws the view: its reader is
- * a model, and the catalogue is left out. */
+/** The view as its reader needs it. A native pane draws it and takes its labels from `strings`, the
+ * interface's phrase catalogue (some 24 kB). An MCP Apps panel draws it with the labels its own app
+ * carries (bridge-mcp-app.js, browserPhrases), and its host may give the model the whole result (VS Code
+ * does). Below a panel nothing draws the view: its reader is a model. Everywhere but on a pane the
+ * catalogue is left empty (BN-8, waiting review 2026-11-25); the key stays, as the view's schema wants. */
 function forSurface(panel: PanelView): PanelView {
-  const rank = panel.surface?.rank;
-  return rank === 1 || rank === 2 ? { ...panel, strings: {} } : panel;
+  return panel.surface?.kind === "pane" ? panel : { ...panel, strings: {} };
 }
 
 function panelResult(view: PanelView, brief?: ReturnType<SessionHost["companionBrief"]>) {
@@ -138,14 +144,48 @@ function toolError(error: unknown) {
   return { content: [{ type: "text" as const, text: JSON.stringify({ error: error instanceof Error ? error.message : String(error) }) }], isError: true as const };
 }
 
+/** Follow-up to decision 4: the clients that ask for a pane and draw one, by the name they give at initialize. The
+ * browser player's page (player.ts) and the VS Code extension's pane (apps/studium-vscode/src/mcp-connect.ts) are
+ * Studium's own. The Claude Code mod (apps/claude-code-mod) calls the server through Claude Code's own MCP client
+ * ($.mcp.call finds the tool among the session's connected ones), which names itself "claude-code" (read in Claude
+ * Code 2.1.332: new Client({name: "claude-code", title: "Claude Code", version})). Claude Code's model shares that
+ * client and its name, so the server cannot tell the mod from a model asking for a pane there. Any other client that
+ * asks for a pane has none (review G, finding 1): a model there asks for one, then plays in the chat (CONTINUE_ON_PANE). */
+export const BROWSER_PLAYER_CLIENT = "studium-browser-player";
+export const VSCODE_PANE_CLIENT = "studium-vscode";
+export const CLAUDE_CODE_CLIENT = "claude-code";
+
+/** Where the answers of a session played on `surface` arrive, for a client named `clientName`. */
+export function answerSurfaceOf(surface: Surface | undefined, clientName: string | undefined): AnswerSurface {
+  if (surface?.kind === "panel") return "panel";
+  if (surface?.kind !== "pane") return "chat";
+  return clientName === BROWSER_PLAYER_CLIENT ? "browser" : clientName === VSCODE_PANE_CLIENT ? "vscode_pane"
+    : clientName === CLAUDE_CODE_CLIENT ? "assistant_pane" : "chat";
+}
+
 /** Per-server contexts retain earned feedback, including transitions from the native run protocol. */
 class Panels {
   readonly contexts = new Map<string, PanelContext>();
   readonly busy = new Set<PanelContext>();
   readonly backend: PanelBackend;
-  /** `client` reads what the connected client declared it can render (see negotiateSurface). */
-  constructor(readonly host: SessionHost, private readonly client: () => { ui: boolean; forms: boolean }) {
-    this.backend = hostBackend(host, host.bundlesRoot);
+  /** Follow-up to decision 4 (A): whether the Claude Code mod's pane has played the default learner on this connection.
+   * A pane cannot be detected: Claude Code's client asked for one for that learner, the only one /studium opens for
+   * (apps/claude-code-mod/hooks/register.tsx), and no call has taken that session up off the pane since. */
+  modPane = false;
+  /** `client` reads what the connected client declared it can render (see negotiateSurface) and its name. */
+  constructor(readonly host: SessionHost, private readonly client: () => { ui: boolean; forms: boolean; name?: string }) {
+    this.backend = hostBackend(host, host.bundlesRoot, (id) => {
+      const ctx = this.contexts.get(id);
+      return ctx ? answerSurfaceOf(ctx.surface, this.client().name) : undefined;
+    });
+  }
+
+  /** A context of the default learner negotiated on a pane by Claude Code's client: the mod's pane is there. Taken up
+   * off the pane (`was` a pane), as CONTINUE_ON_PANE tells a model with no pane to do: it is not, or no longer. */
+  private notePane(ctx: PanelContext, was?: SurfaceKind): void {
+    if (ctx.learnerId !== this.host.learnerFor() || this.client().name !== CLAUDE_CODE_CLIENT) return;
+    if (ctx.surface?.kind === "pane") this.modPane = true;
+    else if (was === "pane") this.modPane = false;
   }
 
   /** The session's panel context. Its surface is negotiated when the context is created, and again
@@ -155,10 +195,11 @@ class Panels {
     const existing = this.contexts.get(id);
     if (existing) {
       if (options.surface !== undefined) {
-        const was = existing.surface?.rank;
+        const was = existing.surface;
         existing.surface = negotiateSurface(this.client(), options.surface);
         // The lesson is taken up on a surface of another rank: the interaction log says so.
-        if (was !== undefined && existing.surface.rank !== was) this.host.surfaceChanged(id);
+        if (was !== undefined && existing.surface.rank !== was.rank) this.host.surfaceChanged(id);
+        this.notePane(existing, was?.kind);
       }
       return existing;
     }
@@ -168,19 +209,20 @@ class Panels {
     const ref = options.bundle_ref ?? catalog?.lessons.find(l => l.bundle_id === state.lesson_id)?.bundle_ref ?? "";
     const resolved = ref ? await loadResolvedBundle(roots, ref) : null;
     const ctx: PanelContext = {
-      sessionId: id, learnerId: options.learner_id ?? this.host.defaultLearnerId,
+      sessionId: id, learnerId: this.host.learnerFor(options.learner_id),
       bundleRef: ref, lessonTitle: resolved?.bundle.metadata.title ?? state.lesson_id,
       contentLanguage: this.host.sessionLanguage(id).source_language,
       conceptTitles: Object.fromEntries((resolved?.bundle.concepts ?? []).map(c => [c.id, c.title])),
       surface: negotiateSurface(this.client(), options.surface),
     };
     this.contexts.set(id, ctx);
+    this.notePane(ctx);
     return ctx;
   }
 
   async open(options: Payload): Promise<PanelView> {
     if (!options.session_id && !options.bundle_ref) throw new Error("pass bundle_ref or session_id");
-    const started = options.session_id ? null : await this.backend.startLessonSession(options.bundle_ref, options.learner_id ?? this.host.defaultLearnerId);
+    const started = options.session_id ? null : await this.backend.startLessonSession(options.bundle_ref, this.host.learnerFor(options.learner_id));
     const ctx = await this.context(options.session_id ?? started!.session_id, options);
     if (options.show_mastery !== undefined) ctx.showMastery = options.show_mastery;
     if (options.modality_preference !== undefined) ctx.modalityPreference = options.modality_preference;
@@ -217,13 +259,13 @@ class Panels {
     if (name === "forget_session" || name === "end_session") {
       this.contexts.delete(args.session_id);
       if (args.learner_id) for (const [id, context] of this.contexts) {
-        if (context.learnerId === args.learner_id) this.contexts.delete(id);
+        if (context.learnerId === this.host.learnerFor(args.learner_id)) this.contexts.delete(id);
       }
     }
   }
 }
 
-const UI_EXTENSION = "io.modelcontextprotocol/ui";
+export const UI_EXTENSION = "io.modelcontextprotocol/ui";
 const UI_MIME = "text/html;profile=mcp-app";
 const UI_META = { ui: { csp: { resourceDomains: ["https://cdn.jsdelivr.net"] }, prefersBorder: true } };
 
@@ -259,14 +301,15 @@ function registerPanelUi(server: McpServer) {
 export function registerPanelTools(server: McpServer, host: SessionHost) {
   const panels = new Panels(host, () => {
     const declared = server.server.getClientCapabilities();
-    return { ui: Boolean(declared?.extensions?.[UI_EXTENSION]), forms: Boolean(declared?.elicitation) };
+    const name = server.server.getClientVersion()?.name;
+    return { ui: Boolean(declared?.extensions?.[UI_EXTENSION]), forms: Boolean(declared?.elicitation), ...(name === undefined ? {} : { name }) };
   });
   const attachTool = registerPanelUi(server);
   const session = { session_id: z.string().min(1) };
   const surface = z.enum(SURFACE_KINDS).optional()
     .describe("The surface to play on. Omit it: the server picks the best one this client renders. \"pane\" is for a native pane adapter; \"text\" when the learner prefers the conversation.");
   const openTool = server.registerTool("open_lesson_panel", {
-    description: "Open or resume a lesson by bundle_ref or existing session_id, on the best surface this client renders (a panel, forms, or the conversation). Returns a public PanelView whose `surface` says which, and a short summary that says how to continue; wait for the learner's own actions. Below a panel the view's `strings` (the interface's labels) is empty: nothing draws it.",
+    description: "Open or resume a lesson by bundle_ref or existing session_id, on the best surface this client renders (a panel, forms, or the conversation). Returns a public PanelView whose `surface` says which, and a short summary that says how to continue; wait for the learner's own actions. The view's `strings` (the interface's labels) is empty except on a native pane: a panel's app brings its own, and below a panel nothing draws it.",
     inputSchema: {
       bundle_ref: z.string().min(1).optional(), session_id: z.string().min(1).optional(), learner_id: z.string().min(1).optional(),
       show_mastery: z.boolean().optional(), modality_preference: z.enum(["balanced", "visual", "textual"]).optional(), locale: z.enum(["fr", "en"]).optional(),
@@ -301,6 +344,8 @@ export function registerPanelTools(server: McpServer, host: SessionHost) {
     /** The rank of the surface the session was negotiated on; 1 when no panel context holds it (a
      * session the panel tools never saw). The conversation tools log their acts on that rank. */
     surfaceRankOf: (id: string): Surface["rank"] => panels.contexts.get(id)?.surface?.rank ?? 1,
+    /** Follow-up to decision 4 (A): whether the Claude Code mod's pane plays `learnerId` here: the default learner only. */
+    nativePane: (learnerId: string): boolean => panels.modPane && learnerId === host.learnerFor(),
     observe: async (name: string, args: Payload, result: ToolResult) => {
       try { await panels.observe(name, args, result); }
       catch { /* Panel bookkeeping must not change legacy replies. */ }

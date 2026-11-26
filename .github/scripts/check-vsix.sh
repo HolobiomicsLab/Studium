@@ -45,6 +45,9 @@ require extension/dist/panel/vendor/3Dmol-min.js
 # The demo lesson shipped with Studium (« Try the demo lesson »), copied by the vendor script.
 require extension/dist/shipped-lessons/discover-studium-en/lesson.json
 require extension/dist/shipped-lessons/discover-studium-fr/lesson.json
+# Its approval record (experience_packet.py approve), bound to the bytes of each lesson.json: without it the demo reads as not validated.
+require extension/dist/shipped-lessons/discover-studium-en/approval.json
+require extension/dist/shipped-lessons/discover-studium-fr/approval.json
 forbid '^extension/src/'
 forbid '^extension/node_modules/'
 forbid '^extension/README\.fr\.md$'

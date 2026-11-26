@@ -66,6 +66,7 @@ describe('startPlay', () => {
       env:{STUDIUM_EPHEMERAL:'1'}, home:'/nonexistent-home', open:url => { opened.push(url); }, print:line => { lines.push(line); },
     });
     runs.push(run);
+    // Review G, item 5: the address an assistant shows names its key k (served-player.ts); this one keeps #token=.
     expect(run.url).toMatch(/^http:\/\/127\.0\.0\.1:\d+\/play#token=[0-9a-f]{64}$/);
     expect(run.server.address()).toMatchObject({address:'127.0.0.1'});
     expect(opened).toEqual([run.url]);

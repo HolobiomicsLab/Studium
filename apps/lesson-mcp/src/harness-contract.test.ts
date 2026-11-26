@@ -99,6 +99,71 @@ describe("instructions and prompts (RT-8a, RFR-16, L-4)", () => {
     expect(authoring).toMatch(/web/);
   });
 
+  // BN-2 (waiting review 2026-11-25): within the same line budget, the authoring line asks to relay
+  // get_authoring_guide's tell_learner at once (writing a lesson takes minutes), and the language line
+  // asks for the learner's language there too, so that the sentence comes in it.
+  it("tell the harness to relay tell_learner at once, and to pass the learner's language to get_authoring_guide", () => {
+    const lines = SERVER_INSTRUCTIONS.split("\n");
+    const authoring = lines.find((line) => line.includes("prepare_sources, create_lesson"))!;
+    expect(authoring).toContain("tell_learner");
+    expect(authoring).toMatch(/minutes/);
+    expect(authoring).toMatch(/without waiting/);
+    // The sentence goes with the prepare_sources call, not with whatever call comes next.
+    expect(authoring).toContain("with your prepare_sources call");
+    expect(lines.find((line) => line.startsWith("- Pass the learner's language"))).toContain("get_authoring_guide");
+    expect(lines.length).toBeLessThanOrEqual(13);
+  });
+
+  // D3 and D4 (waiting review 2026-11-25): within the same line budget, the authoring line asks for a short
+  // keyless sketch before the draft, the draft written once in the create_lesson call, and after a refusal
+  // only the scenes it names, with draft_id.
+  it("tell the harness to sketch first, write the draft once and resend only the scenes a refusal names", () => {
+    const lines = SERVER_INSTRUCTIONS.split("\n");
+    const authoring = lines.find((line) => line.includes("prepare_sources, create_lesson"))!;
+    expect(authoring).toMatch(/short sketch/);
+    expect(authoring).toMatch(/never a key/);
+    expect(authoring).toMatch(/once, in the create_lesson call/);
+    expect(authoring).toMatch(/only the scenes it names, with draft_id/);
+    expect(lines.length).toBeLessThanOrEqual(13);
+  });
+
+  // Review of D4 (minor 6): the sketch names each step's kind and title, its titles name the topic and never
+  // the answer, and a refusal that asks for the whole draft gets the whole draft; still 13 lines at most.
+  it("say what the sketch holds, and that a refusal asking for the whole draft gets it", () => {
+    const lines = SERVER_INSTRUCTIONS.split("\n");
+    const authoring = lines.find((line) => line.includes("prepare_sources, create_lesson"))!;
+    expect(authoring).toMatch(/each step's kind and title/);
+    expect(authoring).toMatch(/titles name the topic, never the answer/);
+    expect(authoring).toMatch(/only the scenes it names, with draft_id, unless it asks for the whole draft/);
+    expect(lines.length).toBeLessThanOrEqual(13);
+  });
+
+  // D4 (waiting review 2026-11-25, owner decision 4): without the VS Code extension, a result or a next_step may carry
+  // open_link too (the server's browser player): one rule for every harness, the link first and the chat on « here »;
+  // still 13 lines at most.
+  it("tell every harness to show display_markdown with open_link first, and to start in the chat on “here” only", () => {
+    const lines = SERVER_INSTRUCTIONS.split("\n");
+    const authoring = lines.find((line) => line.includes("prepare_sources, create_lesson"))!;
+    // Changed (follow-up to decision 4, owner 2026-11-25): offer_first says what comes first — the client's panel (the
+    // assistant calls open_lesson_panel), the chat after answers there, or a link — so the rule reads offer_first (was
+    // « carries open_link, show its display_markdown as it is (the link first) »); a link first keeps its words.
+    expect(authoring).toMatch(/When a result or a next_step carries offer_first, show its display_markdown as it is and do what it offers first/);
+    expect(authoring).toMatch(/otherwise its open_link \(the link first\)/);
+    expect(authoring).toMatch(/call start_lesson_session only if the learner says “here”/);
+    expect(lines.length).toBeLessThanOrEqual(13);
+  });
+
+  // OpenCode and Vibe trials (2026-11-25): the model started the lesson in the chat and did not copy the browser
+  // player's address (« via le lien fourni par Studium », without the link). The display line says the learner reads
+  // only the assistant's messages, so an address in display_markdown is copied; still 13 lines at most.
+  it("tell the harness the learner sees no tool result, so display_markdown goes with its links and addresses", () => {
+    const lines = SERVER_INSTRUCTIONS.split("\n");
+    const display = lines.find((line) => /show display_markdown as it is/i.test(line))!;
+    expect(display).toMatch(/The learner sees none of your tool results, only your messages/);
+    expect(display).toMatch(/with its links and addresses written out/);
+    expect(lines.length).toBeLessThanOrEqual(13);
+  });
+
   it("call list_lessons only when the plan's next step is not to author, and pass the language", async () => {
     const { client } = await connect({ bundlesRoot: tmp() });
     const en = await promptText(client, "learn", { topic: "binary search", learner_id: "ren", language: "en" });

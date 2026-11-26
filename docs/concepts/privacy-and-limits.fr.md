@@ -13,6 +13,7 @@ Le serveur MCP (`apps/lesson-mcp`) applique ces valeurs par défaut. Chacune se 
 | Racine de votre bibliothèque et de vos données | `~/.studium` | `STUDIUM_HOME` |
 | Leçons écrites pour vous | `<STUDIUM_HOME>/library/<cours>/lesson.json`, quel que soit `BUNDLES_ROOT` | `STUDIUM_HOME` ; `BUNDLES_ROOT` ne fait qu'ajouter un dossier consulté en premier |
 | Sources préparées pour ces leçons (leurs passages, et pour un fichier lu par son chemin, son chemin complet, sa taille et son SHA-256) | `<STUDIUM_HOME>/library/_sources/` | `STUDIUM_HOME` |
+| Un brouillon refusé par Studium, gardé pour que l'assistant ne renvoie que les scènes fautives (voir *Un brouillon gardé* plus bas) | `<STUDIUM_HOME>/library/_drafts/` | `STUDIUM_HOME` |
 | Votre progression | `<STUDIUM_HOME>/data` | `STUDIUM_DATA_DIR` |
 | Rien sur disque, mémoire seulement | désactivé | `STUDIUM_EPHEMERAL=1` |
 | Identifiant d'apprenant quand l'assistant n'en donne pas | `anonymous` | `STUDIUM_LEARNER_ID` |
@@ -22,7 +23,7 @@ Dans le dossier de données, chaque apprenant a un dossier nommé par un pseudon
 | Fichier | Contenu |
 |---|---|
 | `<pseudonyme>/profile.json` | profil transversal aux leçons, mémoire de révision comprise |
-| `<pseudonyme>/study.json` | où l'apprenant a étudié |
+| `<pseudonyme>/study.json` | où l'apprenant a étudié, et où il a répondu à une étape pour la dernière fois (`answered_on` : le navigateur, le panneau VS Code, un panneau, le volet Claude Code ou la conversation), pour que la leçon suivante y soit proposée d'abord |
 | `<pseudonyme>/status.json` | où en est la séance en cours (titre de la leçon, étape, minutes restantes), pour la ligne d'état d'un assistant ; retiré à la fermeture de la séance |
 | `<pseudonyme>/<leçon>/state-<leçon>.json` | état de la leçon et maîtrise |
 | `<pseudonyme>/<leçon>/events.jsonl` | journal d'événements de la séance |
@@ -32,6 +33,14 @@ Dans le dossier de données, chaque apprenant a un dossier nommé par un pseudon
 Avec `STUDIUM_EPHEMERAL=1` et sans `STUDIUM_DATA_DIR`, la progression est perdue à l'arrêt du serveur, ce que signalent `get_server_info` et `start_lesson_session`.
 
 Quand vous dites à votre assistant ce que vous savez déjà, ce qui vous intéresse, combien de minutes par jour vous avez ou une date visée, les deux premiers éléments orientent seulement le brouillon de la leçon et ne sont pas conservés. Le fichier de la leçon garde les minutes par jour et la date visée (`metadata.authoring.learner_profile`), et votre relevé d'étude garde les minutes ; un fichier de leçon que vous partagez les emporte avec lui.
+
+### Un brouillon gardé
+
+Quand Studium refuse un brouillon de leçon pour ce qu'il dit, il le garde dans `<STUDIUM_HOME>/library/_drafts/` pour que l'assistant ne renvoie que les scènes fautives. Le brouillon gardé contient la leçon telle que l'assistant l'a écrite, clés de réponse comprises, les erreurs qui y ont été trouvées, les sources sur lesquelles elle repose (par leur SHA-256) et le pseudonyme de l'apprenant pour qui elle a été écrite. De votre profil d'apprenant, il ne garde que les minutes par jour et la date visée : ce que vous savez déjà et ce qui vous intéresse restent dehors, même sous un nom de champ mal orthographié, de même que les erreurs qui les concernent.
+
+Le plan d'étude propose de le terminer seulement à l'apprenant pour qui il a été refusé, après une leçon qu'il a en cours. Quand l'assistant n'a pas donné de `learner_id` et que `STUDIUM_LEARNER_ID` n'est pas défini, aucun apprenant n'est connu : le brouillon sert seulement au renvoi dans la même conversation et n'est proposé à personne, si bien qu'un ordinateur partagé par plusieurs apprenants ne montre jamais l'objectif ou le fichier de l'un à un autre.
+
+Il est effacé quand une leçon est écrite pour cet apprenant (ou à partir des mêmes sources sans apprenant nommé), quand l'apprenant dit qu'il n'en veut plus, quand il efface ses données avec `forget_session {learner_id}`, qui efface aussi les brouillons gardés sans apprenant, et dans tous les cas au bout de 14 jours.
 
 L'extension VS Code lance son propre serveur, avec ses données dans le stockage VS Code de l'extension, distinct de `<STUDIUM_HOME>/data`.
 
@@ -67,10 +76,10 @@ Les scènes sont servies sans leurs clés, et `lesson-server` les masque en HTTP
 |---|---|---|
 | `end_session` | rien | l'état de la leçon et la mémoire transversale |
 | `forget_session {session_id}` | l'état durable de cet apprenant pour la leçon (réponses, état de la leçon, journal d'expériences), son profil transversal et son relevé d'étude ; irréversible | sa progression dans ses autres leçons, qu'elle nomme |
-| `forget_session {learner_id}` | la même chose pour toutes les leçons que l'apprenant a ouvertes, sans séance nécessaire ; ses séances en cours se ferment ; irréversible | rien de la progression de l'apprenant |
+| `forget_session {learner_id}` | la même chose pour toutes les leçons que l'apprenant a ouvertes, sans séance nécessaire, et les brouillons gardés pour lui ou sans apprenant ; ses séances en cours se ferment ; irréversible | rien de la progression de l'apprenant ; les brouillons d'un autre apprenant |
 | « Studium : Oublier mes données » dans VS Code | le stockage de l'extension, sa mémoire de confiance des exécutions et la dernière leçon, après la fermeture de tous les serveurs de leçon lancés par l'extension et une confirmation | les données d'un assistant dans `<STUDIUM_HOME>/data`, qu'elle nomme sans y toucher |
 
-`forget_session` répond par ce qu'il a effacé et ce qui reste sur le disque : les leçons de la bibliothèque de l'apprenant (`<STUDIUM_HOME>/library/<cours>/`) et les sources préparées pour elles (`<STUDIUM_HOME>/library/_sources/`). L'assistant montre cette liste ; supprimez ces dossiers à la main pour les effacer aussi. Le secret de pseudonymisation de l'installation reste également : il ne contient aucune donnée d'apprenant.
+`forget_session` répond par ce qu'il a effacé et ce qui reste sur le disque : les leçons de la bibliothèque de l'apprenant (`<STUDIUM_HOME>/library/<cours>/`) et les sources préparées pour elles (`<STUDIUM_HOME>/library/_sources/`), et pour une leçon les brouillons de leçons inachevées (`<STUDIUM_HOME>/library/_drafts/`). L'assistant montre cette liste ; supprimez ces dossiers à la main pour les effacer aussi. Le secret de pseudonymisation de l'installation reste également : il ne contient aucune donnée d'apprenant.
 
 Aucune commande d'oubli n'atteint l'historique de l'assistant, les dossiers d'expérience, les fichiers déjà exportés ni les copies conservées ailleurs. Fermer une fenêtre ne vaut pas demande d'effacement. Vérifiez le résultat dans le stockage réellement configuré.
 

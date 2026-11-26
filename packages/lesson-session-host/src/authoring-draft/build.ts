@@ -8,6 +8,15 @@
 // unplayable or unfounded: a quote not found in its passage, an unfilled TODO, a dangling concept,
 // a quiz without one right answer, or any ERROR of the repository linter. Nothing is written
 // unless the whole lesson passes.
+//
+// D4 (waiting review 2026-11-25): no lesson is written on a refusal, but a draft refused for what it
+// says is kept (draft-store.ts) and the refusal returns draft_id: the assistant then sends only the
+// scenes the errors name, {draft_id, scenes: [{at, ...scene}]}, which replace those of the kept draft
+// before the same checks run on the whole lesson. Errors on the concepts, goal, title or the order of
+// the scenes ask for the whole draft again. L1: one refusal reports the schema, quote and concept
+// errors of every scene together (each scene is parsed on its own); the linter's round comes last.
+// Review of D4: the draft is kept for the learner the call names (options.learner), and calls on one
+// library run one at a time (draft-store.ts oneAtATime).
 import { randomBytes } from "node:crypto";
 import { lstat, mkdir, readFile, realpath, rename, writeFile } from "node:fs/promises";
 import { isAbsolute, join, relative, sep } from "node:path";
@@ -15,7 +24,9 @@ import { LessonBundleSchema, formatBundleError, type BundleIssue, type LessonBun
 import { hasUnvalidatedPlaceholder } from "../authoring.js";
 import { COURSE_ID_PATTERN } from "../community-bundles.js";
 import { SCENE_KEY_CLASS, type KeyClass } from "../key-class.js";
-import { LessonDraftSchema, type DraftScene, type DraftSceneType, type LessonDraft } from "./draft-schema.js";
+import { z } from "zod";
+import { DraftSceneSchema, LessonDraftSchema, type DraftScene, type DraftSceneType, type LessonDraft } from "./draft-schema.js";
+import { clearDrafts, endedByWrite, findKeptDraft, keepDraft, oneAtATime, sourcesKey, type KeptDraft, type LibraryTurn, type Resend } from "./draft-store.js";
 import { lintBundleData, placeholderPaths, type LintFinding } from "./lint.js";
 import { checkQuote, sourceSpan } from "./quotes.js";
 import { asciiSlug } from "./slug.js";
@@ -61,7 +72,13 @@ const LINT_REMEDIES: Readonly<Record<string, { hint: string; field?: string }>> 
 
 export interface CreateLessonInput {
   source_set_id: string;
-  draft: unknown;
+  /** The whole draft; or, after a refusal that returned draft_id, draft_id with scenes (never both). */
+  draft?: unknown;
+  /** The draft Studium kept at a refusal (its refusal returned the id). */
+  draft_id?: string | undefined;
+  /** What replaces scenes of the kept draft: each `{at, ...scene}`, the whole scene at index `at`. */
+  scenes?: unknown[] | undefined;
+  /** Defaults to the course id given with the kept draft, else the title's slug. */
   course_id?: string | undefined;
   overwrite?: boolean | undefined;
 }
@@ -76,6 +93,10 @@ export interface CreateLessonOptions {
   /** Whether the server already serves a lesson of this course id from a folder it reads before the
    * library (BUNDLES_ROOT): a lesson written under that id would never be the one played. */
   servedElsewhere?: (courseId: string) => boolean;
+  /** The pseudonym of the learner the lesson is built for (SessionHost.draftLearnerOf): a draft refused
+   * for them is kept for them and offered to them alone. Null or absent: no learner is known, and a
+   * refused draft is kept for the resend (draft_id) but offered to no one. */
+  learner?: string | null | undefined;
 }
 
 /** The lesson as the agent may show it to the learner before they play: no key of any kind. */
@@ -95,45 +116,86 @@ export type CreateLessonResult =
     ok: true; course_id: string; course_ref: string; lesson_path: string; bundle: LessonBundle;
     outline: LessonOutline; key_classes: KeyClasses; findings: CreateLessonFinding[];
   }
-  | { ok: false; errors: BundleIssue[] };
+  | {
+    ok: false; errors: BundleIssue[];
+    /** A draft refused for what it says is kept: send only the scenes in fix_scenes with this id. */
+    draft_id?: string; resend?: Resend; fix_scenes?: number[]; hint?: string;
+  };
 
 type Refusal = Extract<CreateLessonResult, { ok: false }>;
 const refused = (errors: BundleIssue[]): Refusal => ({ ok: false, errors });
+
+/** The refusal's own advice, for a kept draft. */
+export const RESEND_SCENES_HINT = "No lesson was written; Studium kept this draft. Fix only the scenes the errors name and call " +
+  "create_lesson again with {source_set_id, draft_id, scenes: [{at, ...scene}]}: each item is the whole corrected scene " +
+  "at that index (at: 8 for scenes.8); the other scenes stay as they are.";
+export const RESEND_DRAFT_HINT = "No lesson was written. An error concerns the concepts, goal, title or the order of the " +
+  "scenes, which only the whole draft can fix: fix every error and send the whole draft again as draft.";
+export const NOTHING_KEPT_HINT = "No lesson was written and no draft was kept: the error is not in the draft. Fix it as " +
+  "its hint says and send the whole draft again.";
+export const KEPT_UNCHANGED_HINT = "No lesson was written and the kept draft is unchanged: the error is not in the draft. " +
+  "Fix it as its hint says and send the same draft_id and scenes again.";
+export const WRITTEN_MEANWHILE_HINT = "No lesson was written by this call and no draft was kept: another call wrote a lesson " +
+  "meanwhile, which ends this build. To write another lesson from these sources, fix every error and send the whole draft again.";
+/** The draft's top level, its scenes parsed one by one (L1). */
+const DraftTopSchema = LessonDraftSchema.extend({ scenes: z.array(z.unknown()).min(1).max(40) });
 
 /**
  * Build the draft `input.draft` over source set `input.source_set_id` and write it to
  * `<libraryRoot>/<course_id>/lesson.json` (course_id defaults to the title's slug). An existing
  * lesson is replaced only with `overwrite`. Returns the bundle, a keyless outline, the key classes
- * and the linter's WARN/INFO findings, or the errors that refused it (nothing written then).
+ * and the linter's WARN/INFO findings, or the errors that refused it (nothing written then). Calls on
+ * one library run one at a time, in the order they came (minor 2 of the review of D4).
  */
-export async function createLesson(libraryRoot: string, input: CreateLessonInput, options: CreateLessonOptions = {}): Promise<CreateLessonResult> {
+export function createLesson(libraryRoot: string, input: CreateLessonInput, options: CreateLessonOptions = {}): Promise<CreateLessonResult> {
+  return oneAtATime(libraryRoot, (turn) => createLessonInTurn(libraryRoot, input, options, turn));
+}
+
+async function createLessonInTurn(
+  libraryRoot: string, input: CreateLessonInput, options: CreateLessonOptions, turn: LibraryTurn,
+): Promise<CreateLessonResult> {
   try {
     const sourceSet = await readSourceSet(libraryRoot, input.source_set_id);
-    const parsed = LessonDraftSchema.safeParse(input.draft);
-    if (!parsed.success) return refused(formatBundleError(parsed.error, input.draft));
-    const draft = parsed.data;
-    const courseId = input.course_id ?? asciiSlug(draft.title, MAX_COURSE_ID_CHARS, "lesson");
+    const now = (options.now ?? (() => new Date()))();
+    const learner = options.learner ?? null;
+    const given = await draftOf(libraryRoot, sourceSet, input, now, learner);
+    if (!given.ok) return given;
+    const requestedCourseId = input.course_id ?? given.course_id;
+    // A refusal for what the draft says keeps the draft; a refusal for anything else keeps nothing.
+    const keep = async (errors: BundleIssue[]): Promise<Refusal> =>
+      keptRefusal(libraryRoot, sourceSet, given.raw, errors, { course_id: requestedCourseId, learner, now, turn });
+    // A refusal of the course id or the write leaves what was kept as it was, and says what to send again.
+    const notKept = (refusal: Refusal): Refusal => given.patch
+      ? { ...refusal, draft_id: given.patch.draft.draft_id, resend: "scenes", fix_scenes: given.patch.scenes, hint: KEPT_UNCHANGED_HINT }
+      : { ...refusal, resend: "draft", hint: NOTHING_KEPT_HINT };
+    const parsed = parseDraft(given.raw, sourceSet);
+    if (!parsed.ok) return keep(parsed.errors);
+    const { draft, goal } = parsed;
+    const courseId = requestedCourseId ?? asciiSlug(draft.title, MAX_COURSE_ID_CHARS, "lesson");
     if (!COURSE_ID_PATTERN.test(courseId)) {
-      return refused([{
+      return notKept(refused([{
         path: "course_id", message: `${JSON.stringify(courseId)} is not a course id`,
         hint: "use lowercase letters, digits, dots, dashes or underscores, starting with a letter or a digit (at most 64)",
-      }]);
+      }]));
     }
     if (options.servedElsewhere?.(courseId)) {
-      return refused([{
+      return notKept(refused([{
         path: "course_id", message: `${JSON.stringify(courseId)} is already a lesson in the lessons folder this server reads before the library`,
         hint: "choose another course_id",
-      }]);
+      }]));
     }
-    const now = (options.now ?? (() => new Date()))();
-    const built = buildBundle(draft, sourceSet, courseId, now);
-    if (!built.ok) return built;
+    const built = buildBundle(draft, sourceSet, courseId, now, goal);
+    if (!built.ok) return keep(built.errors);
     const { bundle } = built;
     const lint = lintBundleData(bundle, { bundleDir: join(libraryRoot, courseId) });
     const lintErrors = lint.findings.filter((item) => item.level === "ERROR");
-    if (lintErrors.length > 0) return refused(lintErrors.map((item) => lintIssue(item, bundle)));
+    if (lintErrors.length > 0) return keep(lintErrors.map((item) => lintIssue(item, bundle)));
     const written = await writeLesson(libraryRoot, courseId, bundle, input.overwrite === true);
-    if (!written.ok) return written;
+    if (!written.ok) return notKept(written);
+    // The lesson ends the builds it finishes; a refusal that came in meanwhile keeps nothing they cover.
+    const ends = endedByWrite(sourceSet, learner, given.patch?.draft ?? null);
+    await clearDrafts(libraryRoot, ends, now);
+    turn.wrote(ends);
     return {
       ok: true, course_id: courseId, course_ref: `${courseId}/${LESSON_FILENAME}`, lesson_path: written.path, bundle,
       outline: outlineOf(bundle, draft), key_classes: keyClassesOf(bundle),
@@ -150,10 +212,7 @@ export async function createLesson(libraryRoot: string, input: CreateLessonInput
 }
 
 /** The bundle a parsed draft becomes, or the reasons it cannot (pure: no disk access). */
-function buildBundle(draft: LessonDraft, sourceSet: SourceSet, courseId: string, now: Date): { ok: true; bundle: LessonBundle } | Refusal {
-  const goal = draft.goal ?? sourceSet.goal;
-  const issues = draftIssues(draft, sourceSet, goal);
-  if (issues.length > 0 || goal === null) return refused(issues);
+function buildBundle(draft: LessonDraft, sourceSet: SourceSet, courseId: string, now: Date, goal: string): { ok: true; bundle: LessonBundle } | Refusal {
   const locale = draft.language.trim().slice(0, 2).toLowerCase() === "fr" ? LOCALIZED.fr : LOCALIZED.en;
   const conceptIds = draft.concepts.map((concept) => concept.id);
   const sceneIds = sceneIdsOf(draft.scenes);
@@ -197,19 +256,51 @@ function profileOf(draft: LessonDraft): { learner_profile?: { minutes_per_day?: 
   return { learner_profile: { ...(minutes_per_day !== undefined ? { minutes_per_day } : {}), ...(target_date !== undefined ? { target_date } : {}) } };
 }
 
-/** Everything wrong with a schema-valid draft, in reading order. */
-function draftIssues(draft: LessonDraft, sourceSet: SourceSet, goal: string | null): BundleIssue[] {
-  const issues: BundleIssue[] = placeholderPaths(draft).map((path) => ({
-    path, message: `unfilled placeholder ${JSON.stringify(excerpt(String(valueAt(draft, path))))}`,
+/** A raw draft, parsed: its top level and each scene on its own (L1), so that one refusal names the
+ * schema errors of some scenes and the quote or concept errors of the others together. */
+function parseDraft(raw: unknown, sourceSet: SourceSet): { ok: true; draft: LessonDraft; goal: string } | { ok: false; errors: BundleIssue[] } {
+  const top = DraftTopSchema.safeParse(raw);
+  const errors: BundleIssue[] = top.success ? [] : formatBundleError(top.error, raw);
+  const rawScenes = isRecord(raw) && Array.isArray(raw["scenes"]) ? raw["scenes"] : [];
+  const scenes = rawScenes.map((value, index) => {
+    const parsed = DraftSceneSchema.safeParse(value);
+    if (parsed.success) return parsed.data;
+    errors.push(...formatBundleError(parsed.error, value).map((issue) => ({ ...issue, path: issue.path ? `scenes.${index}.${issue.path}` : `scenes.${index}` })));
+    return null;
+  });
+  const goal = top.success ? top.data.goal ?? sourceSet.goal : undefined;
+  const parts: DraftParts = {
+    concepts: top.success ? top.data.concepts : null, scenes,
+    readable: { ...(top.success ? top.data : {}), scenes },
+  };
+  errors.push(...draftIssues(parts, sourceSet, goal));
+  if (!top.success || errors.length > 0 || goal === null || goal === undefined) return { ok: false, errors };
+  return { ok: true, draft: { ...top.data, scenes: scenes as DraftScene[] }, goal };
+}
+
+/** What parsed of a draft: its concepts (null when its top level did not parse) and each scene (null
+ * for one that did not), and the parsed values a placeholder is looked for in. */
+interface DraftParts {
+  concepts: LessonDraft["concepts"] | null;
+  scenes: Array<DraftScene | null>;
+  readable: unknown;
+}
+
+/** Everything wrong with what parsed of a draft, in reading order. Concept checks need the concepts;
+ * « this concept has no scene » needs every scene. `goal` is undefined when the top level did not parse. */
+function draftIssues(parts: DraftParts, sourceSet: SourceSet, goal: string | null | undefined): BundleIssue[] {
+  const issues: BundleIssue[] = placeholderPaths(parts.readable).map((path) => ({
+    path, message: `unfilled placeholder ${JSON.stringify(excerpt(String(valueAt(parts.readable, path))))}`,
     hint: LINT_REMEDIES["unfilled_placeholder"]!.hint,
   }));
   if (goal === null) {
     issues.push({ path: "goal", message: "required field is missing", hint: "state the learner's goal in their own words (or pass goal to prepare_sources)" });
   }
-  const conceptIds = draft.concepts.map((concept) => concept.id);
+  const concepts = parts.concepts ?? [];
+  const conceptIds = concepts.map((concept) => concept.id);
   const known = new Set(conceptIds);
   const useOneOf = `use one of: ${conceptIds.join(", ")}`;
-  draft.concepts.forEach((concept, index) => {
+  concepts.forEach((concept, index) => {
     if (conceptIds.indexOf(concept.id) !== index) {
       issues.push({ path: `concepts.${index}.id`, message: `duplicate concept id "${concept.id}"`, hint: "give each concept its own id" });
     }
@@ -220,19 +311,22 @@ function draftIssues(draft: LessonDraft, sourceSet: SourceSet, goal: string | nu
     });
   });
   const taught = new Set<string>();
-  const givenSceneIds = draft.scenes.map((scene) => scene.id);
-  draft.scenes.forEach((scene, index) => {
+  const givenSceneIds = parts.scenes.map((scene) => scene?.id);
+  parts.scenes.forEach((scene, index) => {
+    if (scene === null) return;
     const at = `scenes.${index}`;
     if (scene.id !== undefined && givenSceneIds.indexOf(scene.id) !== index) {
       issues.push({ path: `${at}.id`, message: `duplicate scene id "${scene.id}"`, hint: LINT_REMEDIES["duplicate_scene_id"]!.hint });
     }
-    if (scene.concept_refs === undefined && conceptIds.length > 1) {
-      issues.push({ path: `${at}.concept_refs`, message: "required when the draft has several concepts", hint: `name the concept this scene teaches: one of ${conceptIds.join(", ")}` });
+    if (parts.concepts !== null) {
+      if (scene.concept_refs === undefined && conceptIds.length > 1) {
+        issues.push({ path: `${at}.concept_refs`, message: "required when the draft has several concepts", hint: `name the concept this scene teaches: one of ${conceptIds.join(", ")}` });
+      }
+      (scene.concept_refs ?? conceptIds.slice(0, 1)).forEach((ref, position) => {
+        if (known.has(ref)) taught.add(ref);
+        else issues.push({ path: `${at}.concept_refs.${position}`, message: `unknown concept "${ref}"`, hint: useOneOf });
+      });
     }
-    (scene.concept_refs ?? conceptIds.slice(0, 1)).forEach((ref, position) => {
-      if (known.has(ref)) taught.add(ref);
-      else issues.push({ path: `${at}.concept_refs.${position}`, message: `unknown concept "${ref}"`, hint: useOneOf });
-    });
     if (scene.type === "quiz") {
       const correct = scene.choices.filter((choice) => choice.correct).length;
       if (correct !== 1) issues.push({ path: `${at}.choices`, message: `exactly one choice must be correct, found ${correct}`, hint: LINT_REMEDIES["quiz_answer_key"]!.hint });
@@ -245,12 +339,97 @@ function draftIssues(draft: LessonDraft, sourceSet: SourceSet, goal: string | nu
       issues.push({ path: `${at}.quotes.${position}.${knownPassage ? "text" : "passage_id"}`, message: check.message, hint: check.hint });
     });
   });
-  draft.concepts.forEach((concept, index) => {
-    if (!taught.has(concept.id) && conceptIds.indexOf(concept.id) === index) {
-      issues.push({ path: `concepts.${index}`, message: `concept "${concept.id}" has no scene`, hint: "add a scene that teaches it, or remove it" });
+  if (parts.scenes.every((scene) => scene !== null)) {
+    concepts.forEach((concept, index) => {
+      if (!taught.has(concept.id) && conceptIds.indexOf(concept.id) === index) {
+        issues.push({ path: `concepts.${index}`, message: `concept "${concept.id}" has no scene`, hint: "add a scene that teaches it, or remove it" });
+      }
+    });
+  }
+  return issues;
+}
+
+/** The raw draft of a call: the whole `draft`, or the kept draft `draft_id` with `scenes` in place of
+ * its own. Refuses both, neither, a draft_id that is not the one kept for these sources, and a scene
+ * index the kept draft does not have (adding, removing or reordering scenes takes the whole draft). */
+async function draftOf(
+  libraryRoot: string, sourceSet: SourceSet, input: CreateLessonInput, now: Date, learner: string | null,
+): Promise<{ ok: true; raw: unknown; course_id?: string | undefined; patch?: { draft: KeptDraft; scenes: number[] } } | Refusal> {
+  const patching = input.draft_id !== undefined || input.scenes !== undefined;
+  const either = "send the whole draft as draft, or, after a refusal that returned draft_id, draft_id with scenes: [{at, ...scene}]";
+  if (input.draft !== undefined && patching) {
+    return refused([{ path: "draft_id", message: "gives draft and draft_id: one or the other, not both", hint: either }]);
+  }
+  if (input.draft !== undefined) return { ok: true, raw: input.draft };
+  if (!patching) return refused([{ path: "draft", message: "required field is missing", hint: either }]);
+  if (input.draft_id === undefined) {
+    return refused([{ path: "draft_id", message: "required field is missing", hint: "scenes replace scenes of a kept draft: pass the draft_id its refusal returned, or send the whole draft as draft" }]);
+  }
+  if (!Array.isArray(input.scenes) || input.scenes.length === 0) {
+    return refused([{ path: "scenes", message: "needs at least 1 item, has 0", hint: "pass the scenes the refusal named, each as {at, ...the whole corrected scene}" }]);
+  }
+  const found = await findKeptDraft(libraryRoot, sourceSet, input.draft_id, now.getTime(), learner);
+  if (!found.draft) {
+    return refused([{
+      path: "draft_id", message: `no draft ${JSON.stringify(input.draft_id)} is kept for these sources`,
+      hint: found.latest ? `the last refusal kept ${found.latest}: pass that draft_id` : "send the whole draft as draft",
+    }]);
+  }
+  const kept = found.draft;
+  const scenes = Array.isArray(kept.draft["scenes"]) ? [...kept.draft["scenes"]] : [];
+  const issues: BundleIssue[] = [];
+  const given = new Set<number>();
+  input.scenes.forEach((patch, position) => {
+    const at = isRecord(patch) ? patch["at"] : undefined;
+    if (!isRecord(patch) || typeof at !== "number" || !Number.isInteger(at) || at < 0 || at >= scenes.length) {
+      issues.push({
+        path: `scenes.${position}.at`, message: `${JSON.stringify(at)} is not the index of a scene of the kept draft`,
+        hint: `give {at, ...scene} with at from 0 to ${scenes.length - 1}, the index the error names (at: 8 for scenes.8); to add, remove or reorder scenes, send the whole draft`,
+      });
+    } else if (given.has(at)) {
+      issues.push({ path: `scenes.${position}.at`, message: `scene ${at} is given twice`, hint: "give each scene once" });
+    } else {
+      given.add(at);
+      const { at: _at, ...scene } = patch;
+      scenes[at] = scene;
     }
   });
-  return issues;
+  if (issues.length > 0) return refused(issues);
+  return {
+    ok: true, raw: { ...kept.draft, scenes }, course_id: kept.course_id,
+    patch: { draft: kept, scenes: [...given].sort((a, z) => a - z) },
+  };
+}
+
+/** A refusal for what the draft says: keep the draft (when it is an object) for the learner and say what to
+ * send again; keep nothing when a lesson written since the call came in ended this build. */
+async function keptRefusal(
+  libraryRoot: string, sourceSet: SourceSet, raw: unknown, errors: BundleIssue[],
+  context: { course_id: string | undefined; learner: string | null; now: Date; turn: LibraryTurn },
+): Promise<Refusal> {
+  if (!isRecord(raw)) return refused(errors);
+  const { resend, fix_scenes } = resendOf(errors);
+  const { learner, now, turn } = context;
+  if (turn.endedMeanwhile({ source_set_id: sourceSet.source_set_id, sources: sourcesKey(sourceSet), learner })) {
+    return { ok: false, errors, resend: "draft", hint: WRITTEN_MEANWHILE_HINT };
+  }
+  const kept = await keepDraft(libraryRoot, sourceSet, { draft: raw, errors, resend, fix_scenes, course_id: context.course_id, learner }, now);
+  return resend === "scenes"
+    ? { ok: false, errors, draft_id: kept.draft_id, resend, fix_scenes, hint: RESEND_SCENES_HINT }
+    : { ok: false, errors, resend, hint: RESEND_DRAFT_HINT };
+}
+
+/** Errors a scene can fix are under `scenes.<n>`; any other (the concepts, goal, title, the list of
+ * scenes) or a graph-order linter error (lwg_*) takes the whole draft. */
+function resendOf(errors: readonly BundleIssue[]): { resend: Resend; fix_scenes: number[] } {
+  const scenes = new Set<number>();
+  let whole = false;
+  for (const error of errors) {
+    const index = /^scenes\.(\d+)(?:\.|$)/.exec(error.path)?.[1];
+    if (index === undefined || error.message.startsWith("lwg_")) whole = true;
+    else scenes.add(Number(index));
+  }
+  return { resend: whole ? "draft" : "scenes", fix_scenes: [...scenes].sort((a, b) => a - b) };
 }
 
 /** Duplicate ids among a scene's choices, key points or claims (the builder fills missing ones). */

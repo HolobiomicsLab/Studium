@@ -208,9 +208,10 @@ const PHRASES = {
     lesson_in_progress: "en cours : {done} sur {total}",
     lesson_completed: "terminée",
     lessons_shipped_heading: "**Livrée avec Studium**",
-    lessons_shipped_note: "Une leçon de démonstration qui montre comment fonctionne Studium, rédigée par l'IA à partir de la documentation de Studium et non vérifiée par un enseignant. Elle reste à part de tes leçons.",
+    lessons_shipped_note: "Une leçon de démonstration qui montre comment fonctionne Studium, rédigée par l'IA à partir de la documentation de Studium. Elle reste à part de tes leçons.",
     forget_done: "**Tes données sont effacées.**",
     forget_nothing: "Rien à effacer : aucune donnée n'est enregistrée pour toi ici.",
+    forget_learner: "Apprenant : « {learner} ».",
     session_already_open: "Cette leçon était déjà ouverte : elle continue où tu en étais.",
     forget_erased: "Effacé : {items}.",
     forget_kept: "Conservé : {items}.",
@@ -222,6 +223,8 @@ const PHRASES = {
     forget_library_unnamed: "les leçons de ta bibliothèque, dans {path}",
     forget_sources: "le texte des sources préparées pour elles, dans {path}",
     forget_exports: "les cartes de notions que tu as exportées, dans {path}",
+    forget_drafts: "les brouillons de leçons inachevées, dans {path}",
+    forget_drafts_erased: "les brouillons de leçons inachevées que Studium avait gardés",
     map_export_saved: "Carte des notions exportée dans `{path}`. Elle contient tes résultats de séance, sans identifiant ni texte de réponse, et reste sur cette machine tant que tu ne la partages pas.",
     map_export_unsaved: "Carte des notions exportée (champ `record`). Ce serveur n'a pas de bibliothèque où l'écrire : enregistre `record` tel quel dans un fichier pour en faire une page.",
     forget_delete_yourself: "Supprime ces dossiers toi-même si tu veux qu'ils disparaissent aussi.",
@@ -313,9 +316,10 @@ const PHRASES = {
     lesson_in_progress: "in progress: {done} of {total}",
     lesson_completed: "completed",
     lessons_shipped_heading: "**Shipped with Studium**",
-    lessons_shipped_note: "A demo lesson that shows how Studium works, drafted by an AI agent from Studium's documentation and not checked by a teacher. It stays apart from your lessons.",
+    lessons_shipped_note: "A demo lesson that shows how Studium works, drafted by an AI agent from Studium's documentation. It stays apart from your lessons.",
     forget_done: "**Your data is erased.**",
     forget_nothing: "Nothing to erase: no data is recorded for you here.",
+    forget_learner: "Learner: “{learner}”.",
     session_already_open: "This lesson was already open: it continues where you left off.",
     forget_erased: "Erased: {items}.",
     forget_kept: "Kept: {items}.",
@@ -327,6 +331,8 @@ const PHRASES = {
     forget_library_unnamed: "the lessons in your library, in {path}",
     forget_sources: "the text of the sources prepared for them, in {path}",
     forget_exports: "the concept maps you exported, in {path}",
+    forget_drafts: "the drafts of unfinished lessons, in {path}",
+    forget_drafts_erased: "the drafts of unfinished lessons Studium had kept",
     map_export_saved: "Concept map exported to `{path}`. It holds your session results, with no identifier and none of your answers' text, and stays on this machine until you share it.",
     map_export_unsaved: "Concept map exported (field `record`). This server has no library to write it to: save `record` unchanged to a file to make a page from it.",
     forget_delete_yourself: "Delete those folders yourself if you want them gone too.",
@@ -724,16 +730,20 @@ export function alreadyOpenLine(locale: DisplayLocale): string {
 
 /** forget_session's display_markdown (L-13, UX-01): what was erased, and what stays and where — the
  * lessons of the library and their sources, which a learner may believe gone with the rest. The
- * install's pseudonym key holds no learner data and is not named. */
+ * install's pseudonym key holds no learner data and is not named. `learner`, when given (forget_session
+ * {learner_id}), is named under the first line (review finding 1: the editor may have named it, not the learner). */
 export function forgetMarkdown(
-  report: { erased: readonly ForgetDisplayItem[]; kept: readonly ForgetDisplayItem[] }, locale: DisplayLocale,
+  report: { erased: readonly ForgetDisplayItem[]; kept: readonly ForgetDisplayItem[]; learner?: string | undefined },
+  locale: DisplayLocale,
 ): string {
-  if (!report.erased.length) return say(locale, "forget_nothing");
+  const learner = report.learner === undefined ? "" : say(locale, "forget_learner", { learner: report.learner });
+  if (!report.erased.length) return [say(locale, "forget_nothing"), learner].filter(Boolean).join("\n\n");
   const lessons = (item: ForgetDisplayItem) => quotedList(item.lessons ?? [], locale);
   const erased = report.erased.flatMap((item) => {
     if (item.kind === "lesson_progress") return item.lessons?.length ? [say(locale, "forget_lesson_progress", { lessons: lessons(item) })] : [];
     if (item.kind === "learner_profile") return [say(locale, "forget_learner_profile")];
     if (item.kind === "study_record") return [say(locale, "forget_study_record")];
+    if (item.kind === "lesson_drafts") return [say(locale, "forget_drafts_erased")];
     return [];
   });
   const kept = report.kept.flatMap((item) => {
@@ -744,13 +754,15 @@ export function forgetMarkdown(
     }
     if (item.kind === "lesson_sources") return [say(locale, "forget_sources", { path: item.path ?? "" })];
     if (item.kind === "map_exports") return [say(locale, "forget_exports", { path: item.path ?? "" })];
+    if (item.kind === "lesson_drafts") return [say(locale, "forget_drafts", { path: item.path ?? "" })];
     return [];
   });
   const onDisk = report.kept.some((item) => item.kind === "library_lessons" || item.kind === "lesson_sources"
-    || item.kind === "map_exports");
+    || item.kind === "map_exports" || item.kind === "lesson_drafts");
   const separator = locale === "fr" ? " ; " : "; ";
   return [
     say(locale, "forget_done"),
+    learner,
     say(locale, "forget_erased", { items: erased.join(separator) }),
     kept.length ? say(locale, "forget_kept", { items: kept.join(separator) }) : "",
     onDisk ? say(locale, "forget_delete_yourself") : "",

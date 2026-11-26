@@ -83,9 +83,10 @@ in a « Settings » region; the Claude Code pane after its help ladder, before t
 nothing, so they stay usable while an answer is owed. Their words are the `pane_attention_*`,
 `pane_language`, `pane_replan*` and `pane_settings` phrases.
 
-A view carries `strings`, the interface's phrase catalogue in the lesson's language (some 24 kB), for the
-surface that draws it. The MCP server leaves it empty where nothing draws the view (forms, the conversation):
-its reader is then a model.
+A view carries `strings`, the interface's phrase catalogue in the lesson's language (some 24 kB), for a
+native pane that draws it (the VS Code pane, the Claude Code pane, the browser player). The MCP server leaves
+it empty everywhere else: an MCP Apps panel draws the view with the labels its own app carries, and its host
+may pass the whole result to the model; in forms and the conversation the view's reader is a model.
 
 A surface may send `client_ms` beside an action (`ClientMsSchema`, a whole number of milliseconds from 0 to 600000): the delay between the learner's previous action and the display of the view that answered it. It is never part of the action. `panel_action` validates it; nothing reads it yet, the interaction log will record it under consent.
 

@@ -112,8 +112,9 @@ does not send it to your teacher.
   progress. Closing a window alone does not erase anything.
 - **Resume.** Start the same lesson with the same learner id: Studium resumes at the first unfinished step.
   A finished lesson starts again from the beginning as a retake.
-- **Several places.** The VS Code pane and an assistant keep separate progress. Two assistants share it when
-  they use the same data folder and learner id.
+- **Several places.** The VS Code pane and an assistant keep separate progress, except Copilot with the
+  server the Studium extension offers, which shares the pane's: same folder, same learner. Two assistants share
+  it when they use the same data folder and learner id.
 - **Erase.** Ask the assistant to forget your data for a lesson, or all your data (`forget_session`); it
   then tells you what stays on disk. See
   [learn with your assistant](learn-with-your-assistant.md#7-close-or-forget). In VS Code, **Studium: Forget

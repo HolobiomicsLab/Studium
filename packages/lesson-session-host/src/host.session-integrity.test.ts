@@ -137,8 +137,10 @@ describe("D6: a restart during a prerequisite detour", () => {
 describe("D10: forget_session speaks the learner's language", () => {
   it("says « nothing to erase » in the language asked for, else the server default", async () => {
     const h = new SessionHost({ bundlesRoot: bundles(), live: false, dataDir: null });
-    expect((await h.forgetLearner("synthetic-audit-nobody", "fr")).display_markdown).toMatch(/^Rien à effacer\s?: aucune donnée n'est enregistrée pour toi ici\.$/u);
-    expect((await h.forgetLearner("synthetic-audit-nobody")).display_markdown).toBe("Nothing to erase: no data is recorded for you here.");
+    // Changed: the text now names the learner under its first line (review finding 1), so the first line is matched,
+    // and the learner line after it.
+    expect((await h.forgetLearner("synthetic-audit-nobody", "fr")).display_markdown).toMatch(/^Rien à effacer\s?: aucune donnée n'est enregistrée pour toi ici\.\n\nApprenant\s?: «\s?synthetic-audit-nobody\s?»\.$/u);
+    expect((await h.forgetLearner("synthetic-audit-nobody")).display_markdown).toBe("Nothing to erase: no data is recorded for you here.\n\nLearner: “synthetic-audit-nobody”.");
   });
 
   it("uses the learner's last lesson language when no language is given", async () => {
@@ -162,15 +164,16 @@ describe("D8: the status line during a contest's check questions", () => {
     const { sessionId } = await h.create("lesson.json", "synthetic-audit-ana");
     await h.respond(sessionId, { kind: "ack" });
     await h.respond(sessionId, { kind: "quiz_choice", choiceId: choice(h, sessionId, true) });
-    // On c-dep (60 s) with q-a2 (60 s) after it: two minutes left.
+    // Changed 2026-11-26: the minutes left are the stated duration (10 min) times the share of steps left (of 4), not
+    // the scenes' estimated seconds; the steps are counted as the seconds were.
+    // On c-dep with q-a2 after it: two steps left, ⌈10 × 2/4⌉ minutes.
     expect(h.currentPresentation(sessionId).scene.id).toBe("c-dep");
-    const before = h.orientationFacts(sessionId).seconds_left;
-    expect(before).toBe(120);
+    expect(h.orientationFacts(sessionId).minutes_left).toBe(5);
     const started = await h.contest(sessionId, "a", "unsure");
     expect(started.questions).toBe(2);
-    // The two check questions (60 s each), then the lesson again from c-dep.
-    expect(h.orientationFacts(sessionId).seconds_left).toBe(120 + before);
+    // The two check questions, then the lesson again from c-dep: four steps, ⌈10 × 4/4⌉.
+    expect(h.orientationFacts(sessionId).minutes_left).toBe(10);
     await h.respond(sessionId, { kind: "quiz_choice", choiceId: choice(h, sessionId, true) });
-    expect(h.orientationFacts(sessionId).seconds_left).toBe(60 + before);
+    expect(h.orientationFacts(sessionId).minutes_left).toBe(8); // ⌈10 × 3/4⌉
   });
 });

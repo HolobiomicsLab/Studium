@@ -184,11 +184,15 @@ it("lets the learner or the adapter ask for a surface, and falls to the one belo
   } finally { await forms.close(); }
 });
 
-// The view carries the interface's phrase catalogue (some 24 kB of labels) for a surface that draws it.
-// Below a panel nothing draws the view: its reader is a model, which would read those labels for nothing.
-it("leaves the phrase catalogue out where no surface draws the view: forms and the conversation", async () => {
+// The view carries the interface's phrase catalogue (some 24 kB of labels) for a native pane, which draws
+// it with them. Below a panel nothing draws the view: its reader is a model, which would read those labels
+// for nothing. An MCP Apps panel draws it with the labels its own app carries (BN-8, below).
+it("leaves the phrase catalogue out wherever no native pane draws the view", async () => {
   const cases = [
-    { capabilities: UI, extra: {}, drawn: true },                      // an MCP Apps panel
+    // Changed (BN-8, waiting review 2026-11-25): an MCP Apps panel was sent the whole catalogue (drawn: true).
+    // Its app paints with its own labels (bridge-mcp-app.js, browserPhrases), and VS Code gives the model the
+    // structured result: the catalogue cost the model some 30 kB per call for nothing.
+    { capabilities: UI, extra: {}, drawn: false },                     // an MCP Apps panel
     { capabilities: {}, extra: { surface: "pane" }, drawn: true },     // a native pane, which says so
     { capabilities: FORMS, extra: {}, drawn: false },
     { capabilities: {}, extra: {}, drawn: false },
@@ -210,6 +214,30 @@ it("leaves the phrase catalogue out where no surface draws the view: forms and t
       if (!c.drawn) expect(text.length).toBeLessThan(4000);
     } finally { await close(); }
   }
+});
+
+// BN-8 (waiting review 2026-11-25): VS Code 1.139 declares MCP Apps by default and gives the model the
+// structured result of a tool, so a client that can show a panel had the model read some 34 kB at each
+// open_lesson_panel, get_panel_view and panel_action. The panel's app paints with its own labels: the view
+// it is sent leaves the catalogue empty. A native pane still gets it.
+it("sends an MCP Apps panel its view without the phrase catalogue, and a native pane with it", async () => {
+  const { open, call, close } = await connected(UI);
+  try {
+    const opened = await open();
+    const session_id = opened.structuredContent!.panel.session_id;
+    expect(opened.structuredContent!.panel.surface).toMatchObject({ rank: 3, kind: "panel" });
+    const next = await call("panel_action", { session_id, action: { type: "respond", input: { kind: "ack" } } });
+    const read = await call("get_panel_view", { session_id });
+    for (const result of [opened, next, read]) {
+      expect(result.structuredContent!.panel.strings).toEqual({});
+      expect(JSON.stringify(result.structuredContent).length).toBeLessThan(5000);
+      expect(result.content[0]!.text!.length).toBeLessThan(5000);
+    }
+    // A guard: the same client asking for a native pane gets the catalogue.
+    const pane = await open({ surface: "pane", learner_id: "auto-test-surface-pane" });
+    expect(pane.structuredContent!.panel.surface).toMatchObject({ rank: 3, kind: "pane" });
+    expect(Object.keys(pane.structuredContent!.panel.strings).length).toBeGreaterThan(100);
+  } finally { await close(); }
 });
 
 it("negotiateSurface — the ladder", () => {
@@ -237,7 +265,8 @@ it("applies language, attention, replan and ask through panel_action", async () 
     const planned = await act({ type: "replan", minutes: 10 });
     expect(planned.prompts).toHaveLength(1);
     expect(planned.prompts[0]).toMatchObject({ kind: "replan", expires: "scene", actions: [] });
-    expect(planned.prompts[0].reason).toMatch(/10 min.*78/);
+    // Changed 2026-11-26: the lesson's stated duration (60 min at step 1), not its scenes' estimated seconds (78).
+    expect(planned.prompts[0].reason).toMatch(/10 min.*60/);
     const asked = await act({ type: "ask", text: "Why does Z define the element?" });
     expect(asked).toMatchObject({ kind: "notice", scene: { id: panel.scene.id }, progress: { index: 1 }, attention: "quiet" });
     expect(asked.message).toContain("conversation");

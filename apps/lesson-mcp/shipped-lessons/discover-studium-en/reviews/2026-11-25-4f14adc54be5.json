@@ -1,0 +1,85 @@
+{
+  "bundle_ref": "self-study-discover-studium-en",
+  "bundle_sha256": "4f14adc54be5aebb3ddd542370c3bcf45e8103a983b4dd5ccf801e949304e6c8",
+  "decided_at": "2026-11-25T21:49:57Z",
+  "decision": "approved",
+  "items": [
+    {
+      "consequence": "wording",
+      "id": "s1-intro",
+      "opened": false,
+      "sha256": "61872c8ee18d601565b2e084d23c22ed26561578b06064b1c730893c08a64222"
+    },
+    {
+      "consequence": "grading",
+      "id": "s2-quiz",
+      "opened": false,
+      "sha256": "ab4cfd6fdf82e1756657f41b0b3d4eea4df6d7cafc198ea334d69e7709d5f9bb"
+    },
+    {
+      "consequence": "wording",
+      "id": "s3-concept",
+      "opened": false,
+      "sha256": "243559e6870874eb5597323f2feee1bf2b6efe9c96a2e2b5deb2dc5d309ae15e"
+    },
+    {
+      "consequence": "grading",
+      "id": "s4-quiz",
+      "opened": false,
+      "sha256": "396bc085bd414a1cebdfd9927a8f2d82bdcdb74bc15f70f05a20368a6ff8cea0"
+    },
+    {
+      "consequence": "wording",
+      "id": "s5-concept",
+      "opened": false,
+      "sha256": "cf18a0ed13ac275bd383b641207b8da3e5fd9ebe6f907e1bdbf9551cdc811005"
+    },
+    {
+      "consequence": "grading",
+      "id": "s6-quiz",
+      "opened": false,
+      "sha256": "bdaf64a9a29df0ba98a38159758c0ac53d4d57219c03eb82d4948a17e5c810c6"
+    },
+    {
+      "consequence": "grading",
+      "id": "s7-explain_back",
+      "opened": false,
+      "sha256": "0c6ebdecdf9cac89e226c282a57265327acc12d777249b9f11dfdb29295b33e1"
+    },
+    {
+      "consequence": "wording",
+      "id": "s8-concept",
+      "opened": false,
+      "sha256": "8db06f81fd3ed5a3b484a75ae8742b675cae2353366059fcdb5aa6e3c8ff1ada"
+    },
+    {
+      "consequence": "grading",
+      "id": "s9-quiz",
+      "opened": false,
+      "sha256": "8b6eff8e85808c78cd57c21914595b57a43661428d29b30f5aca8ef940b7b0ac"
+    },
+    {
+      "consequence": "wording",
+      "id": "s10-concept",
+      "opened": false,
+      "sha256": "12228c9bfe684c85e64674e68c2e16b7b48f983f84a0bf8d9b2ddf094b7120a7"
+    },
+    {
+      "consequence": "grading",
+      "id": "s11-quiz",
+      "opened": false,
+      "sha256": "866ffab6461da8bad38cf77429f51d3b5e69f84843cbd5be9ce96b9d7bee8c38"
+    },
+    {
+      "consequence": "grading",
+      "id": "s12-quiz",
+      "opened": false,
+      "sha256": "5a96ac264a6c78088aa3e8dfcd1084074e426e10d1e4d24b34069e5fc7838ec6"
+    }
+  ],
+  "not_opened": 12,
+  "note": "Enregistré par l'agent Claude Code sur la parole du propriétaire du 25 novembre 2026 (nom affiché : beta-testeur, celui qu'il a choisi le 10 novembre), donnée pour gagner du temps, avec la possibilité d'y revenir. Le propriétaire n'a pas lu la leçon et n'en a ouvert aucune scène ; aucune liste de contrôle déclarée. L'agent a réécrit pour cette approbation des passages de s1-intro, s6-quiz et s10-concept, que personne n'a relus ensuite.",
+  "opened": 0,
+  "reviewer": "beta-testeur",
+  "schema": "studium/review-receipt/v1"
+}

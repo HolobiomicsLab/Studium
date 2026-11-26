@@ -13,6 +13,7 @@ The MCP server (`apps/lesson-mcp`) uses these defaults. Each can be changed with
 | Root of your library and data | `~/.studium` | `STUDIUM_HOME` |
 | Lessons written for you | `<STUDIUM_HOME>/library/<course>/lesson.json`, whatever `BUNDLES_ROOT` names | `STUDIUM_HOME`; `BUNDLES_ROOT` only adds a folder searched first |
 | Sources prepared for those lessons (their passages, and for a file read by path its full path, size and SHA-256) | `<STUDIUM_HOME>/library/_sources/` | `STUDIUM_HOME` |
+| A draft Studium refused, kept so the assistant resends only the faulty scenes (see *A kept draft* below) | `<STUDIUM_HOME>/library/_drafts/` | `STUDIUM_HOME` |
 | Your progress | `<STUDIUM_HOME>/data` | `STUDIUM_DATA_DIR` |
 | Nothing on disk, memory only | off | `STUDIUM_EPHEMERAL=1` |
 | Learner id when the assistant gives none | `anonymous` | `STUDIUM_LEARNER_ID` |
@@ -22,7 +23,7 @@ Inside the data folder, each learner has a folder named by a pseudonym, never by
 | File | Content |
 |---|---|
 | `<pseudonym>/profile.json` | cross-lesson profile, including review memory |
-| `<pseudonym>/study.json` | where the learner studied |
+| `<pseudonym>/study.json` | where the learner studied, and where they last answered a step (`answered_on`: the browser, the VS Code pane, a panel, the Claude Code pane or the chat), so that the next lesson is offered there first |
 | `<pseudonym>/status.json` | where the session being played stands (lesson title, step, minutes left), for an assistant's status line; removed when the session closes |
 | `<pseudonym>/<lesson>/state-<lesson>.json` | lesson state and mastery |
 | `<pseudonym>/<lesson>/events.jsonl` | the session's event log |
@@ -32,6 +33,14 @@ Inside the data folder, each learner has a folder named by a pseudonym, never by
 With `STUDIUM_EPHEMERAL=1` and no `STUDIUM_DATA_DIR`, progress is lost when the server stops, and `get_server_info` and `start_lesson_session` say so.
 
 When you tell your assistant what you already know, what interests you, how many minutes a day you have or a target date, the first two only shape the lesson's draft and are not stored. The lesson file keeps the minutes a day and the target date (`metadata.authoring.learner_profile`), and your study record keeps the minutes; a lesson file you share carries them with it.
+
+### A kept draft
+
+When Studium refuses a lesson draft for what it says, it keeps the draft in `<STUDIUM_HOME>/library/_drafts/` so that the assistant sends back only the faulty scenes. The kept draft holds the lesson as the assistant wrote it, answer keys included, the errors found in it, the sources it rests on (by their SHA-256) and the pseudonym of the learner it was written for. Of your learner profile it keeps only the minutes a day and the target date: what you already know and what interests you stay out, even under a misspelled field name, and so do the errors about them.
+
+The study plan offers to finish it only to the learner it was refused for, after a lesson they have in progress. When the assistant gave no `learner_id` and `STUDIUM_LEARNER_ID` is not set, no learner is known: the draft serves only the resend in the same conversation and is offered to no one, so a computer several learners share never shows one learner's goal or file to another.
+
+It is erased when a lesson is written for that learner (or from the same sources with no learner named), when the learner says they no longer want it, when they erase their data with `forget_session {learner_id}`, which also erases the drafts kept for no learner, and in any case after 14 days.
 
 The VS Code extension runs its own server with its data in the extension's VS Code storage, separate from `<STUDIUM_HOME>/data`.
 
@@ -67,10 +76,10 @@ Scenes are served without their keys, and `lesson-server` redacts keys over HTTP
 |---|---|---|
 | `end_session` | nothing | lesson state and cross-lesson memory |
 | `forget_session {session_id}` | this learner's durable state for the lesson (answers, lesson state, experiment journal), their cross-lesson profile, study record and status file; irreversible | their progress in other lessons, which it names |
-| `forget_session {learner_id}` | the same for every lesson the learner opened, with no session needed; their live sessions close; irreversible | nothing of the learner's progress |
+| `forget_session {learner_id}` | the same for every lesson the learner opened, with no session needed, and the drafts kept for them or for no learner; their live sessions close; irreversible | nothing of the learner's progress; another learner's drafts |
 | VS Code "Studium: Forget my data" | the extension's storage, its run-trust memory and last lesson, after closing every lesson server the extension started and a confirmation | an assistant's data in `<STUDIUM_HOME>/data`, which it names and does not touch |
 
-`forget_session` answers with what it erased and what stays on disk: the lessons of the learner's library (`<STUDIUM_HOME>/library/<course>/`) and the sources prepared for them (`<STUDIUM_HOME>/library/_sources/`). The assistant shows that list; delete those folders by hand to remove them too. The install's pseudonym secret also stays: it holds no learner data.
+`forget_session` answers with what it erased and what stays on disk: the lessons of the learner's library (`<STUDIUM_HOME>/library/<course>/`) and the sources prepared for them (`<STUDIUM_HOME>/library/_sources/`), and for one lesson the drafts of unfinished lessons (`<STUDIUM_HOME>/library/_drafts/`). The assistant shows that list; delete those folders by hand to remove them too. The install's pseudonym secret also stays: it holds no learner data.
 
 No forget command reaches the assistant's history, experiment folders, exported files or copies kept elsewhere. Closing a window is not an erasure request. Check the result in the storage actually configured.
 

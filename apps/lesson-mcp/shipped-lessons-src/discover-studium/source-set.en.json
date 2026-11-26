@@ -1,6 +1,6 @@
 {
   "schema": "studium-source-set/1",
-  "source_set_id": "ss-f1ff4a5d6230e7bd",
+  "source_set_id": "ss-b01c347780c9e9ff",
   "goal": "Understand how Studium works and find my way around its interface by using it",
   "language": "en",
   "min_chars": 200,
@@ -20,8 +20,8 @@
       "title": "Studium documentation — Honesty and provenance",
       "url": "https://github.com/HolobiomicsLab/studium/blob/main/docs/concepts/honesty-and-provenance.md",
       "license": "CC-BY-4.0",
-      "sha256": "235ba962e154d2efb29d5f8680e76b6fc3e290877fe99f11fc26e39d25882818",
-      "chars": 10373,
+      "sha256": "bcb04826a519fa46c6737a3842082b9d01c87bb5404aa79b067714af91ed71fd",
+      "chars": 10861,
       "passages": 25
     },
     {
@@ -29,17 +29,17 @@
       "title": "Studium documentation — Learn a topic with your assistant",
       "url": "https://github.com/HolobiomicsLab/studium/blob/main/docs/learn/learn-with-your-assistant.md",
       "license": "CC-BY-4.0",
-      "sha256": "0ac3c46357137a9e911bf8f7f135e7e76ed7126926ce2e465680bdfe16623dbf",
-      "chars": 11148,
-      "passages": 24
+      "sha256": "38dc9b006ee20aa52c0c621ba80f4d4b54146210be9add1b3f1829f087680ced",
+      "chars": 12927,
+      "passages": 25
     },
     {
       "source_id": "studium-documentation-review-over-time",
       "title": "Studium documentation — Review over time",
       "url": "https://github.com/HolobiomicsLab/studium/blob/main/docs/learn/review-over-time.md",
       "license": "CC-BY-4.0",
-      "sha256": "447cdae8b7626a166ecabf9279b8f40b32d90bac991c94007ee95991d5a44e8c",
-      "chars": 7142,
+      "sha256": "221d160c25e2b77013e95231c94a6b79923d747eae32b713b556e902d6e0ae08",
+      "chars": 7263,
       "passages": 17
     },
     {
@@ -47,9 +47,9 @@
       "title": "Studium documentation — Privacy and limits",
       "url": "https://github.com/HolobiomicsLab/studium/blob/main/docs/concepts/privacy-and-limits.md",
       "license": "CC-BY-4.0",
-      "sha256": "c69b9940b1124b897881d9118eb109fa59426037de2cda4587dcbc9d53fbe72f",
-      "chars": 9851,
-      "passages": 18
+      "sha256": "3b43d0b8efd047186c568fbc336155fcee87575290c6650eeacc16970e01cff0",
+      "chars": 11697,
+      "passages": 21
     },
     {
       "source_id": "studium-documentation-concept-map",
@@ -65,8 +65,8 @@
       "title": "Studium documentation — Student guide",
       "url": "https://github.com/HolobiomicsLab/studium/blob/main/docs/learn/student-guide.md",
       "license": "CC-BY-4.0",
-      "sha256": "aa277de7842bae43f7ae349befe68ccab601843ad1a99c39022f79d723e395df",
-      "chars": 7434,
+      "sha256": "e16b70ad1a7e4fa89e3d1096d934aee4d74ceda4fce20fd7d2f7bf0cd96e697c",
+      "chars": 7549,
       "passages": 19
     }
   ],
@@ -219,7 +219,7 @@
     {
       "id": "p:studium-documentation-honesty-and-proven:15",
       "source_id": "studium-documentation-honesty-and-proven",
-      "text": "| Drafted by | First sentence | |---|---| | learner | \"Self-authored lesson: quiz and spot-the-flaw keys were written by the learner (open book).\" | | agent | \"AI-drafted lesson from your sources, not checked by a teacher: each item cites its passage; tell the assistant about a key that looks wrong.\" | | agent, in the demo lesson shipped with Studium | \"Demo lesson shipped with Studium, drafted by an AI agent from Studium's documentation, not checked by a teacher: each item cites its passage; tell the assistant about a key that looks wrong.\" Its `authoring` block also carries `shipped: true`. |"
+      "text": "| Drafted by | First sentence | |---|---| | learner | \"Self-authored lesson: quiz and spot-the-flaw keys were written by the learner (open book).\" | | agent | \"AI-drafted lesson from your sources, not checked by a teacher: each item cites its passage; tell the assistant about a key that looks wrong.\" | | agent, in a self-study lesson shipped with Studium | \"Demo lesson shipped with Studium, drafted by an AI agent from Studium's documentation, not checked by a teacher: each item cites its passage; tell the assistant about a key that looks wrong.\" Its `authoring` block also carries `shipped: true`. |"
     },
     {
       "id": "p:studium-documentation-honesty-and-proven:16",
@@ -229,12 +229,12 @@
     {
       "id": "p:studium-documentation-honesty-and-proven:17",
       "source_id": "studium-documentation-honesty-and-proven",
-      "text": "A lesson that holds a reproduction adds a third sentence: \"Executed reproductions carry an external assessment.\"\n\nThe texts are defined in [`authoring.ts`](../../packages/lesson-session-host/src/authoring.ts)."
+      "text": "A lesson that holds a reproduction adds a third sentence: \"Executed reproductions carry an external assessment.\"\n\n« Discover Studium », the demo lesson shipped with Studium, has `mode: \"teacher\"`: it shows none of these notices, and what its first screen says about validation comes from its approval record. Its receipt records that the project's owner approved it without opening any scene."
     },
     {
       "id": "p:studium-documentation-honesty-and-proven:18",
       "source_id": "studium-documentation-honesty-and-proven",
-      "text": "## Sources and quotes\n\nA lesson an assistant drafts with `create_lesson` cites a source passage for each graded item. Each quote must be a substring of the passage it names, 15 to 500 characters long. Only what a copy through a chat or a web page changes silently is folded: no-break spaces and runs of whitespace become one space, and typographic apostrophes become `'`. Accents, case and other punctuation stay significant. A quote that does not match is refused with a pointer to where it diverges, and the lesson is not written."
+      "text": "The texts are defined in [`authoring.ts`](../../packages/lesson-session-host/src/authoring.ts).\n\n## Sources and quotes\n\nA lesson an assistant drafts with `create_lesson` cites a source passage for each graded item. Each quote must be a substring of the passage it names, 15 to 500 characters long. Only what a copy through a chat or a web page changes silently is folded: no-break spaces and runs of whitespace become one space, and typographic apostrophes become `'`. Accents, case and other punctuation stay significant. A quote that does not match is refused with a pointer to where it diverges, and the lesson is not written."
     },
     {
       "id": "p:studium-documentation-honesty-and-proven:19",
@@ -269,7 +269,7 @@
     {
       "id": "p:studium-documentation-honesty-and-proven:25",
       "source_id": "studium-documentation-honesty-and-proven",
-      "text": "## Rule 003: a teacher before any release\n\nThe project's rule 003 is strict human-in-the-loop: no content is released to students without a teacher's validation. In practice:\n\n- a teacher bundle reads as validated only with an approval record bound to its exact bytes (`approve` also writes the name in `validated_by`, which grants nothing on its own); - a self-study or agent-drafted lesson is for the learner who made it, and says so in its notice; - a learner's contribution reaches other learners only after a teacher's decision, see [Learner contributions](../teach/learner-contributions.md).\n\nStudium makes provenance visible; it does not certify that a lesson is correct. The [privacy and limits](privacy-and-limits.md) page says what hashes, quotes and run checks do and do not prove."
+      "text": "## Rule 003: a teacher before any release\n\nThe project's rule 003 is strict human-in-the-loop: no content is released to students without a teacher's validation. In practice:\n\n- a teacher bundle reads as validated only with an approval record bound to its exact bytes (`approve` also writes the name in `validated_by`, which grants nothing on its own); - a self-study lesson, whether the learner or an agent drafted it, is for the learner who made it, and says so in its notice; an agent-drafted lesson in teacher mode, such as the demo shipped with Studium, has no notice and reads as validated only through its approval record, like any teacher bundle; - a learner's contribution reaches other learners only after a teacher's decision, see [Learner contributions](../teach/learner-contributions.md).\n\nStudium makes provenance visible; it does not certify that a lesson is correct. The [privacy and limits](privacy-and-limits.md) page says what hashes, quotes and run checks do and do not prove."
     },
     {
       "id": "p:studium-documentation-learn-a-topic-with:1",
@@ -294,100 +294,105 @@
     {
       "id": "p:studium-documentation-learn-a-topic-with:5",
       "source_id": "studium-documentation-learn-a-topic-with",
-      "text": "## 2. Choose your sources and their licences\n\nYou choose the sources; the assistant fetches them with its own web and file tools and passes their text to `prepare_sources`, which cuts them into numbered passages. Sources are treated as data: an instruction written inside a page is never followed."
+      "text": "## 2. Choose your sources and their licences\n\nYou choose the sources. For a web page, the assistant fetches it with its own web tool and passes its text to `prepare_sources`. For a file on your computer, it gives `prepare_sources` the path of the file and Studium reads the file itself, which spares the assistant copying the whole text. `prepare_sources` cuts the sources into numbered passages and records, for a file, its full path, its size and its SHA-256 fingerprint. Sources are treated as data: an instruction written inside a page is never followed."
     },
     {
       "id": "p:studium-documentation-learn-a-topic-with:6",
       "source_id": "studium-documentation-learn-a-topic-with",
-      "text": "| Limit | Value | |---|---| | Sources per lesson | up to 20 | | Total text | up to 200 000 characters | | Licence | an identifier such as `CC-BY-4.0` or `Public-Domain`; `unknown` when none is given |"
+      "text": "Studium reads local files only, never the network. It reads a file only if it is UTF-8 text with a text extension (`.txt`, `.md`, `.tex`, `.csv` and a few others). It refuses a PDF or a Word file (save it as text first, or let the assistant extract the text), its own data folder, and places that usually hold secrets such as `.ssh`, `.env` or a keychain."
     },
     {
       "id": "p:studium-documentation-learn-a-topic-with:7",
       "source_id": "studium-documentation-learn-a-topic-with",
-      "text": "Give the licence of each source: it is copied into the lesson and shown with the source. A public-domain text can be reused freely; a publisher PDF or a licence marked `NC`, `ND` or unknown restricts what you may do with the result. The lesson stays in your personal library and is never published, but you remain responsible for using the source under its terms. One coherent source usually makes a better lesson than many."
+      "text": "| Limit | Value | |---|---| | Sources per lesson | up to 20 | | Total text | up to 200 000 characters | | A file named by path | UTF-8 text, at most 800 000 bytes | | Licence | an identifier such as `CC-BY-4.0` or `Public-Domain`; `unknown` when none is given |"
     },
     {
       "id": "p:studium-documentation-learn-a-topic-with:8",
       "source_id": "studium-documentation-learn-a-topic-with",
-      "text": "## 3. Look at the outline\n\nThe assistant writes the lesson and calls `create_lesson`. Studium checks it before writing anything: every quotation must match a passage character for character (only no-break spaces, runs of whitespace and typographic apostrophes are folded), nothing may be left unfinished, and the order of ideas must hold together. The assistant fixes what Studium refuses. Studium may also warn, for example when the lesson is longer than your minutes a day or when a prerequisite has no question that checks it."
+      "text": "Give the licence of each source: it is copied into the lesson and shown with the source. A public-domain text can be reused freely; a publisher PDF or a licence marked `NC`, `ND` or unknown restricts what you may do with the result. The lesson stays in your personal library and is never published, but you remain responsible for using the source under its terms. One coherent source usually makes a better lesson than many."
     },
     {
       "id": "p:studium-documentation-learn-a-topic-with:9",
       "source_id": "studium-documentation-learn-a-topic-with",
-      "text": "The lesson is written to your library, `~/.studium/library/<course>/lesson.json`, whatever lessons folder the server also reads.\n\nYou then see the outline: scene titles, scene types and concepts, never an answer. If it does not match what you wanted, say so; the assistant revises the draft and rebuilds the lesson."
+      "text": "## 3. Look at the sketch, then the lesson\n\nBefore it writes the lesson, the assistant shows you a short sketch: the goal, the concepts, and the title and kind of each step, never an answer. It goes on without waiting for your approval; say what you would change at any time. It then writes the lesson once, straight into its `create_lesson` call. Studium checks it before writing anything: every quotation must match a passage character for character (only no-break spaces, runs of whitespace and typographic apostrophes are folded), nothing may be left unfinished, and the order of ideas must hold together. When Studium refuses, nothing is written: it keeps the draft, and the assistant fixes and sends again only the scenes the refusal names (the whole draft only when an error concerns the concepts, the goal, the title or the order of the scenes). Studium may also warn, for example when the lesson is longer than your minutes a day or when a prerequisite has no question that checks it."
     },
     {
       "id": "p:studium-documentation-learn-a-topic-with:10",
       "source_id": "studium-documentation-learn-a-topic-with",
-      "text": "## 4. Play it, in the chat or in VS Code\n\nIn the chat, each step arrives ready to read: its title, the question, how to answer (a letter, a number from 0 to 4, or your own words) and, on its last line, where you are (`step 2/6 · 4 min · your answer`). Answer yourself. The assistant passes your words on and must not answer, choose or rate for you."
+      "text": "The lesson is written to your library, `~/.studium/library/<course>/lesson.json`, whatever lessons folder the server also reads.\n\nOnce the lesson is written, the assistant shows only what differs from the sketch, never an answer. If it does not match what you wanted, say so; the assistant revises the draft and rebuilds the lesson. If your assistant keeps a to-do list, it ticks the stages there: sources, sketch, writing, checking."
     },
     {
       "id": "p:studium-documentation-learn-a-topic-with:11",
       "source_id": "studium-documentation-learn-a-topic-with",
-      "text": "The concept map (ask \"where am I?\") names each concept with its id, for example \"Quantum numbers (`c-nombres-quantiques`): upcoming\". If you already know a concept the map does not show as acquired, or doubt one it does, say so: the assistant contests it for you with `submit_response {kind: \"contest\", concept_id, claim}` (`known` or `unsure`), and never on its own. Your claim changes nothing about your mastery and skips no scene. The lesson opens with one line, \"Check on “Quantum numbers”: 2 questions. Your claim changes nothing; the lesson then resumes where you were.\", asks one or two check questions on that concept, graded like any answer (the last line says `check 1/2`), then resumes where you were. In forms, decline the form and say it in the conversation."
+      "text": "## 4. Play it, in the chat or in VS Code\n\nIn the chat, each step arrives ready to read: its title, the question, how to answer (a letter, a number from 0 to 4, or your own words) and, on its last line, where you are (`step 2/6 · 4 min · your answer`). Answer yourself. The assistant passes your words on and must not answer, choose or rate for you."
     },
     {
       "id": "p:studium-documentation-learn-a-topic-with:12",
       "source_id": "studium-documentation-learn-a-topic-with",
-      "text": "If each answer is slow to come, play the lesson in a new, short session on your assistant's fast model (in Claude Code, `claude --agent studium-lesson`): see [Keep answers fast](../start/fast-answers.md)."
+      "text": "The concept map (ask \"where am I?\") names each concept with its id, for example \"Quantum numbers (`c-nombres-quantiques`): upcoming\". If you already know a concept the map does not show as acquired, or doubt one it does, say so: the assistant contests it for you with `submit_response {kind: \"contest\", concept_id, claim}` (`known` or `unsure`), and never on its own. Your claim changes nothing about your mastery and skips no scene. The lesson opens with one line, \"Check on “Quantum numbers”: 2 questions. Your claim changes nothing; the lesson then resumes where you were.\", asks one or two check questions on that concept, graded like any answer (the last line says `check 1/2`), then resumes where you were. In forms, decline the form and say it in the conversation."
     },
     {
       "id": "p:studium-documentation-learn-a-topic-with:13",
       "source_id": "studium-documentation-learn-a-topic-with",
-      "text": "To play in VS Code instead, right-click the lesson's `lesson.json` and choose **Studium: Open this lesson**, or follow the link your assistant gives you (`vscode://holobiomicslab.studium-vscode/open?bundle=<absolute path>`). See [VS Code](../start/vscode.md). The pane keeps its own progress in VS Code's storage: answers given there do not appear in the study plan your assistant reads, and the reverse."
+      "text": "If each answer is slow to come, play the lesson in a new, short session on your assistant's fast model (in Claude Code, `claude --agent studium-lesson`): see [Keep answers fast](../start/fast-answers.md)."
     },
     {
       "id": "p:studium-documentation-learn-a-topic-with:14",
       "source_id": "studium-documentation-learn-a-topic-with",
-      "text": "## 5. Read the notice\n\nThe first screen of a lesson an assistant wrote carries a notice. Without a judge model, it reads:\n\n> AI-drafted lesson from your sources, not checked by a teacher: each item cites its passage; tell the > assistant about a key that looks wrong. Without a judge model, production scenes are not assessed: compare your answer with the > provided reference and rate your recall; that rating schedules your reviews and never changes your mastery. Executed reproductions carry > an external assessment."
+      "text": "To play in VS Code instead, open the lesson from the **Lessons** view of the Studium extension: it appears there when it is ready, and VS Code tells you. You can also follow the link your assistant gives you (`vscode://holobiomicslab.studium-vscode/open?bundle=<absolute path>`). See [VS Code](../start/vscode.md). The pane keeps its own progress in VS Code's storage: answers given there do not appear in the study plan your assistant reads, and the reverse, except for Copilot with the Studium server the extension offers, which plays the pane's learner in that storage ([Connect Copilot](../start/copilot.md))."
     },
     {
       "id": "p:studium-documentation-learn-a-topic-with:15",
       "source_id": "studium-documentation-learn-a-topic-with",
-      "text": "What it means in practice:\n\n- **Who wrote the key.** The assistant wrote the correct answers. They cite the passages they rest on, so you can check them; a key can still be wrong. On a panel or a pane, the line over a quiz verdict says so too: \"Assessed by the AI-drafted key — check it against the cited passage\" (a lesson you wrote yourself says \"Assessed by the key you wrote\"; a teacher's lesson, \"Assessed by the author's key\"). - **What was assessed.** Quiz answers are checked against that key: ✓ when right, ✗ when wrong, and once you leave a question you answered wrong, the right answer is shown. Your written answers (explanations, comparisons, audits) are not scored unless a judge model is configured (`LITELLM_BASE_URL`). You get the key points and a model answer to compare with, never a keyword count that pretends to measure coverage. - **What your rating does.** After a written answer you rate your recall: `again`, `hard`, `good` or `easy`. That rating sets the date of the next review. It never raises or lowers your mastery."
+      "text": "## 5. Read the notice\n\nThe first screen of a lesson an assistant wrote carries a notice. Without a judge model, it reads:\n\n> AI-drafted lesson from your sources, not checked by a teacher: each item cites its passage; tell the > assistant about a key that looks wrong. Without a judge model, production scenes are not assessed: compare your answer with the > provided reference and rate your recall; that rating schedules your reviews and never changes your mastery. Executed reproductions carry > an external assessment."
     },
     {
       "id": "p:studium-documentation-learn-a-topic-with:16",
       "source_id": "studium-documentation-learn-a-topic-with",
-      "text": "No answer key, cited passage or model answer is shown before you answer, on any surface. They appear once you leave the question; a retry of the same question keeps them back. More in [honesty and provenance](../concepts/honesty-and-provenance.md)."
+      "text": "What it means in practice:\n\n- **Who wrote the key.** The assistant wrote the correct answers. They cite the passages they rest on, so you can check them; a key can still be wrong. On a panel or a pane, the line over a quiz verdict says so too: \"Assessed by the AI-drafted key — check it against the cited passage\" (a lesson you wrote yourself says \"Assessed by the key you wrote\"; a teacher's lesson, \"Assessed by the author's key\"). - **What was assessed.** Quiz answers are checked against that key: ✓ when right, ✗ when wrong, and once you leave a question you answered wrong, the right answer is shown. Your written answers (explanations, comparisons, audits) are not scored unless a judge model is configured (`LITELLM_BASE_URL`). You get the key points and a model answer to compare with, never a keyword count that pretends to measure coverage. - **What your rating does.** After a written answer you rate your recall: `again`, `hard`, `good` or `easy`. That rating sets the date of the next review. It never raises or lowers your mastery."
     },
     {
       "id": "p:studium-documentation-learn-a-topic-with:17",
       "source_id": "studium-documentation-learn-a-topic-with",
-      "text": "## 6. Come back days later\n\nOpen a new conversation and ask \"What should I study with Studium today?\". The assistant calls `get_study_plan` in your language, which lists the reviews due, the lessons in progress and the next lesson, and names the one step to take now. `start_review_session` then plays every review due, across all your lessons. See [review over time](review-over-time.md)."
+      "text": "No answer key, cited passage or model answer is shown before you answer, on any surface. They appear once you leave the question; a retry of the same question keeps them back. More in [honesty and provenance](../concepts/honesty-and-provenance.md)."
     },
     {
       "id": "p:studium-documentation-learn-a-topic-with:18",
       "source_id": "studium-documentation-learn-a-topic-with",
-      "text": "If you simply take a lesson up again, its first screen says so, and when reviews are due it proposes them at the start of the session, or at the first pause after it when the session started on a question, once per session:"
+      "text": "## 6. Come back days later\n\nOpen a new conversation and ask \"What should I study with Studium today?\". The assistant calls `get_study_plan` in your language, which lists the reviews due, the lessons in progress and the next lesson, and names the one step to take now. `start_review_session` then plays every review due, across all your lessons. See [review over time](review-over-time.md). If Studium refused a draft of your lesson and no lesson was written for you since, the plan offers to finish it, after a lesson you have in progress, for 14 days, and only to you (the assistant passes your learner id); say you no longer want it and it is not offered again."
     },
     {
       "id": "p:studium-documentation-learn-a-topic-with:19",
       "source_id": "studium-documentation-learn-a-topic-with",
-      "text": "> **Suggestion:** 1 concept to review today (suggestion `review_due:start`) > _You can accept, or say “later”._\n\nAnswer in your own words. If you accept, the assistant starts the review session; if you say \"later\", the lesson goes on. The same kind of proposal comes at a pause, never over a question: playing in forms when your client can show them, the concept map at the end of the lesson. Each one is made once."
+      "text": "If you simply take a lesson up again, its first screen says so, and when reviews are due it proposes them at the start of the session, or at the first pause after it when the session started on a question, once per session:"
     },
     {
       "id": "p:studium-documentation-learn-a-topic-with:20",
       "source_id": "studium-documentation-learn-a-topic-with",
-      "text": "Your progress survives restarts by default, under `~/.studium`. To find it again from another assistant, use the same data folder and the same learner id: ask the assistant to pass one stable `learner_id` (for example your first name) on every call."
+      "text": "> **Suggestion:** 1 concept to review today (suggestion `review_due:start`) > _You can accept, or say “later”._\n\nAnswer in your own words. If you accept, the assistant starts the review session; if you say \"later\", the lesson goes on. The same kind of proposal comes at a pause, never over a question: playing in forms when your client can show them, the concept map at the end of the lesson. Each one is made once."
     },
     {
       "id": "p:studium-documentation-learn-a-topic-with:21",
       "source_id": "studium-documentation-learn-a-topic-with",
-      "text": "## 7. Close or forget\n\n| You say | The assistant calls | Effect | |---|---|---| | \"Stop here for today.\" | `end_session` | Closes the session and keeps your progress. Starting the lesson again resumes it. | | \"Erase my data for this lesson.\" | `forget_session {session_id}` | Erases your progress in this lesson, its experiment journal, and your cross-lesson profile and study record. Cannot be undone. | | \"Erase all my Studium data.\" | `forget_session {learner_id}` | The same, plus your progress in every other lesson, without a lesson open. Cannot be undone. |"
+      "text": "Your progress survives restarts by default, under `~/.studium`. To find it again from another assistant, use the same data folder and the same learner id: ask the assistant to pass one stable `learner_id` (for example your first name) on every call."
     },
     {
       "id": "p:studium-documentation-learn-a-topic-with:22",
       "source_id": "studium-documentation-learn-a-topic-with",
-      "text": "The assistant then shows what was erased and what stays. Forgetting does not delete the lessons in your library (`~/.studium/library/<course>/`) or the prepared sources (`~/.studium/library/_sources/`), nor the conversation your assistant keeps. Remove those yourself if you want them gone. See [privacy and limits](../concepts/privacy-and-limits.md)."
+      "text": "## 7. Close or forget\n\n| You say | The assistant calls | Effect | |---|---|---| | \"Stop here for today.\" | `end_session` | Closes the session and keeps your progress. Starting the lesson again resumes it. | | \"Erase my data for this lesson.\" | `forget_session {session_id}` | Erases your progress in this lesson, its experiment journal, and your cross-lesson profile and study record. Cannot be undone. | | \"Erase all my Studium data.\" | `forget_session {learner_id}` | The same, plus your progress in every other lesson and the drafts Studium kept for you, without a lesson open. Cannot be undone. |"
     },
     {
       "id": "p:studium-documentation-learn-a-topic-with:23",
       "source_id": "studium-documentation-learn-a-topic-with",
-      "text": "## Sample conversation\n\n> **You:** I want to learn the water cycle with Studium, from this encyclopedia page. It is CC-BY-SA. > > **Assistant:** I prepared 4 passages from the page and drafted a lesson. Outline: 1. The water cycle > (introduction) · 2. Evaporation (quiz) · 3. Condensation and clouds (explain back) · 4. From rain to rivers > (comparison). Shall I start it? > > **You:** Yes. > > **Assistant:** *AI-drafted lesson from your sources, not checked by a teacher …* Step 2 of 4. What makes ocean > water evaporate? A, B or C? > > **You:** B. > > **Assistant:** Right. Step 3 of 4: explain in your own words how a cloud forms. > > **You:** The vapour rises, cools and turns into droplets. > > **Assistant:** Answer recorded; no judge assessed it. Compare it with these key points and the model answer. > How well did you recall it: again, hard, good or easy? > > **You:** Good. > > **Assistant:** Rating recorded. Next review: <date>. It schedules your reviews and never changes your mastery."
+      "text": "The assistant then shows what was erased and what stays. Forgetting does not delete the lessons in your library (`~/.studium/library/<course>/`) or the prepared sources (`~/.studium/library/_sources/`), nor the conversation your assistant keeps. Remove those yourself if you want them gone. See [privacy and limits](../concepts/privacy-and-limits.md)."
     },
     {
       "id": "p:studium-documentation-learn-a-topic-with:24",
+      "source_id": "studium-documentation-learn-a-topic-with",
+      "text": "## Sample conversation\n\n> **You:** I want to learn the water cycle with Studium, from this encyclopedia page. It is CC-BY-SA. > > **Assistant:** I prepared 4 passages from the page and drafted a lesson. Outline: 1. The water cycle > (introduction) · 2. Evaporation (quiz) · 3. Condensation and clouds (explain back) · 4. From rain to rivers > (comparison). Shall I start it? > > **You:** Yes. > > **Assistant:** *AI-drafted lesson from your sources, not checked by a teacher …* Step 2 of 4. What makes ocean > water evaporate? A, B or C? > > **You:** B. > > **Assistant:** Right. Step 3 of 4: explain in your own words how a cloud forms. > > **You:** The vapour rises, cools and turns into droplets. > > **Assistant:** Answer recorded; no judge assessed it. Compare it with these key points and the model answer. > How well did you recall it: again, hard, good or easy? > > **You:** Good. > > **Assistant:** Rating recorded. Next review: <date>. It schedules your reviews and never changes your mastery."
+    },
+    {
+      "id": "p:studium-documentation-learn-a-topic-with:25",
       "source_id": "studium-documentation-learn-a-topic-with",
       "text": "## Going further\n\n- Step by step with a real source: [learn a topic in a conversation](../tutorials/learn-a-topic-in-a-conversation.md). - The same route with the Python packet tools, for full control: [self-study from references](../tutorials/self-study-from-references.md). - Every tool and its arguments: [MCP tools](../reference/mcp-tools.md); the code is in [apps/lesson-mcp/src/authoring-tools.ts](../../apps/lesson-mcp/src/authoring-tools.ts) and [apps/lesson-mcp/src/server.ts](../../apps/lesson-mcp/src/server.ts)."
     },
@@ -454,7 +459,7 @@
     {
       "id": "p:studium-documentation-review-over-time:13",
       "source_id": "studium-documentation-review-over-time",
-      "text": "## Where your data lives\n\nProgress is durable by default: it survives a restart of the assistant or the computer.\n\n| What | Where | |---|---| | Lessons your assistant writes | `~/.studium/library/<course>/lesson.json`, whatever `BUNDLES_ROOT` names | | Prepared sources | `~/.studium/library/_sources/` | | Progress, mastery, review memory, study record | `~/.studium/data/`, one folder per learner pseudonym | | Pseudonym secret | `~/.studium/data/.studium-secret`, created with a new data folder | | VS Code pane progress | VS Code's own extension storage |"
+      "text": "## Where your data lives\n\nProgress is durable by default: it survives a restart of the assistant or the computer.\n\n| What | Where | |---|---| | Lessons your assistant writes | `~/.studium/library/<course>/lesson.json`, whatever `BUNDLES_ROOT` names | | Prepared sources | `~/.studium/library/_sources/` | | Drafts of unfinished lessons | `~/.studium/library/_drafts/`, until the lesson is written, discarded, or 14 days old | | Progress, mastery, review memory, study record | `~/.studium/data/`, one folder per learner pseudonym | | Pseudonym secret | `~/.studium/data/.studium-secret`, created with a new data folder | | VS Code pane progress | VS Code's own extension storage |"
     },
     {
       "id": "p:studium-documentation-review-over-time:14",
@@ -484,12 +489,12 @@
     {
       "id": "p:studium-documentation-privacy-and-limits:2",
       "source_id": "studium-documentation-privacy-and-limits",
-      "text": "## Where your data lives\n\nThe MCP server (`apps/lesson-mcp`) uses these defaults. Each can be changed with an environment variable; see the [configuration reference](../reference/configuration.md).\n\n| What | Default location | Change it with | |---|---|---| | Root of your library and data | `~/.studium` | `STUDIUM_HOME` | | Lessons written for you | `<STUDIUM_HOME>/library/<course>/lesson.json`, whatever `BUNDLES_ROOT` names | `STUDIUM_HOME`; `BUNDLES_ROOT` only adds a folder searched first | | Sources prepared for those lessons | `<STUDIUM_HOME>/library/_sources/` | `STUDIUM_HOME` | | Your progress | `<STUDIUM_HOME>/data` | `STUDIUM_DATA_DIR` | | Nothing on disk, memory only | off | `STUDIUM_EPHEMERAL=1` | | Learner id when the assistant gives none | `anonymous` | `STUDIUM_LEARNER_ID` |"
+      "text": "## Where your data lives\n\nThe MCP server (`apps/lesson-mcp`) uses these defaults. Each can be changed with an environment variable; see the [configuration reference](../reference/configuration.md).\n\n| What | Default location | Change it with | |---|---|---| | Root of your library and data | `~/.studium` | `STUDIUM_HOME` | | Lessons written for you | `<STUDIUM_HOME>/library/<course>/lesson.json`, whatever `BUNDLES_ROOT` names | `STUDIUM_HOME`; `BUNDLES_ROOT` only adds a folder searched first | | Sources prepared for those lessons (their passages, and for a file read by path its full path, size and SHA-256) | `<STUDIUM_HOME>/library/_sources/` | `STUDIUM_HOME` | | A draft Studium refused, kept so the assistant resends only the faulty scenes (see *A kept draft* below) | `<STUDIUM_HOME>/library/_drafts/` | `STUDIUM_HOME` | | Your progress | `<STUDIUM_HOME>/data` | `STUDIUM_DATA_DIR` | | Nothing on disk, memory only | off | `STUDIUM_EPHEMERAL=1` | | Learner id when the assistant gives none | `anonymous` | `STUDIUM_LEARNER_ID` |"
     },
     {
       "id": "p:studium-documentation-privacy-and-limits:3",
       "source_id": "studium-documentation-privacy-and-limits",
-      "text": "Inside the data folder, each learner has a folder named by a pseudonym, never by their id:\n\n| File | Content | |---|---| | `<pseudonym>/profile.json` | cross-lesson profile, including review memory | | `<pseudonym>/study.json` | where the learner studied | | `<pseudonym>/status.json` | where the session being played stands (lesson title, step, minutes left), for an assistant's status line; removed when the session closes | | `<pseudonym>/<lesson>/state-<lesson>.json` | lesson state and mastery | | `<pseudonym>/<lesson>/events.jsonl` | the session's event log | | `<pseudonym>/<lesson>/mastery/*.jsonld` | mastery claims, when a concept is certified | | `<pseudonym>/<lesson>/telemetry.jsonl` | only with telemetry consent; written as the learner acts, opened by a record of the consent declared through `STUDIUM_TELEMETRY_CONSENT` |"
+      "text": "Inside the data folder, each learner has a folder named by a pseudonym, never by their id:\n\n| File | Content | |---|---| | `<pseudonym>/profile.json` | cross-lesson profile, including review memory | | `<pseudonym>/study.json` | where the learner studied, and where they last answered a step (`answered_on`: the browser, the VS Code pane, a panel, the Claude Code pane or the chat), so that the next lesson is offered there first | | `<pseudonym>/status.json` | where the session being played stands (lesson title, step, minutes left), for an assistant's status line; removed when the session closes | | `<pseudonym>/<lesson>/state-<lesson>.json` | lesson state and mastery | | `<pseudonym>/<lesson>/events.jsonl` | the session's event log | | `<pseudonym>/<lesson>/mastery/*.jsonld` | mastery claims, when a concept is certified | | `<pseudonym>/<lesson>/telemetry.jsonl` | only with telemetry consent; written as the learner acts, opened by a record of the consent declared through `STUDIUM_TELEMETRY_CONSENT` |"
     },
     {
       "id": "p:studium-documentation-privacy-and-limits:4",
@@ -499,70 +504,85 @@
     {
       "id": "p:studium-documentation-privacy-and-limits:5",
       "source_id": "studium-documentation-privacy-and-limits",
-      "text": "The VS Code extension runs its own server with its data in the extension's VS Code storage, separate from `<STUDIUM_HOME>/data`.\n\n### Pseudonyms\n\nA pseudonym is an HMAC of the learner id. The secret is `STUDIUM_PSEUDO_SECRET` when set; otherwise a fresh data folder gets its own secret file, `<data dir>/.studium-secret` (permissions 0600). Back it up with the data folder: without it, the learner folders can no longer be matched to their learners. A data folder created before this file existed keeps the former shared secret so nobody loses progress; anyone holding such a folder and a learner's id can recompute the pseudonym, so set `STUDIUM_PSEUDO_SECRET` for it."
+      "text": "### A kept draft\n\nWhen Studium refuses a lesson draft for what it says, it keeps the draft in `<STUDIUM_HOME>/library/_drafts/` so that the assistant sends back only the faulty scenes. The kept draft holds the lesson as the assistant wrote it, answer keys included, the errors found in it, the sources it rests on (by their SHA-256) and the pseudonym of the learner it was written for. Of your learner profile it keeps only the minutes a day and the target date: what you already know and what interests you stay out, even under a misspelled field name, and so do the errors about them."
     },
     {
       "id": "p:studium-documentation-privacy-and-limits:6",
       "source_id": "studium-documentation-privacy-and-limits",
-      "text": "## Who controls what\n\n| Space | What it can hold | Who controls retention | |---|---|---| | Studium server | Session state and, by default, the durable profile | Studium settings and forget commands | | Local HTTP API | Active sessions and retry receipts, in the server's memory | The local user; the token opens every session of that server | | Assistant and its provider | Prompts, content sent, tool calls, history | The client's and provider's settings and terms | | Experiment folder | Code, data, logs, receipts, chosen observations | The folder's user | | Shared course | Authorised sources, plan, assets, answer criteria | The teacher and distribution rules | | Class telemetry | Consented events | The pilot lead and the collection policy |"
+      "text": "The study plan offers to finish it only to the learner it was refused for, after a lesson they have in progress. When the assistant gave no `learner_id` and `STUDIUM_LEARNER_ID` is not set, no learner is known: the draft serves only the resend in the same conversation and is offered to no one, so a computer several learners share never shows one learner's goal or file to another."
     },
     {
       "id": "p:studium-documentation-privacy-and-limits:7",
       "source_id": "studium-documentation-privacy-and-limits",
-      "text": "## Defaults to keep\n\n- Telemetry consent is off: `studium.telemetryConsent` is `false` in VS Code, and the server writes telemetry only when `STUDIUM_TELEMETRY_CONSENT` is set and state is durable. Do not turn collection on to fix a connection problem. - Use a demonstration id, not a real name, for onboarding. - Keep `studium.assets` on `vendor` so rendering libraries load locally; the `cdn` option contacts an external server. - Keep `studium.showMastery` off and the graph in the student view during an exercise: review views can reveal more than the exercise intends."
+      "text": "It is erased when a lesson is written for that learner (or from the same sources with no learner named), when the learner says they no longer want it, when they erase their data with `forget_session {learner_id}`, which also erases the drafts kept for no learner, and in any case after 14 days."
     },
     {
       "id": "p:studium-documentation-privacy-and-limits:8",
       "source_id": "studium-documentation-privacy-and-limits",
-      "text": "## Answer keys\n\nScenes are served without their keys, and `lesson-server` redacts keys over HTTP. But an agent with access to the repository or to the raw `lesson.json` can read them: redaction on the wire does not protect local files. The Studium skills tell the assistant never to read keys in the raw bundle."
+      "text": "The VS Code extension runs its own server with its data in the extension's VS Code storage, separate from `<STUDIUM_HOME>/data`.\n\n### Pseudonyms\n\nA pseudonym is an HMAC of the learner id. The secret is `STUDIUM_PSEUDO_SECRET` when set; otherwise a fresh data folder gets its own secret file, `<data dir>/.studium-secret` (permissions 0600). Back it up with the data folder: without it, the learner folders can no longer be matched to their learners. A data folder created before this file existed keeps the former shared secret so nobody loses progress; anyone holding such a folder and a learner's id can recompute the pseudonym, so set `STUDIUM_PSEUDO_SECRET` for it."
     },
     {
       "id": "p:studium-documentation-privacy-and-limits:9",
       "source_id": "studium-documentation-privacy-and-limits",
-      "text": "## Forget and export\n\n| Action | What it erases | What it keeps | |---|---|---| | `end_session` | nothing | lesson state and cross-lesson memory | | `forget_session {session_id}` | this learner's durable state for the lesson (answers, lesson state, experiment journal), their cross-lesson profile, study record and status file; irreversible | their progress in other lessons, which it names | | `forget_session {learner_id}` | the same for every lesson the learner opened, with no session needed; their live sessions close; irreversible | nothing of the learner's progress | | VS Code \"Studium: Forget my data\" | the extension's storage, its run-trust memory and last lesson, after closing every lesson server the extension started and a confirmation | an assistant's data in `<STUDIUM_HOME>/data`, which it names and does not touch |"
+      "text": "## Who controls what\n\n| Space | What it can hold | Who controls retention | |---|---|---| | Studium server | Session state and, by default, the durable profile | Studium settings and forget commands | | Local HTTP API | Active sessions and retry receipts, in the server's memory | The local user; the token opens every session of that server | | Assistant and its provider | Prompts, content sent, tool calls, history | The client's and provider's settings and terms | | Experiment folder | Code, data, logs, receipts, chosen observations | The folder's user | | Shared course | Authorised sources, plan, assets, answer criteria | The teacher and distribution rules | | Class telemetry | Consented events | The pilot lead and the collection policy |"
     },
     {
       "id": "p:studium-documentation-privacy-and-limits:10",
       "source_id": "studium-documentation-privacy-and-limits",
-      "text": "`forget_session` answers with what it erased and what stays on disk: the lessons of the learner's library (`<STUDIUM_HOME>/library/<course>/`) and the sources prepared for them (`<STUDIUM_HOME>/library/_sources/`). The assistant shows that list; delete those folders by hand to remove them too. The install's pseudonym secret also stays: it holds no learner data."
+      "text": "## Defaults to keep\n\n- Telemetry consent is off: `studium.telemetryConsent` is `false` in VS Code, and the server writes telemetry only when `STUDIUM_TELEMETRY_CONSENT` is set and state is durable. Do not turn collection on to fix a connection problem. - Use a demonstration id, not a real name, for onboarding. - Keep `studium.assets` on `vendor` so rendering libraries load locally; the `cdn` option contacts an external server. - Keep `studium.showMastery` off and the graph in the student view during an exercise: review views can reveal more than the exercise intends."
     },
     {
       "id": "p:studium-documentation-privacy-and-limits:11",
       "source_id": "studium-documentation-privacy-and-limits",
-      "text": "No forget command reaches the assistant's history, experiment folders, exported files or copies kept elsewhere. Closing a window is not an erasure request. Check the result in the storage actually configured."
+      "text": "## Answer keys\n\nScenes are served without their keys, and `lesson-server` redacts keys over HTTP. But an agent with access to the repository or to the raw `lesson.json` can read them: redaction on the wire does not protect local files. The Studium skills tell the assistant never to read keys in the raw bundle."
     },
     {
       "id": "p:studium-documentation-privacy-and-limits:12",
       "source_id": "studium-documentation-privacy-and-limits",
-      "text": "Portable activities offer a choice to record and a voluntary download of actions. The learner report excludes personal texts by default; `--include-original-text` applies to that copy only, not to any wider sharing. In an experiment folder, `learner_observation` is empty by default: keep the learner's own words only at their request. Do not add these folders to a course repository automatically."
+      "text": "## Forget and export\n\n| Action | What it erases | What it keeps | |---|---|---| | `end_session` | nothing | lesson state and cross-lesson memory | | `forget_session {session_id}` | this learner's durable state for the lesson (answers, lesson state, experiment journal), their cross-lesson profile, study record and status file; irreversible | their progress in other lessons, which it names | | `forget_session {learner_id}` | the same for every lesson the learner opened, with no session needed, and the drafts kept for them or for no learner; their live sessions close; irreversible | nothing of the learner's progress; another learner's drafts | | VS Code \"Studium: Forget my data\" | the extension's storage, its run-trust memory and last lesson, after closing every lesson server the extension started and a confirmation | an assistant's data in `<STUDIUM_HOME>/data`, which it names and does not touch |"
     },
     {
       "id": "p:studium-documentation-privacy-and-limits:13",
       "source_id": "studium-documentation-privacy-and-limits",
-      "text": "## The local HTTP API\n\nThe HTTP API accepts loopback connections only and requires a bearer token of at least 32 characters. It serves one person and their local clients; the token does not separate learners. Do not embed it in an HTML activity or expose the server to the Internet. Stopping the process ends active sessions."
+      "text": "`forget_session` answers with what it erased and what stays on disk: the lessons of the learner's library (`<STUDIUM_HOME>/library/<course>/`) and the sources prepared for them (`<STUDIUM_HOME>/library/_sources/`), and for one lesson the drafts of unfinished lessons (`<STUDIUM_HOME>/library/_drafts/`). The assistant shows that list; delete those folders by hand to remove them too. The install's pseudonym secret also stays: it holds no learner data."
     },
     {
       "id": "p:studium-documentation-privacy-and-limits:14",
       "source_id": "studium-documentation-privacy-and-limits",
-      "text": "## Class reports\n\n`class_report` aggregates consented telemetry with a floor of five learners, applied to each figure over the learners it is computed from (graded, rated, timed or started): a scene or concept with fewer answering learners is left out, a figure below its floor is withheld, and learner counts are banded. Two reports taken before and after one learner plays can still be compared, so treat figures as a live class view, not a publication. The report covers the whole data folder the server is configured with, names it by a label and a fingerprint (never its path), and refuses a `telemetry_dir` argument: the folder is server configuration."
+      "text": "No forget command reaches the assistant's history, experiment folders, exported files or copies kept elsewhere. Closing a window is not an erasure request. Check the result in the storage actually configured."
     },
     {
       "id": "p:studium-documentation-privacy-and-limits:15",
       "source_id": "studium-documentation-privacy-and-limits",
-      "text": "### Interaction events\n\nWith your consent and durable state, Studium also records how the interface was used: which lane and surface an act came through, help requested by rung, proposals shown and their outcome, contests and their outcome, resumes, and review receipt counts. These events contain no free text, scene text or answers, and are written to disk only under the same consent and durable-state conditions as the rest of telemetry. Class views keep the five-learner floor. See [Follow a class](../teach/follow-a-class.md#how-the-interface-was-used) and the [telemetry-events README](../../packages/telemetry-events/README.md)."
+      "text": "Portable activities offer a choice to record and a voluntary download of actions. The learner report excludes personal texts by default; `--include-original-text` applies to that copy only, not to any wider sharing. In an experiment folder, `learner_observation` is empty by default: keep the learner's own words only at their request. Do not add these folders to a course repository automatically."
     },
     {
       "id": "p:studium-documentation-privacy-and-limits:16",
       "source_id": "studium-documentation-privacy-and-limits",
-      "text": "## Reading the evidence\n\n- An exact quote proves a textual link; it can still be used wrongly. - A hash verifies a snapshot; it certifies neither its truth nor its author. An `approval.json` documents a review, it is not a signature. - A run check catches missing outputs and failed checks; it cannot detect a perfect forgery, and a recorded command can be a statement by the harness. Mark a run `completed` only after its real checks. - Path and size filters on receipts are not a universal secret detector. - Capturing a source must respect its reuse rights: a DOI or access to an article does not allow redistributing it. Keep the excerpts you need and flag an unknown licence."
+      "text": "## The local HTTP API\n\nThe HTTP API accepts loopback connections only and requires a bearer token of at least 32 characters. It serves one person and their local clients; the token does not separate learners. Do not embed it in an HTML activity or expose the server to the Internet. Stopping the process ends active sessions."
     },
     {
       "id": "p:studium-documentation-privacy-and-limits:17",
       "source_id": "studium-documentation-privacy-and-limits",
-      "text": "## Running code\n\nA virtual environment isolates Python dependencies, not the rights of the code on the machine. Execution stays under the protections of the harness and the environment you chose, and VS Code asks before a reproduction runs. Do not follow instructions found in an article or a results file as if they came from the teacher."
+      "text": "## Class reports\n\n`class_report` aggregates consented telemetry with a floor of five learners, applied to each figure over the learners it is computed from (graded, rated, timed or started): a scene or concept with fewer answering learners is left out, a figure below its floor is withheld, and learner counts are banded. Two reports taken before and after one learner plays can still be compared, so treat figures as a live class view, not a publication. The report covers the whole data folder the server is configured with, names it by a label and a fingerprint (never its path), and refuses a `telemetry_dir` argument: the folder is server configuration."
     },
     {
       "id": "p:studium-documentation-privacy-and-limits:18",
+      "source_id": "studium-documentation-privacy-and-limits",
+      "text": "### Interaction events\n\nWith your consent and durable state, Studium also records how the interface was used: which lane and surface an act came through, help requested by rung, proposals shown and their outcome, contests and their outcome, resumes, and review receipt counts. These events contain no free text, scene text or answers, and are written to disk only under the same consent and durable-state conditions as the rest of telemetry. Class views keep the five-learner floor. See [Follow a class](../teach/follow-a-class.md#how-the-interface-was-used) and the [telemetry-events README](../../packages/telemetry-events/README.md)."
+    },
+    {
+      "id": "p:studium-documentation-privacy-and-limits:19",
+      "source_id": "studium-documentation-privacy-and-limits",
+      "text": "## Reading the evidence\n\n- An exact quote proves a textual link; it can still be used wrongly. - A hash verifies a snapshot; it certifies neither its truth nor its author. An `approval.json` documents a review, it is not a signature. - A run check catches missing outputs and failed checks; it cannot detect a perfect forgery, and a recorded command can be a statement by the harness. Mark a run `completed` only after its real checks. - Path and size filters on receipts are not a universal secret detector. - Capturing a source must respect its reuse rights: a DOI or access to an article does not allow redistributing it. Keep the excerpts you need and flag an unknown licence."
+    },
+    {
+      "id": "p:studium-documentation-privacy-and-limits:20",
+      "source_id": "studium-documentation-privacy-and-limits",
+      "text": "## Running code\n\nA virtual environment isolates Python dependencies, not the rights of the code on the machine. Execution stays under the protections of the harness and the environment you chose, and VS Code asks before a reproduction runs. Do not follow instructions found in an article or a results file as if they came from the teacher."
+    },
+    {
+      "id": "p:studium-documentation-privacy-and-limits:21",
       "source_id": "studium-documentation-privacy-and-limits",
       "text": "## Publishing\n\nThe Observatory and the teacher dashboard are local, without class authentication. Publishing a course and publishing the code are separate decisions, each with its own rights and review. Studium's code is under Apache-2.0 and its documentation and project lessons under CC BY 4.0; a lesson built from your sources keeps the licences of those sources. Passing tests does not make a deployment compliant with a regulation: run a pilot with the people responsible for it."
     },
@@ -739,7 +759,7 @@
     {
       "id": "p:studium-documentation-student-guide:18",
       "source_id": "studium-documentation-student-guide",
-      "text": "## Stop and resume\n\n- **Pause.** Say \"stop here\"; the assistant calls `end_session`, which closes the session and keeps your progress. Closing a window alone does not erase anything. - **Resume.** Start the same lesson with the same learner id: Studium resumes at the first unfinished step. A finished lesson starts again from the beginning as a retake. - **Several places.** The VS Code pane and an assistant keep separate progress. Two assistants share it when they use the same data folder and learner id. - **Erase.** Ask the assistant to forget your data for a lesson, or all your data (`forget_session`); it then tells you what stays on disk. See [learn with your assistant](learn-with-your-assistant.md#7-close-or-forget). In VS Code, **Studium: Forget my data** erases what the extension keeps, not an assistant's data. Experiment folders and the assistant's own history follow their own retention rules."
+      "text": "## Stop and resume\n\n- **Pause.** Say \"stop here\"; the assistant calls `end_session`, which closes the session and keeps your progress. Closing a window alone does not erase anything. - **Resume.** Start the same lesson with the same learner id: Studium resumes at the first unfinished step. A finished lesson starts again from the beginning as a retake. - **Several places.** The VS Code pane and an assistant keep separate progress, except Copilot with the server the Studium extension offers, which shares the pane's: same folder, same learner. Two assistants share it when they use the same data folder and learner id. - **Erase.** Ask the assistant to forget your data for a lesson, or all your data (`forget_session`); it then tells you what stays on disk. See [learn with your assistant](learn-with-your-assistant.md#7-close-or-forget). In VS Code, **Studium: Forget my data** erases what the extension keeps, not an assistant's data. Experiment folders and the assistant's own history follow their own retention rules."
     },
     {
       "id": "p:studium-documentation-student-guide:19",

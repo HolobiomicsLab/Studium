@@ -50,13 +50,18 @@ calls: `get_server_info` (the tool list and `persistence.durable`), then
 verification.
 
 Choose one owner for the session: the pane and a chat assistant run separate servers
-with separate progress. Never mix their session ids or promise synchronisation.
+with separate progress. Never mix their session ids or promise synchronisation. The one
+exception is Copilot with the server the Studium VS Code extension registers: it plays the
+pane's learner (`persistence.learner_id_from_editor` is true), so a lesson opened in one
+goes on where the other left it, and a result that carries `open_link` offers the pane first,
+unless the learner last answered in the chat (`offer_first: "chat"`).
 
 ## Begin the activity
 
 Read [studium-harness](../studium-harness/SKILL.md) for the loop and use
 [Your first lesson](../../docs/tutorials/first-lesson.md). Ask for one stable
-`learner_id` and pass it on every call. Relay the lesson's `authoring.notice` when
+`learner_id` and pass it on every call, unless `persistence.learner_id_from_editor` is
+true: then omit it, the editor names the learner. Relay the lesson's `authoring.notice` when
 present, show each `display_markdown`, then wait for the student.
 
 - Keep answers fast: play the lesson in a short session of its own, on the harness's fast model

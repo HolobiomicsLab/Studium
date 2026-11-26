@@ -8,15 +8,16 @@
 //   rateRecall messages from the pane are validated before they reach a tool; forget-my-data erases the lot.
 //   node_modules/.pnpm/node_modules/.bin/tsx apps/studium-vscode/src/extension-host.driver.ts
 import Module from "node:module";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { hostPhrase } from "./host-phrases.js";
 import { freeTextInput } from "./scene-io.js";
 import { isolateFromHome } from "./driver-isolation.js";
 import { makeZip } from "./zip-fixture.js";
 import { liveLessonMcpCount, parseToolResult, resolveServerLaunch } from "./mcp-connect.js";
+import { vscodeHandsOver } from "./vscode-uri-fixture.js";
 import { MCP_PROVIDER_ID } from "./mcp-provider.js";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
@@ -66,7 +67,13 @@ const seen = {
   errors: [] as string[], infos: [] as string[], warnings: [] as Array<{ message: string; options: Json; items: string[] }>,
   panels: [] as any[], tasksRun: [] as any[], commands: new Map<string, (...a: any[]) => any>(),
   outputLines: [] as string[], uriHandler: undefined as any, chatHandler: undefined as any, executed: [] as string[], serializers: new Map<string, any>(), treeProviders: new Map<string, any>(), statusItems: [] as any[],
+  // BN-1 / BN-4 / BN-3: the file watchers the extension created (with their listeners), the buttons of each information
+  // message, and the options of each quick pick.
+  watchers: [] as FakeWatcher[], infoItems: [] as string[][], quickPickOptions: [] as Json[],
 };
+interface FakeWatcher { base: string; pattern: string; create: Array<(u: unknown) => void>; change: Array<(u: unknown) => void>; del: Array<(u: unknown) => void>; disposed: boolean }
+let infoAnswer: ((message: string, items: string[]) => string | undefined) = () => undefined;
+const windowStateListeners: Array<(state: { focused: boolean }) => void> = [];
 let warningAnswer: ((items: string[]) => string | undefined) = () => undefined;
 let quickPickAnswer: ((items: Json[]) => Json | undefined) = () => undefined;
 let openDialogAnswer: string | undefined;
@@ -152,7 +159,12 @@ const fakeVscode: Json = {
     registerNotebookSerializer: noop, openNotebookDocument: async () => ({}), onDidCloseNotebookDocument: noop,
     onDidChangeConfiguration: (listener: (e: any) => void) => { configListeners.push(listener); return noop(); },
     onDidChangeWorkspaceFolders: noop,
-    createFileSystemWatcher: () => ({ onDidCreate: noop, onDidChange: noop, onDidDelete: noop, dispose() {} }),
+    createFileSystemWatcher: (pattern: any) => {
+      const w: FakeWatcher = { base: String(pattern?.base?.fsPath ?? pattern?.base ?? ""), pattern: String(pattern?.pattern ?? pattern), create: [], change: [], del: [], disposed: false };
+      seen.watchers.push(w);
+      const on = (list: Array<(u: unknown) => void>) => (listener: (u: unknown) => void) => { list.push(listener); return noop(); };
+      return { onDidCreate: on(w.create), onDidChange: on(w.change), onDidDelete: on(w.del), dispose() { w.disposed = true; } };
+    },
   },
   notebooks: { createNotebookController: () => ({ dispose() {}, supportedLanguages: [] }) },
   chat: { createChatParticipant: (_id: string, handler: any) => { seen.chatHandler = handler; return { dispose() {}, iconPath: undefined }; } },
@@ -171,16 +183,22 @@ const fakeVscode: Json = {
     activeTextEditor: undefined,
     createOutputChannel: () => ({ appendLine(line: string) { seen.outputLines.push(line); }, dispose() {} }),
     registerTreeDataProvider: (id: string, provider: unknown) => { seen.treeProviders.set(id, provider); return noop(); },
+    createTreeView: (id: string, options: Json) => {
+      seen.treeProviders.set(id, options.treeDataProvider);
+      return { visible: true, onDidChangeVisibility: noop, dispose() {} };
+    },
+    state: { focused: true },
+    onDidChangeWindowState: (listener: (state: { focused: boolean }) => void) => { windowStateListeners.push(listener); return noop(); },
     registerUriHandler: (h: unknown) => { seen.uriHandler = h; return noop(); },
     registerWebviewPanelSerializer: (type: string, s: unknown) => { seen.serializers.set(type, s); return noop(); },
     createStatusBarItem: () => { const item = { text: "", tooltip: "", command: "", shown: false, show() { item.shown = true; }, hide() { item.shown = false; }, dispose() {} }; seen.statusItems.push(item); return item; },
-    showInformationMessage: (m: string) => { seen.infos.push(m); return Promise.resolve(undefined); },
+    showInformationMessage: (m: string, ...items: string[]) => { seen.infos.push(m); seen.infoItems.push(items); return Promise.resolve(infoAnswer(m, items)); },
     showErrorMessage: (m: string) => { seen.errors.push(m); return Promise.resolve(undefined); },
     showWarningMessage: (message: string, options: Json, ...items: string[]) => {
       seen.warnings.push({ message, options, items });
       return Promise.resolve(warningAnswer(items));
     },
-    showQuickPick: async (items: Json[]) => quickPickAnswer(items),
+    showQuickPick: async (items: Json[], options?: Json) => { seen.quickPickOptions.push(options ?? {}); return quickPickAnswer(items); },
     showOpenDialog: async () => (openDialogAnswer ? [new FakeUri(openDialogAnswer)] : undefined),
     showNotebookDocument: async () => ({}),
     createWebviewPanel: (viewType: string) => { const p = fakePanel(viewType); seen.panels.push(p); return p; },
@@ -204,13 +222,29 @@ const context: Json = {
     update: async (k: string, v: unknown) => { if (v === undefined) globalStateData.delete(k); else globalStateData.set(k, v); },
   },
 };
-const uriFor = (lessonPath: string) => ({ path: "/open", toString: () => `vscode://holobiomicslab.studium-vscode/open?bundle=${encodeURIComponent(lessonPath)}` });
+// Changed (D2, owner decision 1): a link reaches the handler the way VS Code hands it over (vscode-uri-fixture.ts:
+// uri.query decoded once, uri.toString() encoded again, "=" included), no longer as the link's own string.
+const uriFor = (lessonPath: string) => vscodeHandsOver(`vscode://holobiomicslab.studium-vscode/open?bundle=${encodeURIComponent(lessonPath)}`);
 /** Every file under a folder (recursive); empty when the folder does not exist. */
 function listFiles(dir: string): string[] {
   if (!existsSync(dir)) return [];
   return readdirSync(dir, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? listFiles(join(dir, e.name)) : [join(dir, e.name)]));
 }
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+/** Whether two paths name the same folder (macOS puts the temporary folder behind a /private symlink). */
+function sameFolder(a: string, b: string): boolean {
+  try { return realpathSync(a) === realpathSync(b); } catch { return resolve(a) === resolve(b); }
+}
+/** The live watcher the extension created on a folder for a pattern. */
+function watcherOn(base: string, pattern: string): FakeWatcher | undefined {
+  return seen.watchers.filter((w) => !w.disposed && w.pattern === pattern && sameFolder(w.base, base)).at(-1);
+}
+/** A file event, as VS Code delivers it to the watcher's listeners. */
+function fire(watcher: FakeWatcher | undefined, kind: "create" | "change" | "del", path: string) {
+  for (const listener of watcher?.[kind] ?? []) listener(FakeUri.file(path));
+}
+/** A host phrase in either language: the extension speaks the language of the last lesson shown. */
+const hostEither = (key: Parameters<typeof hostPhrase>[0], params: Json = {}) => [hostPhrase(key, params, "fr"), hostPhrase(key, params, "en")];
 const lastPanel = () => seen.panels[seen.panels.length - 1];
 async function waitFor(cond: () => boolean, what: string, ms = 20000) {
   const t0 = Date.now();
@@ -220,7 +254,18 @@ async function waitFor(cond: () => boolean, what: string, ms = 20000) {
 
 async function main() {
   const ext = await import("./extension.js");
+  // BN-1: the library an assistant's server writes to, <STUDIUM_HOME>/library, does not exist on a fresh install.
+  const libraryRoot = join(isolation.studiumHome, "library");
+  const libraryExistedBefore = existsSync(libraryRoot);
   ext.activate(context as any);
+  {
+    expect(!libraryExistedBefore && existsSync(libraryRoot), "activation creates the library folder, so its watcher works on a fresh install");
+    const lessons = watcherOn(libraryRoot, "*/lesson.json");
+    const sources = watcherOn(libraryRoot, "_sources/*.json");
+    expect(!!lessons && lessons.create.length > 0 && lessons.change.length > 0,
+      `the library's lessons are watched for create and change events (got ${JSON.stringify(seen.watchers.map((w) => [w.base, w.pattern]))})`);
+    expect(!!sources && sources.create.length > 0 && sources.change.length > 0, "and so are its source sets (_sources/*.json)");
+  }
 
   // VSC-5: interface language from the editor
   {
@@ -238,8 +283,18 @@ async function main() {
   {
     await seen.uriHandler.handleUri({ path: "/open", toString: () => "vscode://holobiomicslab.studium-vscode/open" });
     expect(seen.errors.at(-1) === hostPhrase("uri_missing_bundle", {}, "en"), "a link without a bundle says so");
+    // Changed (review finding 7): a link opens a lesson only from the library, studium.bundlesRoot or the shipped
+    // lessons, so the missing file is looked for in the lessons folder the setting names.
+    settings["bundlesRoot"] = lib;
     await seen.uriHandler.handleUri(uriFor(join(lib, "nope", "lesson.json")));
     expect(seen.errors.at(-1)?.includes("not found") === true, "a link to a missing file says so");
+    // Review finding 7: a lesson file elsewhere on the disk is not opened from a link, even though it exists.
+    const elsewhere = join(workspace, "elsewhere", "lesson.json");
+    mkdirSync(dirname(elsewhere), { recursive: true });
+    writeFileSync(elsewhere, readFileSync(safePath));
+    await seen.uriHandler.handleUri(uriFor(elsewhere));
+    expect(seen.errors.at(-1) === hostPhrase("uri_outside_lessons", { path: elsewhere }, "en"),
+      `a link to a lesson outside the lesson folders is refused (got ${seen.errors.at(-1)})`);
     await seen.uriHandler.handleUri({ path: "/other", toString: () => "vscode://x/other" });
     expect(seen.panels.length === 0, "none of those opened a pane");
   }
@@ -608,6 +663,8 @@ async function main() {
     settings["bundlesRoot"] = lib;
     const savedJudge = process.env["LITELLM_BASE_URL"];
     process.env["LITELLM_BASE_URL"] = "";
+    // D1: a learner of its own, so that what the pane did above for e2e-learner is not in its study plan.
+    settings["learnerId"] = "e2e-copilot";
     const defs = await provide();
     expect(defs.length === 1, `one server is offered (got ${defs.length})`);
     const def = defs[0] ?? {};
@@ -616,7 +673,15 @@ async function main() {
       && def.cwd?.fsPath === launch.cwd, `the definition starts the pane's lesson-mcp (got ${JSON.stringify({ label: def.label, command: def.command, args: def.args, cwd: def.cwd?.fsPath })})`);
     expect(def.env?.BUNDLES_ROOT === lib && def.env?.STUDIUM_DATA_DIR === storage && def.env?.LITELLM_BASE_URL === ""
       && def.env?.STUDIUM_TELEMETRY_CONSENT === null, `same lessons folder and data folder as the pane, no judge (got ${JSON.stringify(def.env)})`);
-    const allowed = new Set(["BUNDLES_ROOT", "STUDIUM_DATA_DIR", "STUDIUM_TELEMETRY_CONSENT", "LITELLM_BASE_URL", "ELECTRON_RUN_AS_NODE"]);
+    // Review finding 3: the STUDIUM_HOME the extension resolved once, whose library it watches.
+    expect(def.env?.STUDIUM_HOME === isolation.studiumHome, `the server writes its library where the extension watches (got ${def.env?.STUDIUM_HOME})`);
+    // D1, D2 (owner decision 1): the pane's learner and the pane link.
+    expect(def.env?.STUDIUM_LEARNER_ID === "e2e-copilot" && def.env?.STUDIUM_OPEN_LINK === "vscode://holobiomicslab.studium-vscode/open?bundle=",
+      `the server plays the pane's learner and links to the pane (got ${JSON.stringify(def.env)})`);
+    // Changed: STUDIUM_HOME, STUDIUM_LEARNER_ID and STUDIUM_OPEN_LINK are allowed too; the extension sets them, none is
+    // copied from the editor's environment.
+    const allowed = new Set(["BUNDLES_ROOT", "STUDIUM_DATA_DIR", "STUDIUM_TELEMETRY_CONSENT", "LITELLM_BASE_URL", "ELECTRON_RUN_AS_NODE",
+      "STUDIUM_HOME", "STUDIUM_LEARNER_ID", "STUDIUM_OPEN_LINK"]);
     expect(Object.keys(def.env ?? {}).every((k) => allowed.has(k)), `nothing else is copied from the editor's environment (got ${Object.keys(def.env ?? {})})`);
 
     // Start it the way the editor does (the definition's env over the extension host's), and ask who it is.
@@ -627,12 +692,39 @@ async function main() {
       const client = new Client({ name: "fake-copilot", version: "0" });
       await client.connect(new StdioClientTransport({ command: def.command, args: def.args, cwd: def.cwd?.fsPath, env, stderr: "pipe" }));
       const info = parseToolResult("get_server_info", await client.callTool({ name: "get_server_info", arguments: {} }));
+      // D1 + D2 (owner decision 1): the chat and the pane share one learner. Copilot starts a lesson without naming a
+      // learner and answers its first step; get_study_plan offers it with the pane's link (the chat first since that
+      // answer came from the chat: owner, 2026-11-25, the learner's last surface first, the link still given); that
+      // link, handed over the way VS Code does, opens the pane at the step the chat reached.
+      expect(info["persistence"]?.["learner_id_from_editor"] === true && info["persistence"]?.["learner_id_default"] === "e2e-copilot",
+        `the started server is told the editor names the learner (got ${JSON.stringify(info["persistence"])})`);
+      makeLesson("shared", SAFE_RUN, "capsule-run-shared");
+      let step: Json | undefined;
+      try {
+        const started = parseToolResult("start_lesson_session", await client.callTool({ name: "start_lesson_session", arguments: { bundle_ref: "shared/lesson.json" } }));
+        parseToolResult("submit_response", await client.callTool({ name: "submit_response", arguments: { session_id: started["session_id"], input: { kind: "ack" } } }));
+        step = parseToolResult("get_study_plan", await client.callTool({ name: "get_study_plan", arguments: {} }))["next_step"];
+      } catch (e: any) { expect(false, `Copilot plays the shared lesson's first step (${e?.message ?? e})`); }
       await client.close();
+      expect(step?.["action"] === "continue" && typeof step?.["open_link"] === "string" && step["lesson_path"] === join(lib, "shared", "lesson.json"),
+        `the study plan offers the lesson in progress in the pane, with its link (got ${JSON.stringify(step)})`);
+      if (typeof step?.["open_link"] === "string") {
+        const panesBefore = seen.panels.length;
+        await seen.uriHandler.handleUri(vscodeHandsOver(step["open_link"]));
+        const pane = lastPanel();
+        if (seen.panels.length > panesBefore && await waitFor(() => pane.posted.some((m: Json) => m.type === "render"), "the pane opened from Copilot's link")) {
+          const first = pane.posted.find((m: Json) => m.type === "render");
+          expect(first?.scene?.id === "s-repro", `the pane opens the lesson at the step the chat reached (got ${first?.scene?.id})`);
+          pane.dispose();
+        } else expect(false, `Copilot's link opens a pane (errors: ${JSON.stringify(seen.errors.slice(-1))})`);
+      }
       expect(info["bundles_root"] === lib && info["data_dir"] === storage && info["model_backend"] === "none",
         `the started server reads the pane's lessons folder, keeps progress in the extension storage, calls no model (got ${JSON.stringify({ b: info["bundles_root"], d: info["data_dir"], m: info["model_backend"] })})`);
       expect(Array.isArray(info["tools"]) && info["tools"].includes("create_lesson") && info["tools"].includes("prepare_sources"),
         "the started server offers the authoring tools that build a lesson");
     }
+
+    settings["learnerId"] = "e2e-learner";
 
     // The setting turns it off, and the editor is told the list changed.
     let changes = 0;
@@ -674,7 +766,7 @@ async function main() {
     // Editors without the API (VS Code before 1.101, forks) or with one that throws: nothing breaks.
     const { registerStudiumMcpServer } = await import("./mcp-registration.js");
     const deps = { locations: () => ({ bundlesRoot: lib, storageDir: storage, telemetryConsent: false }), repoRoot: () => repoRoot,
-      enabled: () => true, log: (line: string) => { seen.outputLines.push(line); } };
+      enabled: () => true, learnerId: () => "e2e-learner", studiumHome: isolation.studiumHome, log: (line: string) => { seen.outputLines.push(line); } };
     const savedLm = fakeVscode.lm;
     delete fakeVscode.lm;
     let outcome: unknown;
@@ -766,7 +858,8 @@ async function main() {
   // 2026-11-25: a fresh install has no lesson. « Try the demo lesson » (welcome view, picker, walkthrough) opens the
   // « Discover Studium » lesson shipped with Studium, in VS Code's display language (here en, while the last lesson
   // played was French), from the shipped folder: it never
-  // becomes the learner's course setting, and its first screen says it ships with Studium and no teacher checked it.
+  // becomes the learner's course setting. Changed: 2026-11-25, its first screen said it ships with Studium and no teacher
+  // checked it; the owner approved it since, so it has no self-study notice and the pane names the record's reviewer.
   {
     const savedRoot = settings["bundlesRoot"];
     settings["bundlesRoot"] = emptyRoot;
@@ -780,7 +873,14 @@ async function main() {
       if (pane) await waitFor(() => pane.posted.some((m: Json) => m.type === "render" || m.type === "error"), `the demo lesson (${what})`);
       const render = pane?.posted.find((m: Json) => m.type === "render");
       expect(render?.view?.bundle_ref === "discover-studium-en/lesson.json", `${what}: the English demo opens (got ${render?.view?.bundle_ref})`);
-      expect(JSON.stringify(render ?? {}).includes("Demo lesson shipped with Studium"), `${what}: its notice says it ships with Studium`);
+      // Changed: 2026-11-25, was « its notice says it ships with Studium »: the approved demo has no self-study notice,
+      // and the pane names the reviewer its approval record names (read from approval.json, not written here).
+      const reviewer = JSON.parse(readFileSync(join(repoRoot, "apps/lesson-mcp/shipped-lessons/discover-studium-en/approval.json"), "utf8")).reviewer;
+      const view = (render?.view ?? {}) as Json;
+      expect(view.authoring?.mode === "teacher" && view.authoring?.notice == null && view.authoring?.validated === true,
+        `${what}: a teacher-mode lesson with no self-study notice, validated (got ${JSON.stringify(view.authoring)})`);
+      expect(view.voices?.scene?.reviewed === true && view.voices?.scene?.name === reviewer && view.voices?.scene?.drafted_by === "agent",
+        `${what}: the pane says an AI agent drafted it and ${reviewer} validated it (got ${JSON.stringify(view.voices)})`);
       pane?.dispose();
     };
     expect(seen.commands.has("studium.openDemoLesson"), "the studium.openDemoLesson command is registered");
@@ -794,6 +894,239 @@ async function main() {
     quickPickAnswer = () => undefined;
     expect(configWrites.length === writesBefore, "opening the demo writes no setting: the learner's course folder stays theirs");
     expect(seen.errors.length === errorsBefore, `opening the demo shows no error (got ${JSON.stringify(seen.errors.slice(errorsBefore))})`);
+    settings["bundlesRoot"] = savedRoot;
+  }
+
+  // BN-4 + BN-1, end to end with the real server: the server the extension offers Copilot prepares sources and writes a
+  // lesson into <STUDIUM_HOME>/library; the extension, told by its watchers, shows « preparing a lesson » in the status
+  // bar, then announces the lesson (title, steps; Open, Later, Don't show again). Open plays it from the library, with
+  // no settings write. The lessons folder here is another one (lib), so the tree lists the lesson under « Your library ».
+  {
+    const libraryRoot = join(isolation.studiumHome, "library");
+    const lessonsWatcher = watcherOn(libraryRoot, "*/lesson.json");
+    const sourcesWatcher = watcherOn(libraryRoot, "_sources/*.json");
+    const status = seen.statusItems[0];
+    const tree = seen.treeProviders.get("studiumLessons");
+    let refreshes = 0;
+    tree.onDidChangeTreeData(() => { refreshes++; });
+    settings["bundlesRoot"] = lib;
+    settings["bundleRef"] = undefined;
+
+    const provider = mcpApi.providers.get(MCP_PROVIDER_ID);
+    const def = ((await provider?.provideMcpServerDefinitions({ isCancellationRequested: false })) ?? [])[0];
+    const env: Record<string, string> = {};
+    for (const [k, v] of Object.entries(process.env)) if (v !== undefined) env[k] = v;
+    for (const [k, v] of Object.entries((def?.env ?? {}) as Json)) { if (v === null) delete env[k]; else env[k] = String(v); }
+    const client = new Client({ name: "fake-copilot-build", version: "0" });
+    await client.connect(new StdioClientTransport({ command: def.command, args: def.args, cwd: def.cwd?.fsPath, env, stderr: "pipe" }));
+    const replay = join(extensionPath, "src", "fixtures", "build-replay");
+    const prepare = JSON.parse(readFileSync(join(replay, "prepare.json"), "utf8"));
+    prepare.sources[0].path = join(replay, "photosynthese.md");
+    const prepared = parseToolResult("prepare_sources", await client.callTool({ name: "prepare_sources", arguments: prepare }));
+    const sourceSetId = String(prepared["source_set_id"] ?? "");
+    const sourceSetPath = join(libraryRoot, "_sources", `${sourceSetId}.json`);
+    expect(existsSync(sourceSetPath), `prepare_sources writes its source set into the library the extension watches (got ${JSON.stringify(prepared).slice(0, 200)})`);
+    fire(sourcesWatcher, "create", sourceSetPath);
+    const preparingText = hostEither("status_preparing");
+    expect(status.shown && preparingText.includes(status.text), `the status bar says a lesson is being prepared (got ${status.text})`);
+    expect(String(status.tooltip).includes("La photosynthèse : notes de cours (L1)"), `its tooltip names the source (got ${status.tooltip})`);
+
+    const create = JSON.parse(readFileSync(join(replay, "create.json"), "utf8"));
+    create.source_set_id = sourceSetId;
+    const created = parseToolResult("create_lesson", await client.callTool({ name: "create_lesson", arguments: create }));
+    await client.close();
+    const lessonPath = join(libraryRoot, "photosynthese", "lesson.json");
+    expect(existsSync(lessonPath), `create_lesson writes the lesson into the library (got ${JSON.stringify(created).slice(0, 300)})`);
+    const written = existsSync(lessonPath) ? JSON.parse(readFileSync(lessonPath, "utf8")) : {};
+    const title = String(written?.metadata?.title ?? "");
+    const steps = Array.isArray(written?.scenes) ? written.scenes.length : 0;
+    expect(written?.source_plan_id === sourceSetId, "the lesson cites the source set at its top level (source_plan_id)");
+
+    const infosBefore = seen.infos.length;
+    const writesBefore = configWrites.length;
+    const panesBefore = seen.panels.length;
+    const refreshesBefore = refreshes;
+    infoAnswer = (message, items) => (message.includes(title) ? items[0] : undefined);
+    fire(lessonsWatcher, "create", lessonPath);
+    await waitFor(() => seen.infos.length > infosBefore, "the lesson-ready notice");
+    const notice = seen.infos[infosBefore] ?? "";
+    const items = seen.infoItems[infosBefore] ?? [];
+    const locale = hostPhrase("lesson_ready", { title, steps }, "en") === notice ? "en" : "fr";
+    expect(notice === hostPhrase("lesson_ready", { title, steps }, locale), `the notice names the lesson and its steps (got ${notice})`);
+    expect(JSON.stringify(items) === JSON.stringify(["lesson_ready_open", "lesson_ready_later", "lesson_ready_never"].map((k) => hostPhrase(k as any, {}, locale))),
+      `it offers Open, Later and Don't show again (got ${JSON.stringify(items)})`);
+    expect(refreshes > refreshesBefore, "the Lessons view was refreshed");
+    expect(!preparingText.includes(status.text) || !status.shown, `the lesson that cites the source set ends « preparing » (got ${status.text})`);
+    const libraryNode = tree.getChildren().find((n: Json) => n.id === "library");
+    expect(libraryNode?.children?.some((c: Json) => c.args?.[0] === "photosynthese/lesson.json" && c.args?.[1] === "library") === true,
+      `the lessons folder is another one: « Your library » lists the new lesson (got ${JSON.stringify(libraryNode)})`);
+    await waitFor(() => seen.panels.length > panesBefore && lastPanel().posted.some((m: Json) => m.type === "render" || m.type === "error"), "the lesson opened from the notice");
+    const pane = lastPanel();
+    const render = pane.posted.find((m: Json) => m.type === "render");
+    expect(render?.view?.bundle_ref === "photosynthese/lesson.json", `Open plays the new lesson (got ${render?.view?.bundle_ref ?? JSON.stringify(pane.posted.find((m: Json) => m.type === "error"))})`);
+    expect(sameFolder((globalStateData.get("studium.lastLesson") as Json)?.bundlesRoot ?? "", libraryRoot), "from the library");
+    expect(configWrites.length === writesBefore, "and writes no setting (the settings write that failed for the tester is not on this path)");
+    pane.dispose();
+
+    // Critic 3: the build takes minutes and the learner works elsewhere. Unfocused, the notice waits; it is shown once
+    // when the window comes back.
+    infoAnswer = () => undefined;
+    fakeVscode.window.state.focused = false;
+    const second = join(libraryRoot, "photosynthese-bis", "lesson.json");
+    mkdirSync(join(libraryRoot, "photosynthese-bis"), { recursive: true });
+    copyFileSync(lessonPath, second);
+    const unfocusedBefore = seen.infos.length;
+    const refreshesUnfocused = refreshes;
+    fire(lessonsWatcher, "create", second);
+    await sleep(900);
+    expect(seen.infos.length === unfocusedBefore, `window in the background: no notice yet (got ${JSON.stringify(seen.infos.slice(unfocusedBefore))})`);
+    expect(refreshes > refreshesUnfocused, "but the Lessons view is refreshed");
+    fakeVscode.window.state.focused = true;
+    for (const listener of windowStateListeners) listener({ focused: true });
+    await waitFor(() => seen.infos.length > unfocusedBefore, "the notice when the window comes back");
+    for (const listener of windowStateListeners) listener({ focused: true });
+    await sleep(100);
+    // Opening the French lesson above switched the extension's language: compare in either language.
+    expect(seen.infos.length === unfocusedBefore + 1 && hostEither("lesson_ready", { title, steps }).includes(seen.infos.at(-1) ?? ""),
+      `the window comes back: the notice is shown once (got ${JSON.stringify(seen.infos.slice(unfocusedBefore))})`);
+
+    // « Don't show again » is kept: later lessons refresh the view and are not announced. A change event counts too.
+    infoAnswer = (_message, offered) => offered[2];
+    const third = join(libraryRoot, "photosynthese-ter", "lesson.json");
+    mkdirSync(join(libraryRoot, "photosynthese-ter"), { recursive: true });
+    copyFileSync(lessonPath, third);
+    const mutedBefore = seen.infos.length;
+    fire(lessonsWatcher, "change", third);
+    await waitFor(() => seen.infos.length > mutedBefore, "the notice on a change event");
+    await sleep(50);
+    // Changed: « Don't show again » now turns off the user setting studium.notifyLessonReady (review finding 4), which the
+    // learner can turn back on in the Settings editor; the global-state flag is no longer written.
+    expect(configWrites.some((w) => w.key === "notifyLessonReady" && w.value === false && w.target === 1)
+      && !globalStateData.has("studium.lessonReadyMuted"), "Don't show again turns studium.notifyLessonReady off in the user settings");
+    infoAnswer = () => undefined;
+    const fourth = join(libraryRoot, "photosynthese-quater", "lesson.json");
+    mkdirSync(join(libraryRoot, "photosynthese-quater"), { recursive: true });
+    copyFileSync(lessonPath, fourth);
+    const afterMute = seen.infos.length;
+    const refreshesMuted = refreshes;
+    fire(lessonsWatcher, "create", fourth);
+    await sleep(900);
+    expect(seen.infos.length === afterMute && refreshes > refreshesMuted, "after Don't show again: refreshed, not announced");
+    globalStateData.delete("studium.lessonReadyMuted");
+    delete settings["notifyLessonReady"];
+
+    // The lessons folder (studium.bundlesRoot), when it is not the library, is watched to refresh the list only: a pull
+    // that touches many lessons must not announce each one. Its watcher follows the setting.
+    const fireConfig = (section: string) => configListeners.forEach((l) => l({ affectsConfiguration: (s: string) => section === s || section.startsWith(`${s}.`) }));
+    fireConfig("studium.bundlesRoot");
+    const folderWatcher = watcherOn(lib, "*/lesson.json");
+    expect(!!folderWatcher, `the lessons folder is watched too (got ${JSON.stringify(seen.watchers.filter((w) => !w.disposed).map((w) => [w.base, w.pattern]))})`);
+    makeLesson("fresh", SAFE_RUN, "capsule-run-fresh");
+    const folderInfos = seen.infos.length;
+    const folderRefreshes = refreshes;
+    fire(folderWatcher, "create", join(lib, "fresh", "lesson.json"));
+    await sleep(900);
+    expect(refreshes > folderRefreshes, "a lesson written into the lessons folder refreshes the list");
+    expect(seen.infos.length === folderInfos, `and is never announced (got ${JSON.stringify(seen.infos.slice(folderInfos))})`);
+    settings["bundlesRoot"] = emptyRoot;
+    fireConfig("studium.bundlesRoot");
+    expect(!!folderWatcher?.disposed && !!watcherOn(emptyRoot, "*/lesson.json"), "changing studium.bundlesRoot moves that watcher");
+    settings["bundlesRoot"] = libraryRoot;
+    fireConfig("studium.bundlesRoot");
+    expect(seen.watchers.filter((w) => !w.disposed && w.pattern === "*/lesson.json" && sameFolder(w.base, libraryRoot)).length === 1
+      && !watcherOn(emptyRoot, "*/lesson.json"), "a lessons folder that is the library gets no second watcher");
+
+    // BN-3: the picker of an empty lessons folder says where the learner's lesson will come from (it used to fall back to
+    // « Choose a course to open » whenever the demo was listed); with courses it asks to choose.
+    settings["bundlesRoot"] = emptyRoot;
+    quickPickAnswer = () => undefined;
+    await seen.commands.get("studium.pickLesson")!();
+    const emptyPlaceholder = seen.quickPickOptions.at(-1)?.placeHolder;
+    expect([phrase("picker_empty_demo", {}, "fr"), phrase("picker_empty_demo", {}, "en")].includes(emptyPlaceholder),
+      `no course in the folder: the picker says a lesson the assistant writes appears here, and to try the demo meanwhile (got ${emptyPlaceholder})`);
+    settings["bundlesRoot"] = lib;
+    await seen.commands.get("studium.pickLesson")!();
+    const fullPlaceholder = seen.quickPickOptions.at(-1)?.placeHolder;
+    expect([phrase("picker_choose", {}, "fr"), phrase("picker_choose", {}, "en")].includes(fullPlaceholder), `with courses, it asks to choose one (got ${fullPlaceholder})`);
+    fireConfig("studium.bundlesRoot");
+  }
+
+  // BN-7: « Continue » and progress in the sidebar and the status bar, with the real server. The learner who played the
+  // demo last is offered the demo (this learner also has capsule-run-resume in progress). A new learner who answered
+  // only the intro has no review history, and the folder has no course: without the Continue entry the view would fold
+  // into the welcome view. Clicking Continue resumes at the next step; the bar says « continue » when nothing is due.
+  {
+    const tree = seen.treeProviders.get("studiumLessons");
+    const status = seen.statusItems[0];
+    const continueNode = () => tree.getChildren().find((n: Json) => n.id === "continue");
+    const refreshUntil = async (cond: () => boolean, what: string) => {
+      const t0 = Date.now();
+      while (!cond()) {
+        if (Date.now() - t0 > 20000) { expect(false, `timed out waiting for ${what}`); return; }
+        await seen.commands.get("studium.refreshLessons")!();
+        await sleep(300);
+      }
+    };
+    const answer = async (pane: any, steps: number) => {
+      for (let i = 0; i < steps; i++) {
+        const scene = pane.posted.filter((m: Json) => m.type === "render").at(-1)?.scene;
+        const input = scene?.type === "quiz" ? { kind: "quiz_choice", choiceId: scene.choices?.[0]?.id } : { kind: "ack" };
+        const before = pane.posted.length;
+        await pane.handler({ type: "respond", input });
+        await waitFor(() => pane.posted.slice(before).some((m: Json) => m.type === "render" || m.type === "error"), `answering ${scene?.id}`);
+      }
+    };
+    const playDemo = async (steps: number) => {
+      const panesBefore = seen.panels.length;
+      await seen.commands.get("studium.openDemoLesson")!();
+      const pane = lastPanel();
+      await waitFor(() => seen.panels.length > panesBefore && pane.posted.some((m: Json) => m.type === "render"), "the demo's first scene");
+      await answer(pane, steps);
+      pane.dispose();
+    };
+    const savedRoot = settings["bundlesRoot"];
+    const savedLearner = settings["learnerId"];
+    const writesBefore = configWrites.length;
+    settings["bundlesRoot"] = lib;
+    await playDemo(1);
+    await refreshUntil(() => continueNode()?.args?.[0] === "discover-studium-en/lesson.json", "Continue on the demo");
+    const played = continueNode();
+    expect(JSON.stringify(played?.args) === '["discover-studium-en/lesson.json","shipped"]' && hostEither("tree_continue", { title: "Discover Studium" }).includes(played?.label),
+      `the lesson played last is offered, from the shipped folder (got ${JSON.stringify(played)})`);
+
+    settings["learnerId"] = "bn7-new-learner";
+    settings["bundlesRoot"] = emptyRoot;
+    // The lessons the BN-1 block wrote into the library would list « Your library »: a new learner has none.
+    for (const entry of readdirSync(libraryRoot)) rmSync(join(libraryRoot, entry), { recursive: true, force: true });
+    await refreshUntil(() => !continueNode(), "a new learner with nothing in progress");
+    expect(tree.getChildren().length === 0, `a new learner with no course: the welcome view, as before (got ${tree.getChildren().map((n: Json) => n.id).join(",")})`);
+    await playDemo(1);
+    await refreshUntil(() => !!continueNode(), "Continue for a learner who answered only the intro");
+    const nodes = tree.getChildren();
+    expect(nodes[0]?.id === "continue" && !nodes.some((n: Json) => n.id === "reviews"),
+      `no review history and no course: the tree shows Continue first instead of the welcome view (got ${nodes.map((n: Json) => n.id).join(",")})`);
+    expect(hostEither("tree_continue_step", { step: 2, total: 12 }).some((s) => String(continueNode()?.description).startsWith(s)),
+      `it names the next step (got ${continueNode()?.description})`);
+    expect(status.shown && hostEither("status_continue", { title: "Discover Studium" }).includes(status.text),
+      `nothing due: the bar offers to continue (got ${status.text})`);
+    expect(hostEither("continue_scope").some((s) => String(status.tooltip).includes(s)), `its tooltip says whose progress this is (got ${status.tooltip})`);
+    expect(status.command?.command === "studium.openLesson" && JSON.stringify(status.command?.arguments) === JSON.stringify(continueNode()?.args),
+      `clicking the bar opens that lesson (got ${JSON.stringify(status.command)})`);
+    const node = continueNode();
+    if (node) {
+      const panesBefore = seen.panels.length;
+      await seen.commands.get(node.command)!(...node.args);
+      const pane = lastPanel();
+      await waitFor(() => seen.panels.length > panesBefore && pane.posted.some((m: Json) => m.type === "render"), "the resumed demo");
+      const resumed = pane.posted.find((m: Json) => m.type === "render");
+      expect(resumed?.view?.bundle_ref === "discover-studium-en/lesson.json" && resumed?.scene?.id === "s2-quiz",
+        `Continue resumes the lesson at its next step (got ${resumed?.view?.bundle_ref} ${resumed?.scene?.id})`);
+      await answer(pane, 2);
+      pane.dispose();
+      await refreshUntil(() => hostEither("tree_continue_step", { step: 4, total: 12 }).some((s) => String(continueNode()?.description).startsWith(s)), "Continue at step 4");
+    }
+    expect(configWrites.length === writesBefore, "Continue writes no setting");
+    settings["learnerId"] = savedLearner;
     settings["bundlesRoot"] = savedRoot;
   }
 }

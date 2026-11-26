@@ -40,6 +40,7 @@ import {
   COURSE_ID_PATTERN, REDACTED_SCENE_FIELDS, SCENE_KEY_CLASS, authoringOf, buildReviewInbox, lintBundleData, placeholderPaths, publicScene,
   readApproval, readLastReceipt, type ApprovalStatus, type AuthoringBlock, type KeyClass, type ReviewInbox,
 } from "@studium/lesson-session-host";
+import { READ_ONLY } from "./operations.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -757,6 +758,7 @@ export function registerTeacherTools(server: McpServer, ctx: TeacherToolsContext
       "characters of its learner-facing text (a quiz's choices are left out). Never returns answer keys, hints or " +
       "reveals. Read-only.",
     inputSchema: { course_ref: z.string().min(1).max(512) },
+    annotations: READ_ONLY,
   }, async ({ course_ref }) => {
     try { return text(await reviewLesson(ctx, course_ref)); }
     catch (e) { return fail(e instanceof TeacherToolError ? e.message : "review_lesson failed"); }
@@ -773,6 +775,7 @@ export function registerTeacherTools(server: McpServer, ctx: TeacherToolsContext
       "the server is configured with, named by data_folder; the folder is server configuration and cannot be chosen from " +
       "here. Read-only.",
     inputSchema: CLASS_REPORT_INPUT,
+    annotations: READ_ONLY,
   }, async ({ course_id }) => {
     try { return text(await classReport(ctx, course_id)); }
     catch (e) { return fail(e instanceof TeacherToolError ? e.message : "class_report failed"); }

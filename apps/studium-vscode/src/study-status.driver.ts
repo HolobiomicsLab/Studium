@@ -1,7 +1,7 @@
 // study-status.driver.ts — VSC-6: the "n à réviser" status-bar text and the Reviews tree node, fed by the
 // result of get_next_reinforcement. No VS Code APIs.
 //   node_modules/.pnpm/node_modules/.bin/tsx apps/studium-vscode/src/study-status.driver.ts
-import { parseReinforcement, statusBarText, reviewsNode, reviewStartReply } from "./study-status.js";
+import { minutesLeft, parseReinforcement, parseStudyProgress, statusBarText, reviewsNode, reviewStartReply } from "./study-status.js";
 import { hostPhrase } from "./host-phrases.js";
 import { buildLessonTree } from "./lesson-tree.js";
 
@@ -99,6 +99,31 @@ const MIXED = {
   expect(statusBarText(null, "fr", "a\nb\u001b[31m c")?.text === "a b [31m c", `one line, no control character (got ${statusBarText(null, "fr", "a\nb\u001b[31m c")?.text})`);
 }
 
+// BN-4: while the assistant prepares a lesson (prepare_sources wrote its source set, the lesson is not there yet), the
+// bar shows a spinner and says so, ahead of the review count, which moves to the tooltip. The tooltip names the source,
+// says it takes a few minutes, and says to answer the assistant in the chat if it asks to allow a step. A lesson being
+// played keeps the bar.
+{
+  const preparing = { title: "La photosynthèse : notes de cours (L1)" };
+  const idle = statusBarText(null, "en", null, preparing);
+  expect(idle?.text === hostPhrase("status_preparing", {}, "en") && idle.text.startsWith("$(loading~spin) "),
+    `nothing due + preparing: a spinner and the preparing text (got ${idle?.text})`);
+  expect(!!idle?.tooltip.includes("“La photosynthèse : notes de cours (L1)”"), `the tooltip names the source (got ${idle?.tooltip})`);
+  expect(!!idle && /few minutes/.test(idle.tooltip) && /chat/.test(idle.tooltip) && /allow/i.test(idle.tooltip),
+    `it says how long, and to allow a step in the chat if asked (got ${idle?.tooltip})`);
+  const fr = statusBarText(parseReinforcement(FRESH), "fr", null, preparing);
+  expect(fr?.text === hostPhrase("status_preparing", {}, "fr") && !!fr?.tooltip.includes("quelques minutes") && !!fr?.tooltip.includes("chat"),
+    `in French too (got ${JSON.stringify(fr)})`);
+  const due = statusBarText(parseReinforcement(DUE), "fr", null, preparing);
+  expect(due?.text === hostPhrase("status_preparing", {}, "fr"), `preparing outranks the review count while it lasts (got ${due?.text})`);
+  expect(!!due?.tooltip.includes("3 notions à réviser"), `the review count moves to the tooltip (got ${due?.tooltip})`);
+  const line = "Les atomes · étape 2/3 · 3 min · à toi de répondre";
+  expect(statusBarText(parseReinforcement(DUE), "fr", line, preparing)?.text === line, "a lesson being played keeps the bar");
+  expect(statusBarText(parseReinforcement(DUE), "fr", null, null)?.text === "Studium · 3 à réviser", "nothing prepared: the review count, as before");
+  const untitled = statusBarText(null, "en", null, { title: "" });
+  expect(untitled?.text === hostPhrase("status_preparing", {}, "en") && !untitled.tooltip.includes("“”"), `a source without a title is not quoted empty (got ${untitled?.tooltip})`);
+}
+
 // reviewsNode
 {
   const fmt = (ms: number) => `D${ms}`;
@@ -146,6 +171,79 @@ const MIXED = {
   expect(reviewStartReply(null, "en", date).message === hostPhrase("review_unavailable", {}, "en"), "a null reply is worded, never empty");
   const real = reviewStartReply({ status: "nothing_due", next_review_at: Date.UTC(2026, 10, 3, 9) }, "fr");
   expect(real.message.includes("2026") && real.message.includes("novembre"), `the default date is written in words in the lesson language (got ${real.message})`);
+}
+
+// BN-7: « Continue » and each lesson's progress, from get_study_plan and list_lessons. The payloads are what a real
+// server sent (apps/studium-vscode/dist/lesson-mcp.cjs, learner vscode-learner, after 3 steps of the English demo);
+// only the fields read here are kept.
+const DEMO_EN = "discover-studium-en/lesson.json";
+const PLAN_3 = {
+  in_progress: [{ bundle_ref: DEMO_EN, title: "Discover Studium", scenes_completed: 3, total_scenes: 12 }],
+  next_step: { action: "continue", arguments: { bundle_ref: DEMO_EN, learner_id: "vscode-learner" } },
+};
+const LIST_3 = {
+  lessons: [],
+  shipped_lessons: [
+    { bundle_ref: DEMO_EN, title: "Discover Studium", language: "en", source: "shipped", scene_count: 12,
+      status: { state: "in_progress", scenes_completed: 3, total_scenes: 12 } },
+    { bundle_ref: "discover-studium-fr/lesson.json", title: "Découvrir Studium", language: "fr", source: "shipped", scene_count: 12,
+      status: { state: "new", scenes_completed: 0, total_scenes: 12 } },
+  ],
+};
+{
+  const p = parseStudyProgress(PLAN_3, LIST_3, (ref, source) => (ref === DEMO_EN && source === "shipped" ? 10 : undefined));
+  const c = p.continueWith;
+  expect(c?.ref === DEMO_EN && c.source === "shipped" && c.title === "Discover Studium" && c.done === 3 && c.total === 12,
+    `Continue is in_progress[0], opened from the root list_lessons gives (got ${JSON.stringify(c)})`);
+  expect(c?.minutesLeft === 8, `minutes left = ceil(duration × remaining / total) = ceil(10 × 9 / 12) (got ${c?.minutesLeft})`);
+  expect(JSON.stringify(p.lessons[`shipped:${DEMO_EN}`]) === '{"state":"in_progress","done":3,"total":12}',
+    `each listed lesson's progress is kept by root and ref (got ${JSON.stringify(p.lessons)})`);
+  expect(!p.lessons["shipped:discover-studium-fr/lesson.json"], "a lesson not started has no progress");
+  const unknown = parseStudyProgress(PLAN_3, LIST_3);
+  expect(unknown.continueWith?.ref === DEMO_EN && unknown.continueWith.minutesLeft === null, "no duration: the minutes are left out");
+  // A server answer after the 12 steps of the demo, before the end screen: 12/12 is still in progress; nothing to continue.
+  const allDone = parseStudyProgress({ in_progress: [{ ...PLAN_3.in_progress[0], scenes_completed: 12 }] },
+    { lessons: [], shipped_lessons: [{ ...LIST_3.shipped_lessons[0], status: { state: "in_progress", scenes_completed: 12, total_scenes: 12 } }] });
+  expect(allDone.continueWith === null, `a lesson whose steps are all done is not offered to continue (got ${JSON.stringify(allDone.continueWith)})`);
+  // in_progress is newest first; a ref list_lessons does not list (a community bundle, a deleted lesson) is skipped.
+  const mine = { bundle_ref: "photosynthese/lesson.json", title: "La photosynthèse", language: "fr", source: "library", scene_count: 9,
+    status: { state: "in_progress", scenes_completed: 6, total_scenes: 9 } };
+  const two = parseStudyProgress(
+    { in_progress: [{ bundle_ref: "wave/community/community-item1.zip", title: "Gone", scenes_completed: 1, total_scenes: 4 },
+      { bundle_ref: mine.bundle_ref, title: mine.title, scenes_completed: 6, total_scenes: 9 }, PLAN_3.in_progress[0]] },
+    { lessons: [mine], shipped_lessons: LIST_3.shipped_lessons }, () => 15);
+  expect(two.continueWith?.ref === mine.bundle_ref && two.continueWith.source === "library" && two.continueWith.minutesLeft === 5,
+    `the newest listed lesson is offered, from its own root (got ${JSON.stringify(two.continueWith)})`);
+  const done = parseStudyProgress({ in_progress: [] }, { lessons: [{ ...mine, status: { state: "completed", scenes_completed: 9, total_scenes: 9 } }] });
+  expect(done.continueWith === null && done.lessons["library:photosynthese/lesson.json"]?.state === "completed", "a completed lesson is kept as done");
+  for (const junk of [null, {}, { in_progress: "x" }, { in_progress: [{ bundle_ref: 3 }] }]) {
+    const j = parseStudyProgress(junk, junk);
+    expect(j.continueWith === null && Object.keys(j.lessons).length === 0, `an unrecognised payload gives no progress, never a throw (${JSON.stringify(junk)})`);
+  }
+  expect(minutesLeft(15, 6, 9) === 5 && minutesLeft(10, 11, 12) === 1 && minutesLeft(undefined, 3, 12) === null
+    && minutesLeft(0, 3, 12) === null && minutesLeft(10, 12, 12) === null, "minutesLeft: rounded up, at least 1, null when unknown or done");
+}
+
+// BN-7: the bar says « continue <lesson> » only when nothing is due, nothing is being prepared and no lesson plays (the
+// rule « no news is not shown » gives way to this one piece of news). Clicking it resumes the lesson (resume).
+{
+  const cont = { title: "Discover Studium", done: 3, total: 12, minutesLeft: 8 };
+  const idle = statusBarText(null, "en", null, null, cont);
+  expect(idle?.text === hostPhrase("status_continue", { title: "Discover Studium" }, "en") && idle.resume === true,
+    `nothing due: the bar offers to continue the lesson (got ${JSON.stringify(idle)})`);
+  expect(!!idle?.tooltip.includes(hostPhrase("status_tooltip_continue", { title: "Discover Studium", step: 4, total: 12 }, "en"))
+    && idle.tooltip.includes(hostPhrase("continue_minutes_left", { minutes: 8 }, "en")) && idle.tooltip.includes(hostPhrase("continue_scope", {}, "en")),
+    `its tooltip gives the step, the minutes left and whose progress this is (got ${idle?.tooltip})`);
+  const later = statusBarText(parseReinforcement(LATER), "fr", null, null, cont);
+  expect(later?.text === hostPhrase("status_continue", { title: "Discover Studium" }, "fr"), `nothing due yet: continue, in French too (got ${later?.text})`);
+  expect(statusBarText(parseReinforcement(DUE), "fr", null, null, cont)?.text === "Studium · 3 à réviser", "a due review keeps the bar");
+  expect(statusBarText(null, "en", null, { title: "x" }, cont)?.text === hostPhrase("status_preparing", {}, "en"), "a lesson being prepared keeps the bar");
+  expect(statusBarText(null, "en", "Lesson · step 2/3", null, cont)?.text === "Lesson · step 2/3", "a lesson being played keeps the bar");
+  expect(statusBarText(parseReinforcement(LATER), "en", null, null, null) === null, "nothing to continue: no news is still not shown");
+  const long = statusBarText(null, "en", null, null, { ...cont, title: "A".repeat(80), minutesLeft: null });
+  expect(!!long && long.text.length < 70 && long.text.includes("…") && long.tooltip.includes("A".repeat(80))
+    && !/About \d+ min/.test(long.tooltip),
+    `a long title is shortened in the bar, whole in the tooltip, and unknown minutes are left out (got ${JSON.stringify(long)})`);
 }
 
 if (failures.length) {

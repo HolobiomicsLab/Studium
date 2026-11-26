@@ -179,8 +179,9 @@ code --open-url "vscode://holobiomicslab.studium-vscode/open?bundle=<chemin enco
 ```
 
 ou vous pouvez faire un clic droit sur le `lesson.json` et choisir **Studium : Ouvrir cette leçon**. Un
-lien doit désigner un chemin absolu, sans `..`, vers un fichier `.json` existant ; sinon il est refusé et
-rien ne s'ouvre. Si la fenêtre se recharge pendant une leçon, le panneau est restauré et la leçon reprend.
+lien doit désigner un chemin absolu, sans `..`, vers un fichier `.json` existant de votre bibliothèque, du
+dossier `studium.bundlesRoot` ou des leçons livrées avec Studium ; sinon il est refusé et rien ne s'ouvre
+(le clic droit ouvre un fichier de leçon de n'importe quel dossier). Si la fenêtre se recharge pendant une leçon, le panneau est restauré et la leçon reprend.
 
 ## Vos données, et ce qui s'exécute
 
@@ -223,7 +224,9 @@ l'extension lit votre bibliothèque personnelle ; sinon réglez `studium.bundl
 ou utilisez **Studium : Choisir un cours**. Dans un clone, elle préfère le serveur source et le
 `fixtures/` du clone. `studium.vsix` est un artefact de construction local, pas une publication sur le
 Marketplace. Un client MCP natif et le panneau de l'extension ouvrent des séances séparées ; ils ne
-partagent pas la scène courante. L'installation est décrite dans le
+partagent pas la scène courante. Copilot avec le serveur qu'enregistre l'extension joue l'apprenant du
+panneau (`studium.learnerId`) : la progression passe de l'un à l'autre, et Copilot propose d'abord une leçon
+dans le panneau, avec un lien que l'extension ouvre. L'installation est décrite dans le
 [guide d'installation](../../docs/start/installation.fr.md).
 
 La page que montrent le Marketplace et Open VSX est [`MARKETPLACE.md`](MARKETPLACE.md), écrite pour la

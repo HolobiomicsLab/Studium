@@ -12,7 +12,7 @@ const bundle = async (file) => {
   return import(`data:text/javascript;base64,${Buffer.from(compiled.outputFiles[0].text).toString("base64")}`);
 };
 const { connectMcpApp } = await bundle("bridge-mcp-app.js");
-const { startBrowserPlayer, TOKEN_KEY, SESSION_KEY } = await bundle("bridge-browser.js");
+const { startBrowserPlayer, TOKEN_KEY, SESSION_KEY, FROM_KEY, LANG_KEY } = await bundle("bridge-browser.js");
 const { browserPhrases } = await bundle("../../../packages/lesson-panel/src/phrases.ts");
 const pane = readFileSync(new URL("artifact-pane.js", import.meta.url), "utf8").replace(/export \{ renderView \};?\s*$/, "");
 const TOKEN = "t".repeat(64);
@@ -53,7 +53,7 @@ function page({ hash = `#token=${TOKEN}`, reply, stored = {} } = {}) {
     const [status, body] = await (reply ?? defaultReply)(call.url.split("/").pop(), call.body.arguments);
     return { ok: status >= 200 && status < 300, status, json: async () => body };
   };
-  const start = () => startBrowserPlayer({ window: dom.window, document: dom.window.document, connectMcpApp, renderView: dom.window.renderView });
+  const start = (more = {}) => startBrowserPlayer({ window: dom.window, document: dom.window.document, connectMcpApp, renderView: dom.window.renderView, ...more });
   return { dom, doc: dom.window.document, calls, start };
 }
 async function defaultReply(name) {
@@ -166,4 +166,266 @@ test("an answer goes to the server through panel_action, with the scene on scree
   assert.deepEqual(sent.body.arguments, { session_id: "session-1", action: { type: "respond", input: { kind: "quiz_choice", choiceId: "b" }, expected_scene_id: "s1-quiz-fer" } });
   assert.match(text(p.doc.getElementById("pane")), /56 − 26 = 30/);
   p.dom.window.close();
+});
+
+// Coming back to the list (BN-6): an assistant may save a lesson while the list is open in another tab or
+// behind VS Code. The list is read again when its tab is shown again or its window regains focus; no polling.
+const PHOTOSYNTHESE = { bundle_ref: "photosynthese/lesson.json", title: "Photosynthèse", scene_count: 9, validated: false, status: { state: "not_started" } };
+/** A list_lessons reply the test changes between calls, as an assistant saving a lesson would. */
+function changingList(first) {
+  const state = { catalog: first, gate: null };
+  const reply = async (name) => {
+    if (name !== "list_lessons") return defaultReply(name);
+    if (state.gate) await state.gate;
+    return [200, { content: [{ type: "text", text: JSON.stringify(state.catalog) }] }];
+  };
+  return { state, reply };
+}
+const listings = (p) => p.calls.filter(call => call.url.endsWith("/list_lessons")).length;
+const tabShown = (p) => p.doc.dispatchEvent(new p.dom.window.Event("visibilitychange"));
+const windowFocused = (p) => p.dom.window.dispatchEvent(new p.dom.window.Event("focus"));
+const titles = (p) => [...p.doc.querySelectorAll(".course-choice-title")].map(text);
+
+test("coming back to the list reads it again: a lesson saved meanwhile appears without a reload", async () => {
+  const list = changingList({ lessons: [] });
+  const p = page({ reply: list.reply });
+  await p.start();
+  const empty = p.doc.querySelector(".course-picker-empty");
+  assert.equal(text(empty), flat(fr.player_empty));
+  // The notice says the list fills in on return, and still names the command for another folder.
+  assert.match(fr.player_empty, /onglet/);
+  assert.match(browserPhrases("en").player_empty, /come back to this tab/);
+  for (const words of [fr, browserPhrases("en")]) assert.match(words.player_empty, /npx -y studium-mcp play/);
+  list.state.catalog = { lessons: [PHOTOSYNTHESE] };
+  // A tab sent to the background lists nothing.
+  Object.defineProperty(p.doc, "visibilityState", { value: "hidden", configurable: true });
+  tabShown(p); await settle(); await settle();
+  assert.equal(listings(p), 1);
+  Object.defineProperty(p.doc, "visibilityState", { value: "visible", configurable: true });
+  tabShown(p); await settle(); await settle();
+  assert.equal(listings(p), 2);
+  assert.equal(p.doc.querySelector(".course-picker-empty"), null);
+  assert.deepEqual(titles(p), ["Photosynthèse"]);
+  // Coming back from another window (VS Code beside the browser) is a focus, not a visibilitychange.
+  list.state.catalog = { lessons: [PHOTOSYNTHESE, LESSONS.lessons[1]] };
+  windowFocused(p); await settle(); await settle();
+  assert.equal(listings(p), 3);
+  assert.deepEqual(titles(p), ["Photosynthèse", "Capsule"]);
+  p.doc.querySelector(".course-choice").click(); await settle(); await settle();
+  assert.deepEqual(p.calls.at(-1).body, { arguments: { bundle_ref: "photosynthese/lesson.json", locale: "fr" } });
+  p.dom.window.close();
+});
+
+test("a tab shown and its window focused at the same moment list the lessons once", async () => {
+  const p = page();
+  await p.start();
+  tabShown(p); windowFocused(p);
+  await settle(); await settle();
+  assert.equal(listings(p), 2);
+  p.dom.window.close();
+});
+
+test("reading the list again moves no focus: the same list is left as it is, a new one keeps the lesson in focus", async () => {
+  const list = changingList(LESSONS);
+  const p = page({ reply: list.reply });
+  await p.start();
+  const capsule = p.doc.querySelectorAll(".course-choice")[1];
+  capsule.focus();
+  windowFocused(p); await settle(); await settle();
+  assert.equal(listings(p), 2);
+  assert.equal(p.doc.querySelectorAll(".course-choice")[1], capsule);
+  assert.equal(p.doc.activeElement, capsule);
+  list.state.catalog = { lessons: [PHOTOSYNTHESE, ...LESSONS.lessons] };
+  windowFocused(p); await settle(); await settle();
+  assert.equal(listings(p), 3);
+  assert.deepEqual(titles(p), ["Photosynthèse", "Atomistique L1", "Capsule"]);
+  assert.equal(text(p.doc.activeElement.querySelector(".course-choice-title")), "Capsule");
+  p.dom.window.close();
+});
+
+test("nothing is listed again while a lesson opens or plays, and a late list does not unlock the choices", async () => {
+  let release;
+  const p = page({ reply: async (name) => {
+    if (name === "open_lesson_panel") await new Promise(resolve => { release = resolve; });
+    return defaultReply(name);
+  } });
+  await p.start();
+  p.doc.querySelector(".course-choice").click();
+  tabShown(p); windowFocused(p); await settle(); await settle();
+  assert.equal(listings(p), 1);
+  assert.ok([...p.doc.querySelectorAll(".course-choice")].every(choice => choice.disabled));
+  release(); await settle(); await settle();
+  assert.match(text(p.doc.querySelector(".scene-title")), /atome de fer/);
+  tabShown(p); windowFocused(p); await settle(); await settle();
+  assert.equal(listings(p), 1);
+  p.dom.window.close();
+
+  // A list already on its way when a lesson is chosen is not drawn over the opening lesson.
+  const list = changingList(LESSONS);
+  const late = page({ reply: async (name) => name === "open_lesson_panel" ? new Promise(() => {}) : list.reply(name) });
+  await late.start();
+  let arrive;
+  list.state.gate = new Promise(resolve => { arrive = resolve; });
+  list.state.catalog = { lessons: [PHOTOSYNTHESE, ...LESSONS.lessons] };
+  windowFocused(late); await settle();
+  late.doc.querySelector(".course-choice").click();
+  arrive(); await settle(); await settle();
+  assert.deepEqual(titles(late), ["Atomistique L1", "Capsule"]);
+  assert.ok([...late.doc.querySelectorAll(".course-choice")].every(choice => choice.disabled));
+  late.dom.window.close();
+
+  // A tab that resumed its session lists nothing on return.
+  const resumed = page({ hash: "", stored: { [TOKEN_KEY]: TOKEN, [SESSION_KEY]: "session-1" } });
+  await resumed.start();
+  tabShown(resumed); windowFocused(resumed); await settle(); await settle();
+  assert.deepEqual(resumed.calls.map(call => call.url.split("/").pop()), ["get_panel_view"]);
+  resumed.dom.window.close();
+});
+
+// D4 (waiting review 2026-11-25, owner decision 4): the address the server an assistant runs gives opens its lesson at
+// once (the server resumes it at the learner's step), and once that server is gone the page says the assistant
+// session ended and that asking the assistant again gives a new address.
+// Changed: an assistant's address carries its key as `k` (review G, item 5: Vibe with Mistral Large 4 withheld an address
+// whose fragment said `token`, as a secret); `#token=` stays accepted, as studium-mcp play prints it.
+const ASSISTANT = `#k=${TOKEN}&from=assistant&lesson=${encodeURIComponent("photosynthese/lesson.json")}`;
+
+// Review G, item 5: both keys open the same page, keep the key in this tab and leave the address bar.
+test("an address opens with its key named k (an assistant's) or token (studium-mcp play's)", async () => {
+  for (const key of ["k", "token"]) {
+    const p = page({ hash: `#${key}=${TOKEN}&from=assistant&lesson=${encodeURIComponent("photosynthese/lesson.json")}` });
+    await p.start();
+    assert.equal(p.dom.window.location.href, `${ORIGIN}/play`, key);
+    assert.equal(p.dom.window.sessionStorage.getItem(TOKEN_KEY), TOKEN, key);
+    assert.equal(p.dom.window.sessionStorage.getItem(FROM_KEY), "assistant", key);
+    assert.equal(p.calls[0].headers.authorization, `Bearer ${TOKEN}`, key);
+    assert.deepEqual(p.calls.map(call => call.url.split("/").pop()), ["open_lesson_panel"], key);
+    p.dom.window.close();
+  }
+});
+
+test("an address with a lesson opens that lesson at once, without the list, and leaves the address bar", async () => {
+  const p = page({ hash: ASSISTANT, stored: { [SESSION_KEY]: "session-0" } });
+  await p.start();
+  assert.equal(p.dom.window.location.href, `${ORIGIN}/play`);
+  assert.equal(p.dom.window.sessionStorage.getItem(TOKEN_KEY), TOKEN);
+  assert.deepEqual(p.calls.map(call => [call.url, call.body.arguments]),
+    [["/play/api/tools/open_lesson_panel", { bundle_ref: "photosynthese/lesson.json", locale: "fr" }]]);
+  assert.match(text(p.doc.querySelector(".scene-title")), /atome de fer/);
+  assert.equal(p.dom.window.sessionStorage.getItem(SESSION_KEY), "session-1");
+  p.dom.window.close();
+});
+
+test("a lesson the server does not open falls back to the list", async () => {
+  const p = page({ hash: ASSISTANT, reply: async (name) => name === "open_lesson_panel"
+    ? [400, { error: "Open a lesson the list shows", code: "invalid_bundle" }] : defaultReply(name) });
+  await p.start();
+  assert.deepEqual(p.calls.map(call => call.url.split("/").pop()), ["open_lesson_panel", "list_lessons"]);
+  assert.equal(p.doc.querySelectorAll(".course-choice").length, 2);
+  p.dom.window.close();
+});
+
+test("an assistant's address that stopped answering says the session ended and that asking again gives a new one", async () => {
+  const stopped = page({ hash: ASSISTANT });
+  stopped.dom.window.fetch = async () => { throw new TypeError("Failed to fetch"); };
+  await stopped.start();
+  assert.equal(text(stopped.doc.querySelector(".player-notice")), flat(fr.player_assistant_unreachable));
+  assert.match(fr.player_assistant_unreachable, /session de ton assistant[\s\S]*nouvelle adresse/);
+  assert.match(browserPhrases("en").player_assistant_unreachable, /assistant's session[\s\S]*new address/);
+  stopped.dom.window.close();
+  // A reload of that tab: the address bar no longer says who gave the address, the tab still knows.
+  const reloaded = page({ hash: "", stored: { [TOKEN_KEY]: TOKEN, [FROM_KEY]: "assistant" }, reply: async () => [401, { code: "unauthorized" }] });
+  await reloaded.start();
+  assert.equal(text(reloaded.doc.querySelector(".player-notice")), flat(fr.player_assistant_token_rejected));
+  reloaded.dom.window.close();
+  // The address of studium-mcp play keeps the words of its terminal, even in a tab an assistant's address used.
+  const played = page({ stored: { [FROM_KEY]: "assistant" }, reply: async () => [401, { code: "unauthorized" }] });
+  await played.start();
+  assert.equal(text(played.doc.querySelector(".player-notice")), flat(fr.player_token_rejected));
+  played.dom.window.close();
+});
+
+// Trial of 2026-11-26: a French learner asked the assistant in French, got a French lesson, opened the address, and the
+// whole interface was English because the browser's language was. An assistant's address now says the lesson's language
+// (`&lang=fr|en`, served-player.ts): the interface speaks it, whatever the browser's. The learner's own choice in the
+// settings still changes it afterwards (setLanguage, on the server); an address without it leaves the browser's.
+test("an assistant's address that says the lesson's language sets the interface's, over the browser's", async () => {
+  const english = (p) => Object.defineProperty(p.dom.window.navigator, "language", { value: "en-US", configurable: true });
+  const p = page({ hash: `${ASSISTANT}&lang=fr` });
+  english(p);
+  await p.start();
+  assert.equal(p.dom.window.location.href, `${ORIGIN}/play`);
+  assert.equal(p.doc.documentElement.lang, "fr");
+  assert.deepEqual(p.calls.map(call => [call.url, call.body.arguments]),
+    [["/play/api/tools/open_lesson_panel", { bundle_ref: "photosynthese/lesson.json", locale: "fr" }]]);
+  assert.equal(p.dom.window.sessionStorage.getItem(LANG_KEY), "fr");
+  p.dom.window.close();
+  // A reload of that tab keeps the lesson's language: its list and its notices too.
+  const reloaded = page({ hash: "", stored: { [TOKEN_KEY]: TOKEN, [LANG_KEY]: "fr" } });
+  english(reloaded);
+  await reloaded.start();
+  assert.deepEqual(reloaded.calls.map(call => [call.url.split("/").pop(), call.body.arguments]), [["list_lessons", { language: "fr" }]]);
+  assert.equal(text(reloaded.doc.querySelector("h1")), "Leçons Studium");
+  reloaded.dom.window.close();
+  // The other way round: an English lesson in a French browser.
+  const en = page({ hash: `${ASSISTANT}&lang=en` });
+  await en.start();
+  assert.deepEqual(en.calls[0].body, { arguments: { bundle_ref: "photosynthese/lesson.json", locale: "en" } });
+  en.dom.window.close();
+  // Without it, or with a language the interface does not have, the browser's, as before; a new address without it
+  // forgets the one an earlier address of this tab gave.
+  for (const hash of [ASSISTANT, `${ASSISTANT}&lang=de`]) {
+    const plain = page({ hash, stored: { [LANG_KEY]: "fr" } });
+    english(plain);
+    await plain.start();
+    assert.deepEqual(plain.calls[0].body, { arguments: { bundle_ref: "photosynthese/lesson.json", locale: "en" } }, hash);
+    assert.equal(plain.dom.window.sessionStorage.getItem(LANG_KEY), null, hash);
+    plain.dom.window.close();
+  }
+});
+
+test("the notice for a page opened without its key names both addresses Studium gives", () => {
+  for (const words of [fr, browserPhrases("en")]) {
+    assert.match(words.player_no_token, /assistant/);
+    assert.match(words.player_no_token, /studium-mcp play/);
+  }
+});
+
+// Review of decision 4, finding 4: a server that answers, but refuses the key (401), is not a session that ended: the
+// address was mistyped, cut, or is out of date. The page says so and asks for the address again; only a server that
+// does not answer at all says the assistant's session ended.
+test("an assistant's address the server refuses says it is incomplete or out of date, not that the session ended", async () => {
+  const refused = page({ hash: ASSISTANT, reply: async () => [401, { code: "unauthorized" }] });
+  await refused.start();
+  assert.equal(text(refused.doc.querySelector(".player-notice")), flat(fr.player_assistant_token_rejected));
+  refused.dom.window.close();
+  const en = browserPhrases("en");
+  assert.match(fr.player_assistant_token_rejected, /incomplète ou périmée[\s\S]*Demande de nouveau ta leçon à ton assistant/);
+  assert.match(en.player_assistant_token_rejected, /incomplete or out of date[\s\S]*Ask your assistant for your lesson again/);
+  for (const words of [fr.player_assistant_token_rejected, en.player_assistant_token_rejected]) {
+    assert.doesNotMatch(words, /terminée|redémarré|ended|started again/);
+  }
+  assert.match(fr.player_assistant_unreachable, /s'est terminée/);
+  assert.match(en.player_assistant_unreachable, /has ended/);
+});
+
+// Review of decision 4, finding 5: a second address pasted in a tab already open on /play changes only the fragment,
+// for which a browser does not load the page again: the page loads itself again, and reads the new key and lesson.
+test("a second address pasted in the same tab loads the page again; a fragment without a key does not", async () => {
+  const wait = () => new Promise(resolve => setTimeout(resolve, 20));
+  for (const first of [ASSISTANT, ""]) {
+    const p = page({ hash: first });
+    let reloads = 0;
+    await p.start({ reload: () => { reloads++; } });
+    p.dom.window.location.hash = "#nothing-here";
+    await wait();
+    assert.equal(reloads, 0);
+    p.dom.window.location.hash = `#token=${"u".repeat(64)}&from=assistant&lesson=${encodeURIComponent("capsule-demo/lesson.json")}`;
+    await wait();
+    assert.equal(reloads, 1, `after a page opened with "${first}"`);
+    // Review G, item 5: an assistant's address names its key k.
+    p.dom.window.location.hash = `#k=${"v".repeat(64)}&from=assistant&lesson=${encodeURIComponent("capsule-demo/lesson.json")}`;
+    await wait();
+    assert.equal(reloads, 2, `a k= address after a page opened with "${first}"`);
+    p.dom.window.close();
+  }
 });

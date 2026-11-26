@@ -1,5 +1,6 @@
 {
-  "_comment": "The documentation pages each language version of « Discover Studium » is built from. Their text is read from the repository at build time (CC BY 4.0, see NOTICE).",
+  "_comment": "The documentation pages each language version of « Discover Studium » is built from. Their text is read from the repository at build time (CC BY 4.0, see NOTICE). authoring_mode is the metadata.authoring.mode the build writes after create_lesson, which always writes self_study: teacher, so that the owner's approval of 25 November 2026 can be recorded (experience_packet.py approve refuses a self-study lesson); drafted_by stays agent.",
+  "authoring_mode": "teacher",
   "goal": {
     "en": "Understand how Studium works and find my way around its interface by using it",
     "fr": "Comprendre comment fonctionne Studium et me repérer dans son interface en l'utilisant"

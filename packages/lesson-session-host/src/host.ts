@@ -55,7 +55,8 @@ import {
 import { OffsetClock, checkNowMs } from "./session-clock.js";
 import { calendarDate, checkTimeZone, localTimeZone } from "./calendar.js";
 import { scanCatalog, type Catalog, type CatalogLesson, type LessonRoot } from "./lesson-catalog.js";
-import { buildStudyPlan, scheduleFromMemory, type StudyPlan } from "./study-plan.js";
+import { buildStudyPlan, offeredOutsideChat, scheduleFromMemory, type StudyPlan } from "./study-plan.js";
+import { DRAFTS_DIR, eraseDrafts, eraseLearnerDrafts, unfinishedBuilds } from "./authoring-draft/draft-store.js";
 import {
   emptyStudyRecord, FileStudyRecordStore, InMemoryStudyRecordStore,
   type ConceptRoute, type StudyRecord, type StudyRecordStore,
@@ -65,6 +66,8 @@ import {
   type ReviewSource,
 } from "./review-session.js";
 import { persistenceInfo, DEFAULT_LEARNER_ID, type PersistenceInfo } from "./persistence.js";
+import { paneLink, type PaneLink } from "./open-link.js";
+import { surfaceOrder, type AnswerSurface, type OfferClient, type OfferedSurface, type SurfaceOffer } from "./surface-offer.js";
 import { replyToInput, checkDisplayedChoice, ResponseInputError } from "./reply-mapping.js";
 import { expectedKind } from "./operator-context.js";
 import {
@@ -125,12 +128,18 @@ function escapes(base: string, target: string): boolean {
  * « session not found: », which the HTTP adapter maps to a 404. */
 export class SessionHostNotFoundError extends Error {
   /** `erased` (L-11): the learner's data was erased — by forget_session here or in another server on
-   * the same data folder, or the folder itself — while the session was open. */
-  constructor(id: string, cause: "unknown" | "erased" = "unknown") {
+   * the same data folder, or the folder itself — while the session was open. `moved_on` (D1): another session —
+   * another process, or one started here after the lesson was rewritten — saved the lesson since this session loaded
+   * it, and this session would have saved its older state over it. */
+  constructor(id: string, cause: "unknown" | "erased" | "moved_on" = "unknown") {
     super(cause === "erased"
       ? `session not found: ${id} (the learner's data was erased while this session was open): call ` +
         "start_lesson_session with the same bundle_ref and learner_id to start the lesson afresh, or " +
         "start_review_session with the same learner_id for a review"
+      : cause === "moved_on"
+      ? `session not found: ${id} (this lesson went on in another session since this one loaded it, or was rewritten ` +
+        "and started again, and this one would save over it): call start_lesson_session with the same bundle_ref " +
+        "and learner_id to continue where it is now"
       : `session not found: ${id} (the server may have restarted, or the session was closed): call ` +
         "start_lesson_session with the same bundle_ref and learner_id to resume the lesson where it stopped, or " +
         "start_review_session with the same learner_id to start the review again");
@@ -758,6 +767,25 @@ export interface SessionHostOptions {
   dataDir?: string | null;
   /** C6: the learner_id used when a caller names none (STUDIUM_LEARNER_ID). Absent ⇒ "anonymous". */
   defaultLearnerId?: string;
+  /** D1 (waiting review 2026-11-25): the editor names the learner — the server the Studium VS Code extension offers
+   * to Copilot, started with the pane's learner id (STUDIUM_LEARNER_ID with STUDIUM_OPEN_LINK). Every call then plays
+   * `defaultLearnerId`, whatever learner_id it passes, so that the chat and the pane share one learner. */
+  editorNamesLearner?: boolean;
+  /** D2: the start of a link that opens a lesson in the Studium VS Code pane (STUDIUM_OPEN_LINK); the encoded path
+   * of the lesson file is appended (open-link.ts). Absent ⇒ no link is offered. */
+  openLink?: string;
+  /** D4 review (2026-11-25), finding 1: this server serves one person — the stdio server an assistant started, one
+   * assistant session of one user, whose chat and browser player play the same default learner in this process. Its
+   * default learner is then one person whatever its id ("anonymous" included): D5 merges their sessions of a lesson
+   * and the stale-answer guard holds (onePerson). Absent ⇒ a server several people may reach (the lesson HTTP API):
+   * a shared default identity is never merged, never guarded. */
+  servesOnePerson?: boolean;
+  /** D4 (waiting review 2026-11-25, owner decision 4): when no pane is offered (no openLink), the address of this
+   * server's browser player that plays `bundleRef` as `learnerId`, the player started on first need (lesson-mcp's
+   * served-player.ts); null when it cannot start. Asked only for a lesson to offer: create_lesson's, and the study
+   * plan's lesson to start or continue. Absent ⇒ no address is offered. `language`: the lesson's metadata.language,
+   * which the address carries so that the page speaks it (trial of 2026-11-26). */
+  browserLink?: (learnerId: string, bundleRef: string, language?: string) => Promise<string | null>;
   live: boolean;
   /** OPTIONAL per-run judgment regenerator. When present, a spot_the_flaw with regenerate_from_run has its
    * flawed_content/claims regenerated from the learner's OWN run (server-side) when they run the capsule —
@@ -844,8 +872,9 @@ export interface SessionStartOptions {
 export interface PromptSurface { rank: 1 | 2; formsAvailable: boolean }
 /** The per-call option of the calls that serve a screen. */
 export interface ServeOptions { promptSurface?: PromptSurface }
-/** What respond takes beside the input: the surface, and the scene the learner answered (D2). */
-export interface RespondOptions extends ServeOptions { expectedSceneId?: string }
+/** What respond takes beside the input: the surface, the scene the learner answered (D2), and where the answer was
+ * given (follow-up to decision 4, B: the next offer of a lesson puts that surface first; absent: nothing recorded). */
+export interface RespondOptions extends ServeOptions { expectedSceneId?: string; answeredOn?: AnswerSurface }
 
 /** C4: what a self-rating changed — the rated concepts' next review. Never their mastery. */
 export interface RecallRating {
@@ -921,7 +950,7 @@ const EXPORTS_DIR = "_exports";
  * folder or file left on disk. */
 export interface ForgetItem {
   kind: "lesson_progress" | "learner_profile" | "study_record" | "other_lessons_progress" | "library_lessons"
-    | "lesson_sources" | "map_exports" | "pseudonym_key";
+    | "lesson_sources" | "map_exports" | "lesson_drafts" | "pseudonym_key";
   lessons?: string[];
   path?: string;
 }
@@ -984,6 +1013,8 @@ export class SessionHost {
   /** L-11: sessions closed because their learner's data was erased: a later call says so, and points
    * to a fresh start, rather than to a restart of the server. */
   private readonly erasedIds = new Set<string>();
+  /** D1: sessions closed because their lesson went on in another process: a later call says so. */
+  private readonly movedOnIds = new Set<string>();
   constructor(private readonly opts: SessionHostOptions) {
     this.zone = checkTimeZone(opts.timeZone ?? localTimeZone());
     this.dataDir = opts.dataDir !== undefined ? opts.dataDir : durableDataDir();
@@ -1003,6 +1034,41 @@ export class SessionHost {
   get timeZone(): string { return this.zone; }
   /** C6: the learner_id used when a caller names none. */
   get defaultLearnerId(): string { return this.opts.defaultLearnerId ?? DEFAULT_LEARNER_ID; }
+  /** D1: whether the editor names the learner (SessionHostOptions.editorNamesLearner). */
+  get editorNamesLearner(): boolean { return this.opts.editorNamesLearner === true; }
+  /** D2: the start of a link that opens a lesson in the Studium VS Code pane, or null. */
+  get openLink(): string | null { return this.opts.openLink?.trim() || null; }
+  /** D1 review finding 4 and D4 review finding 1: whether `learnerId` is one person's — D5 merges their sessions of a
+   * lesson and the stale-answer guard holds. A learner nobody shares is; so is the editor's learner whatever its id
+   * ("anonymous" included: the studium.learnerId of one VS Code user), and the default learner of a server that serves
+   * one person (servesOnePerson); a shared default identity on a server several people may reach is not. */
+  private onePerson(learnerId: string): boolean {
+    return this.editorNamesLearner || (this.opts.servesOnePerson === true && learnerId === this.defaultLearnerId) || !sharedIdentity(learnerId);
+  }
+
+  /** D4: the address of this server's browser player that plays `bundleRef` as the learner of the call (learnerFor),
+   * in the lesson's `language`, or null: the VS Code pane is offered instead (openLink), there is no player, or it could
+   * not start. */
+  async browserLinkFor(bundleRef: string, learnerId?: string, language?: string): Promise<string | null> {
+    if (this.openLink || !this.opts.browserLink) return null;
+    try { return await this.opts.browserLink(this.learnerFor(learnerId), bundleRef, language); } catch { return null; }
+  }
+  /** D4: whether the session `id` plays `learnerId`'s progress — the browser player checks it before it reads or moves
+   * a session for the learner its key was minted for — or null when this server holds no such session. */
+  async sessionPlays(id: string, learnerId: string): Promise<boolean | null> {
+    const entry = this.registry.get(id);
+    if (!entry) return null;
+    return entry.profilePseudonym !== undefined && entry.profilePseudonym === await this.profilePseudonymOf(this.learnerFor(learnerId));
+  }
+  /** Review G, finding 3: session `id` showed the learner another surface than the chat (start_lesson_session's line):
+   * from now on its answers in the chat are the learner's choice of the chat (respond). */
+  noteSurfaceOffered(id: string): void {
+    this.require(id).otherSurfaceShown = true;
+  }
+  /** D1: the learner a call plays: the editor's when it names the learner, else the one named, else the default. */
+  learnerFor(requested?: string): string {
+    return this.editorNamesLearner ? this.defaultLearnerId : requested ?? this.defaultLearnerId;
+  }
   /** Whether a judge model grades production scenes here (the authoring notices depend on it). */
   get judge(): boolean { return this.opts.live; }
 
@@ -1010,6 +1076,7 @@ export class SessionHost {
   persistence(): PersistenceInfo {
     return persistenceInfo({
       dataDir: this.dataDir, libraryRoot: this.opts.libraryRoot ?? null, learnerIdDefault: this.defaultLearnerId,
+      learnerIdFromEditor: this.editorNamesLearner,
     });
   }
 
@@ -1032,6 +1099,50 @@ export class SessionHost {
         ...(library ? [{ kind: "library" as const, dir: library }] : [])];
     if (shipped && !roots.some((root) => same(root.dir, shipped))) roots.push({ kind: "shipped", dir: shipped });
     return roots;
+  }
+
+  /** Follow-up to decision 4 (2026-11-25): how the lesson `bundleRef` is offered to the learner of the call outside the
+   * chat, or null — not a lesson on disk, one never offered outside the chat (offeredOutsideChat), or the chat is all
+   * there is. What this host gives: the VS Code pane (openLink) or its browser player (browserLink); what `client`
+   * gives: Studium's panel, its own app's pane. Their order is surface-offer.ts's: the native surface first (A), the
+   * surface of the learner's last answer first when it is one of them, the chat first when it was the chat (B).
+   * `scope` "first": only the first surface, and the browser's address asked only when it is that one (the line of a
+   * lesson started in the chat). */
+  async lessonOffer(
+    bundleRef: string, learnerId?: string, client: OfferClient = {}, scope: "all" | "first" = "all",
+  ): Promise<SurfaceOffer | null> {
+    const lesson = (await this.catalog()).lessons.find((l) => l.bundle_ref === bundleRef);
+    if (!lesson || !offeredOutsideChat(lesson)) return null;
+    const learner = this.learnerFor(learnerId);
+    let remembered: AnswerSurface | undefined;
+    try { remembered = (await this.studyStore.load(await this.profilePseudonymOf(learner)))?.answered_on; }
+    catch { remembered = undefined; } // an unreadable record offers the order of A; the write-through reports it
+    const pane = this.openLink ? this.paneLinkOf(lesson) : null;
+    let browser: boolean = !this.openLink && this.opts.browserLink !== undefined;
+    const can = (surface: OfferedSurface): boolean => surface === "vscode_pane" ? pane !== null
+      : surface === "browser" ? browser : surface === "panel" ? client.panel === true : client.nativePane?.(learner) === true;
+    const named = () => { const order = surfaceOrder(can, remembered); return scope === "first" ? order.slice(0, 1) : order; };
+    let order = named();
+    let address: string | null = null;
+    if (order.includes("browser")) {
+      address = await this.browserLinkFor(lesson.bundle_ref, learnerId, lesson.language);
+      if (address === null) { browser = false; order = named(); }
+    }
+    if (!order.length) return null;
+    const asked = learnerId !== undefined && !this.editorNamesLearner ? { learner_id: learnerId } : {};
+    return {
+      first: order[0]!, order,
+      ...(order.includes("vscode_pane") && pane ? { open_link: pane.open_link, lesson_path: pane.lesson_path } : {}),
+      ...(order.includes("browser") && address ? { open_link: address } : {}),
+      ...(order.includes("panel") ? { open_panel: { bundle_ref: lesson.bundle_ref, ...asked } } : {}),
+      ...(order.includes("assistant_pane") ? { command: `/studium ${lesson.bundle_ref}` } : {}),
+    };
+  }
+
+  /** D2: the pane link of a lesson of the catalog — its file under the root it was listed from — or null. */
+  private paneLinkOf(lesson: CatalogLesson): PaneLink | null {
+    const root = this.lessonRoots().find((r) => r.kind === lesson.root);
+    return root && this.openLink ? paneLink(this.openLink, resolve(root.dir, lesson.bundle_ref)) : null;
   }
 
   /** Whether `dir`, a root a lesson was loaded from, is the shipped lessons root. */
@@ -1097,8 +1208,20 @@ export class SessionHost {
     return this.deps().pseudonym.get(learnerId, PROFILE_PSEUDONYM_SCOPE);
   }
 
+  /** Review of D4: the learner a draft refused by create_lesson is kept for — the pseudonym of `learnerId`,
+   * else of persistence.learner_id_default — or null when no learner is known: no learner_id given and
+   * no STUDIUM_LEARNER_ID set (the default "anonymous" names no one). A draft kept for null serves the
+   * resend in the same conversation and is offered to no one, so a shared computer never shows one
+   * learner's goal or file to another. D1: when the editor names the learner, `learnerId` is ignored
+   * (learnerFor), so the draft is the editor's learner's, the one their study plan offers. */
+  async draftLearnerOf(learnerId?: string): Promise<string | null> {
+    const id = this.learnerFor(learnerId);
+    return id === DEFAULT_LEARNER_ID ? null : this.profilePseudonymOf(id);
+  }
+
   /** Start or resume a lesson; legacy third-argument clocks and languages remain supported. */
   async create(bundleRef: string, learnerId: string = this.defaultLearnerId, options?: SessionStartOptions | number | string): Promise<SessionStartResult> {
+    learnerId = this.learnerFor(learnerId);
     const { nowMs: requestedNow, presentationLanguage, promptSurface } = typeof options === "number" ? { nowMs: options }
       : typeof options === "string" ? { presentationLanguage: options } : options ?? {};
     // L-1: a session started with now_ms stamps its answers, ratings and memory on a clock anchored there.
@@ -1112,8 +1235,11 @@ export class SessionHost {
       const resolved = await loadResolvedBundle(this.roots(), bundleRef, shuffleSaltFor(learnerId));
       const bundle = resolved.bundle;
       // D5: the learner already plays this lesson in this server — that session goes on.
-      const open = sharedIdentity(learnerId) ? undefined : this.openLessonOf(profilePseudonym, bundle);
-      if (open) return this.alreadyOpen(open[0], open[1], { presentationLanguage: normalizedPresentationLanguage, promptSurface });
+      const open = this.onePerson(learnerId) ? this.openLessonOf(profilePseudonym, bundle) : undefined;
+      // D1: unless another process saved the lesson since that session loaded it (the learner went on in the pane, or
+      // in another chat): that session is set aside, and this one starts from what is saved.
+      if (open && await this.movedOn(open[1])) this.setAsideMovedOn(open[0]);
+      else if (open) return this.alreadyOpen(open[0], open[1], { presentationLanguage: normalizedPresentationLanguage, promptSurface });
       // C5: the approval record (next to lesson.json, or inside the .zip), bound to the very bytes just loaded.
       const authoring = authoringOf(bundle, {
         judge: this.opts.live, approval: resolved.approval, ...(this.isShippedRoot(resolved.root) ? { shipped: true } : {}),
@@ -1125,6 +1251,7 @@ export class SessionHost {
       let journalDirectory: string | undefined;
       let scopeDir: string | undefined;
       let prior: LearnerState | null = null;
+      let stateRevision: string | null | undefined;
       if (this.dataDir) {
         // Build deps once to obtain the (fail-closed) pseudonym provider, derive the scope dir, then
         // rebuild the deps with File* stores rooted at that dir. resolvePseudoSecret runs in
@@ -1139,6 +1266,9 @@ export class SessionHost {
         // #3 RESUME: load any prior LearnerState for this (pseudonym, bundle_id). FileStateStore.load
         // returns null on missing/parse-error, so a fresh learner falls back to defaultLearnerState.
         prior = await deps.stateStore.load(bundle.bundle_id);
+        // D1: what was loaded, to tell later that another process saved over it. A shared default identity is
+        // never guarded, as D5 never merges its sessions: several people may share it — unless the editor names it or this server serves one person.
+        if (this.onePerson(learnerId)) stateRevision = await deps.stateStore.revision?.(bundle.bundle_id);
       } else {
         deps = this.deps(undefined, clock);
       }
@@ -1157,6 +1287,7 @@ export class SessionHost {
         memory: initial.concept_memory ?? {}, profileSeen: profile !== null, lessonSha256: resolved.sha256 ?? null,
         ...(normalizedPresentationLanguage ? { presentationLanguage: normalizedPresentationLanguage } : {}),
         ...(scopeDir ? { scopeDir } : {}),
+        ...(stateRevision !== undefined ? { stateRevision } : {}),
         ...(resolved.minutesPerDay !== null ? { minutesPerDay: resolved.minutesPerDay } : {}),
       });
       entry.carriedMemory = structuredClone(profile?.concept_memory ?? {});
@@ -1254,6 +1385,7 @@ export class SessionHost {
     learnerId: string = this.defaultLearnerId,
     opts: { maxItems?: number; nowMs?: number; presentationLanguage?: string; language?: DisplayLocale; promptSurface?: PromptSurface } = {},
   ): Promise<ReviewStartResult> {
+    learnerId = this.learnerFor(learnerId);
     const nowMs = this.nowOr(opts.nowMs);
     const requestedLanguage = opts.language === undefined ? undefined : checkLocale(opts.language);
     const deps = this.deps(undefined, this.sessionClock(opts.nowMs));
@@ -1387,6 +1519,7 @@ export class SessionHost {
    * Reads the learner's completed_lessons from the cross-lesson profile (the same learner-level pseudonym
    * the profile is keyed by). The caller then host.create(next.bundle_ref, learnerId) to start it. */
   async nextLesson(course: Course, learnerId: string = this.defaultLearnerId): Promise<CourseLesson | null> {
+    learnerId = this.learnerFor(learnerId);
     const profile = await this.profileStore.load(await this.profilePseudonymOf(learnerId));
     return nextCourseLesson(course, profile?.completed_lessons ?? []);
   }
@@ -1396,6 +1529,7 @@ export class SessionHost {
    * from the profile's concept_states. Empty when no profile / no memory. `nowMs` injected for
    * deterministic review scheduling. */
   async dueReinforcements(learnerId: string = this.defaultLearnerId, nowMs?: number): Promise<ReinforcementTarget[]> {
+    learnerId = this.learnerFor(learnerId);
     const at = this.nowOr(nowMs);
     return this.dueReinforcementsForProfile(await this.profilePseudonymOf(learnerId), at);
   }
@@ -1414,6 +1548,7 @@ export class SessionHost {
     learnerId: string = this.defaultLearnerId,
     requestedNow?: number,
   ): Promise<ReinforcementStatus> {
+    learnerId = this.learnerFor(learnerId);
     const nowMs = this.nowOr(requestedNow);
     const pseudonym = await this.profilePseudonymOf(learnerId);
     const [profile, record] = await Promise.all([this.profileStore.load(pseudonym), this.studyStore.load(pseudonym)]);
@@ -1432,6 +1567,7 @@ export class SessionHost {
    * surfacing `reinforce` even past the last lesson (review never stops). Loads the profile ONCE.
    * `nowMs` injected for deterministic scheduling. */
   async nextCourseStep(course: Course, learnerId: string = this.defaultLearnerId, requestedNow?: number): Promise<CourseStep> {
+    learnerId = this.learnerFor(learnerId);
     const nowMs = this.nowOr(requestedNow);
     const profile = await this.profileStore.load(await this.profilePseudonymOf(learnerId));
     if (profile?.concept_memory) {
@@ -1450,14 +1586,21 @@ export class SessionHost {
    * older name) defaults to the language of the lesson the learner touched last, else of the newest
    * lesson on disk, else English. RFR-06: the learner's minutes a day size the next step. */
   async studyPlan(
-    learnerId: string = this.defaultLearnerId, opts: { nowMs?: number; locale?: DisplayLocale; language?: DisplayLocale } = {},
+    asked?: string,
+    opts: { nowMs?: number; locale?: DisplayLocale; language?: DisplayLocale; client?: OfferClient } = {},
   ): Promise<StudyPlan> {
+    // `asked` stays as the call gave it (review G, finding 4): the offer names no learner the call did not name, as
+    // create_lesson's does not (lessonOffer).
+    const learnerId = this.learnerFor(asked);
     const nowMs = this.nowOr(opts.nowMs);
     const requested = opts.language ?? opts.locale;
     const language = requested === undefined ? undefined : checkLocale(requested);
     const pseudonym = await this.profilePseudonymOf(learnerId);
-    const [profile, stored, catalog] = await Promise.all([
+    const library = this.opts.libraryRoot;
+    const [profile, stored, catalog, unfinished] = await Promise.all([
       this.profileStore.load(pseudonym), this.studyStore.load(pseudonym), this.catalog(),
+      // D4: the most recent lesson build that stopped, a draft kept for this learner, offered to finish.
+      library ? unfinishedBuilds(library, nowMs, learnerId === DEFAULT_LEARNER_ID ? null : pseudonym) : Promise.resolve([]),
     ]);
     const record = stored ?? emptyStudyRecord();
     // The shipped lessons say nothing of the learner's language.
@@ -1478,7 +1621,7 @@ export class SessionHost {
       reviewSeconds.set(source.conceptId, scene.estimated_seconds);
       reviewFrom.set(source.conceptId, { bundle_ref: source.bundleRef, title: source.bundle.metadata.title, scene_id: scene.id });
     }
-    return buildStudyPlan({
+    const input = {
       nowMs,
       memory,
       mastery,
@@ -1492,15 +1635,27 @@ export class SessionHost {
       measured,
       timeZone: this.zone,
       reviewSeconds,
-    });
+      unfinishedBuild: unfinished[0] ?? null,
+    };
+    const plan = buildStudyPlan(input);
+    // D2, D4 and their follow-up: the lesson to start or continue is offered outside the chat (lessonOffer). The offer
+    // is made only now that the plan names such a lesson: the browser player starts on first need, never for a review.
+    const step = plan.next_step;
+    const ref = step.action === "start" || step.action === "continue" ? step.arguments["bundle_ref"] : undefined;
+    if (typeof ref !== "string") return plan;
+    const offer = await this.lessonOffer(ref, asked, opts.client);
+    return offer ? buildStudyPlan({ ...input, offerFor: (l: CatalogLesson) => (l.bundle_ref === ref ? offer : null) }) : plan;
   }
 
   /** list_lessons (HJ-5): the lessons on disk now, in the bundles root and the learner's library, with
    * the learner's progress when `learnerId` is given. `query` keeps lessons whose title, ref,
    * discipline or concepts contain every word of it (case and accents ignored). L-4: display_markdown
    * speaks `language` (fr|en), else the language of the learner's last lesson, else of the newest
-   * lesson on disk, else English. */
+   * lesson on disk, else English. D7: with `language`, shipped_lessons holds only the shipped lesson in that language
+   * when there is one, else every one. */
   async listLessons(opts: { query?: string; learnerId?: string; language?: DisplayLocale } = {}): Promise<LessonListing> {
+    // D1: when the editor names the learner, the listing shows that learner's progress, learner_id given or not.
+    if (this.editorNamesLearner) opts = { ...opts, learnerId: this.defaultLearnerId };
     const language = opts.language === undefined ? undefined : checkLocale(opts.language);
     const catalog = await this.catalog();
     const words = foldText(opts.query ?? "").split(/\s+/).filter(Boolean);
@@ -1528,7 +1683,11 @@ export class SessionHost {
       ...(progress ? { status: progress(l) } : {}),
     }));
     const listed = all.filter((l) => l.source !== "shipped");
-    const shipped = all.filter((l) => l.source === "shipped");
+    const everyShipped = all.filter((l) => l.source === "shipped");
+    // D7 (2026-11-26): asked in a language, only the shipped lesson in that language when that version exists, so a
+    // player lists one demo; without a language, or when none is in it, every one (a player can still switch).
+    const askedShipped = language === undefined ? [] : everyShipped.filter((l) => displayLocale(l.language) === language);
+    const shipped = askedShipped.length ? askedShipped : everyShipped;
     const newestLesson = [...catalog.lessons].filter((l) => l.root !== "shipped").sort((a, b) => b.modified_at - a.modified_at)[0];
     const locale = language ?? displayLocale(learnerLanguage ?? newestLesson?.language ?? DEFAULT_LOCALE);
     // The chat shows the shipped lessons in the list's language when there is one; the JSON keeps them all.
@@ -1558,7 +1717,7 @@ export class SessionHost {
 
   private require(id: string): SessionEntry {
     const e = this.registry.get(id);
-    if (!e) throw new SessionHostNotFoundError(id, this.erasedIds.has(id) ? "erased" : "unknown");
+    if (!e) throw new SessionHostNotFoundError(id, this.erasedIds.has(id) ? "erased" : this.movedOnIds.has(id) ? "moved_on" : "unknown");
     return e;
   }
 
@@ -2120,6 +2279,10 @@ export class SessionHost {
         ? replyToInput(scene, input.text, (publicScene(scene) as { deck?: Array<{ token: string }> }).deck, input.confidence)
         : checkDisplayedChoice(scene, input);
       const answeredCheck = entry.session.checkPending();
+      // Follow-up to decision 4 (B): where the learner answers, written to their study record with this answer. An
+      // answer in the chat is the learner's choice only when this session showed them another surface (review G,
+      // finding 3): a model that starts the lesson in the chat by itself does not choose for them.
+      if (opts.answeredOn !== undefined && (opts.answeredOn !== "chat" || entry.otherSurfaceShown === true)) entry.answeredOn = opts.answeredOn;
       const applied = await this.applyResponseLocked(entry, engineInput, opts.promptSurface);
       const settled = answeredCheck ? await this.settleContest(entry, applied.verdict?.correct === true) : undefined;
       const served = settled ? { ...applied, contest: settled } : applied;
@@ -2411,10 +2574,45 @@ export class SessionHost {
   /** Recheck the forget generation after waiting for preceding operations. */
   private sessionWrite<T>(id: string, fn: (entry: SessionEntry) => Promise<T>): Promise<T> {
     const entry = this.require(id);
-    return this.learnerOperation(entry.profilePseudonym, () => {
+    return this.learnerOperation(entry.profilePseudonym, async () => {
       this.assertNotErased(id, entry);
-      return fn(entry);
+      await this.assertNotMovedOn(id, entry);
+      try { return await fn(entry); }
+      finally { await this.noteOwnSave(entry); }
     });
+  }
+
+  /** D1 (waiting review 2026-11-25): whether another process saved this session's lesson state since the session
+   * loaded or last saved it — the learner went on in the Studium pane or in another chat, on the same data folder.
+   * Read under the learner's lock, which every save of the lesson state holds, across processes. */
+  private async movedOn(entry: SessionEntry): Promise<boolean> {
+    if (entry.stateRevision === undefined || entry.erased) return false;
+    const now = await entry.deps.stateStore.revision?.(entry.bundle.bundle_id);
+    return now !== undefined && now !== entry.stateRevision;
+  }
+
+  /** D1: the stamp of what this session just saved (still under the learner's lock), so that only another
+   * process's save counts as moving on. */
+  private async noteOwnSave(entry: SessionEntry): Promise<void> {
+    if (entry.stateRevision === undefined) return;
+    const now = await entry.deps.stateStore.revision?.(entry.bundle.bundle_id);
+    if (now !== undefined) entry.stateRevision = now;
+  }
+
+  /** D1: close, without writing anything, a session whose lesson went on in another process. */
+  private setAsideMovedOn(id: string): void {
+    this.movedOnIds.add(id);
+    this.registry.delete(id);
+    this.experiments.delete(id);
+  }
+
+  /** D1: refuse — and close — a session whose lesson went on in another process, before it writes anything: its
+   * older state would be saved over the newer one. The refusal points to start_lesson_session, which resumes from
+   * what is saved. */
+  private async assertNotMovedOn(id: string, entry: SessionEntry): Promise<void> {
+    if (!await this.movedOn(entry)) return;
+    this.setAsideMovedOn(id);
+    throw new SessionHostNotFoundError(id, "moved_on");
   }
 
   private learnerTombstone(pseudonym: string): string | null {
@@ -2449,10 +2647,12 @@ export class SessionHost {
     entry.profileSeen = true;
     entry.carriedMemory = structuredClone(profile.concept_memory ?? {});
 
-    if (!change.moved.length && (entry.kind === "review" || entry.responses === 0)) return;
+    if (!change.moved.length && (entry.kind === "review" || entry.responses === 0) && entry.answeredOn === undefined) return;
     const record = (await this.studyStore.load(pseudonym)) ?? emptyStudyRecord();
     // RFR-06: the minutes a day the learner gave for the lesson they play are theirs from now on.
     if (entry.minutesPerDay !== undefined) record.minutes_per_day = entry.minutesPerDay;
+    // Follow-up to decision 4 (B): the surface of the learner's last answer.
+    if (entry.answeredOn !== undefined) record.answered_on = entry.answeredOn;
     for (const conceptId of change.moved) {
       const route = this.routeOf(entry, conceptId, change.sceneId);
       if (route) record.concepts[conceptId] = route;
@@ -2756,7 +2956,8 @@ export class SessionHost {
           // A proposal still open when the session closes went unanswered: counted ignored.
           if (entry.prompts) this.emitPromptOutcomes(entry, entry.prompts.sessionEnded());
           await this.flushSessionOutputs(entry);
-          await this.persistLearner(entry, { moved: [], sceneId: null, complete: false });
+          // D1: a session whose lesson went on in another process does not write its older progress back.
+          if (!await this.movedOn(entry)) await this.persistLearner(entry, { moved: [], sceneId: null, complete: false });
         }
       } catch (error) {
         warning = persistenceWarning(error);
@@ -2864,12 +3065,28 @@ export class SessionHost {
   /** forget_session {learner_id} (L-13, R-en-07): erase everything this host keeps of the learner, with
    * no live session needed — every lesson's progress (their live sessions are closed), the
    * cross-lesson profile and the review schedule — and say what stays, as forget does. D10: in
-   * `language` (fr|en) when given, else the learner's last lesson's, else the server default. */
-  async forgetLearner(learnerId: string = this.defaultLearnerId, language?: DisplayLocale): Promise<ForgetReport> {
+   * `language` (fr|en) when given, else the learner's last lesson's, else the server default. The text names
+   * the learner forgotten. When the editor names the learner (D1), no id or the editor's own forgets the editor's
+   * learner, and another id is refused before anything is erased: this cannot be undone, so it is never played as
+   * the editor's learner the way other calls are (review finding 1). */
+  async forgetLearner(learnerId?: string, language?: DisplayLocale): Promise<ForgetReport> {
+    if (this.editorNamesLearner && learnerId !== undefined && learnerId !== this.defaultLearnerId) {
+      throw new Error(otherLearnerRefusal(learnerId, this.defaultLearnerId));
+    }
+    learnerId = this.learnerFor(learnerId);
     const requested = language === undefined ? undefined : checkLocale(language);
-    if (this.holdsNoLearner()) return this.forgetReport("learner", [], this.keptOnDisk(await this.catalog()), requested ?? DEFAULT_LOCALE);
+    const library = this.opts.libraryRoot;
+    const draftsErased: ForgetItem[] = [{ kind: "lesson_drafts" }];
+    if (this.holdsNoLearner()) {
+      // D4: with no pseudonym key on this install, no kept draft can be matched to a learner: all go.
+      const drafts = library && await eraseDrafts(library) ? draftsErased : [];
+      return this.forgetReport("learner", drafts, this.keptOnDisk(await this.catalog(), { drafts: false }), requested ?? DEFAULT_LOCALE, learnerId);
+    }
     const pseudonymOf = this.deps().pseudonym;
     const profilePseudonym = await pseudonymOf.get(learnerId, PROFILE_PSEUDONYM_SCOPE);
+    // Review of D4: the drafts Studium kept for this learner (and those kept for no known learner, which may
+    // be theirs) are their data in the library: erased with the rest; another learner's stay.
+    const drafts = library && await eraseLearnerDrafts(library, learnerId === DEFAULT_LEARNER_ID ? null : profilePseudonym) ? draftsErased : [];
     // L-11: from now on no session of this learner opened before writes them back.
     this.forgotten.set(profilePseudonym, ++this.sequence);
     return this.learnerOperation(profilePseudonym, async () => {
@@ -2907,9 +3124,10 @@ export class SessionHost {
         ...(lessons.size ? [{ kind: "lesson_progress" as const, lessons: sortedTitles([...lessons.values()]) }] : []),
         ...(profile ? [{ kind: "learner_profile" as const }] : []),
         ...(record ? [{ kind: "study_record" as const }] : []),
+        ...drafts,
       ];
       this.afterForget();
-      return this.forgetReport("learner", erased, this.keptOnDisk(catalog), requested ?? locale);
+      return this.forgetReport("learner", erased, this.keptOnDisk(catalog, { drafts: false }), requested ?? locale, learnerId);
     });
   }
 
@@ -2965,8 +3183,10 @@ export class SessionHost {
   }
 
   /** What forget leaves on disk (L-13): the lessons of the learner's library and the sources they were
-   * built from, which the learner may believe gone, and the install's pseudonym key (no learner data). */
-  private keptOnDisk(catalog: Catalog): ForgetItem[] {
+   * built from, which the learner may believe gone, the drafts kept of unfinished lessons (unless
+   * `drafts` is false: forgetLearner erased the learner's, and any left are other learners') and the
+   * install's pseudonym key (no learner data). */
+  private keptOnDisk(catalog: Catalog, opts: { drafts?: boolean } = {}): ForgetItem[] {
     const kept: ForgetItem[] = [];
     const library = this.opts.libraryRoot;
     if (library) {
@@ -2976,14 +3196,19 @@ export class SessionHost {
       if (existsSync(sources)) kept.push({ kind: "lesson_sources", path: sources });
       const exports = join(library, EXPORTS_DIR);
       if (existsSync(exports)) kept.push({ kind: "map_exports", path: exports });
+      const drafts = join(library, DRAFTS_DIR);
+      if (opts.drafts !== false && existsSync(drafts)) kept.push({ kind: "lesson_drafts", path: drafts });
     }
     const secret = this.dataDir ? join(this.dataDir, SECRET_FILE) : null;
     if (secret && existsSync(secret)) kept.push({ kind: "pseudonym_key", path: secret });
     return kept;
   }
 
-  private forgetReport(scope: ForgetReport["scope"], erased: ForgetItem[], kept: ForgetItem[], locale: DisplayLocale): ForgetReport {
-    return { forgotten: true, scope, erased, kept, display_markdown: forgetMarkdown({ erased, kept }, locale) };
+  /** `learner`: the learner forgotten (forgetLearner), whom the text names. */
+  private forgetReport(
+    scope: ForgetReport["scope"], erased: ForgetItem[], kept: ForgetItem[], locale: DisplayLocale, learner?: string,
+  ): ForgetReport {
+    return { forgotten: true, scope, erased, kept, display_markdown: forgetMarkdown({ erased, kept, learner }, locale) };
   }
 
   /** A durable data folder no learner was ever written to: no pseudonym secret yet and no learner
@@ -3005,8 +3230,16 @@ function sortedTitles(titles: readonly string[]): string[] {
   return [...new Set(titles)].sort((a, b) => a.localeCompare(b));
 }
 
+/** Review finding 1: why forget_session {learner_id} refuses an id that is not the editor's learner, and how to
+ * forget the editor's learner instead. */
+function otherLearnerRefusal(requested: string, editorLearner: string): string {
+  return `learner_id ${JSON.stringify(requested)} is not the learner here, and nothing was erased: the editor names the ` +
+    `learner, ${JSON.stringify(editorLearner)} (the Studium pane's learner, the studium.learnerId setting of VS Code), and ` +
+    "this server plays no other. To erase that learner's data, call forget_session without learner_id.";
+}
+
 /** The default identities several people may share (no learner named): their sessions are never
- * merged (D5) and keep no private journal on disk. */
+ * merged (D5) unless the server serves one person (SessionHost.onePerson), and keep no private journal on disk. */
 function sharedIdentity(learnerId: string): boolean {
   return !learnerId.trim() || learnerId === "anonymous" || learnerId === "agent-operator";
 }

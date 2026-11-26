@@ -59,6 +59,12 @@ tools.
 `codex mcp list` shows `studium`. To prove the connection, run the check in
 [Connect your assistant](harnesses.md#check-the-connection).
 
+A Codex that announces MCP Apps (Codex Desktop) is offered a lesson ready to play in Studium's panel first:
+the assistant opens it with `open_lesson_panel`. Your web browser comes second and the chat third, on
+"here". A Codex that announces no MCP Apps gets the browser first. See
+[Where a lesson is offered first](harness-panels.md#where-a-lesson-is-offered-first). Not yet tried in
+Codex Desktop: automated tests only.
+
 ## Limits
 
 - A Codex profile with `approval_policy = "never"` refuses every call to a local stdio MCP server

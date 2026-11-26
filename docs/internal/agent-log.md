@@ -6,6 +6,98 @@ Journal des unités TDD par milestone. Mis à jour à chaque commit significatif
 
 ---
 
+## 2026-11-26 — langue du lecteur navigateur et durée unique d'une leçon
+
+Deux défauts relevés lors d'un essai : un apprenant francophone, leçon française, et l'interface du lecteur navigateur
+entièrement en anglais (la langue du navigateur) ; pour la même leçon, « environ 20 minutes » dans la conversation et
+« about 27 min » à l'étape 1/13 dans le lecteur. Branche `fix/2026-11-26-player-language-and-duration`.
+
+- Langue : l'adresse d'un assistant porte `&lang=fr|en`, tiré de `metadata.language` de la leçon
+  (`SessionHost.lessonOffer` → `browserLinkFor` → `browserLink` → `served-player.ts linkFor`, qui n'écrit que
+  fr ou en). `bridge-browser.js` la préfère à `navigator.language` et la garde pour l'onglet (`LANG_KEY`) ;
+  sans elle, rien ne change ; `studium-mcp play` garde la langue du navigateur ; le réglage de langue du panneau
+  (`setLanguage`, côté serveur) change toujours la vue.
+- Durée : `orientation.minutes_left` = durée annoncée × part des étapes restantes, arrondie au supérieur, au moins 1
+  (`lessonMinutesLeft`, la règle de `study-status.ts minutesLeft` de l'extension) ; le décompte des étapes suit
+  celui qu'avaient les secondes (détour, questions de contrôle). Choisi plutôt que l'inverse parce que l'arbre et la
+  barre d'état de VS Code, et la ligne « prête » de la conversation, utilisaient déjà la durée annoncée.
+- Tests d'abord : bridge-browser (langue de l'adresse), served-player (`&lang=`), study-plan-browser-link (langue
+  demandée), orientation (accord avec `readyLine` sur 13 étapes à 125 s, 20 min annoncées). Les tests qui fixaient
+  l'ancienne estimation par secondes sont mis à la nouvelle règle, avec un commentaire « Changed 2026-11-26 ».
+
+## 2026-11-26 — leçon de démonstration neutre quant à la surface (décision D7)
+
+Mots du propriétaire : « Oui vas y pour 1-4 ». Branche `fix/2026-11-26-demo-lesson-d7`.
+
+- Texte (`draft.en.json`, `draft.fr.json`) : chaque consigne nomme la commande à l'écran puis ce qu'on dit à un
+  assistant (« Appuie sur **Carte des notions** sous l'étape ou, avec un assistant, demande « où en suis-je ? » ») ;
+  plus de « panneau VS Code » ni de « dis à ton assistant ». Les faits sur les données (stockage de VS Code, Copilot
+  qui partage la progression par le serveur de l'extension) restent. Une seule durée : dix minutes (texte,
+  `duration_minutes`, 600 s de scènes ; l'en-tête disait 11).
+- `list_lessons {language}` ne liste que la démo de cette langue quand elle existe ; sans langue, les deux (le lecteur
+  garde le changement de langue, et chaque version s'ouvre par sa référence).
+- `docs/learn/student-guide` (EN/FR) : la phrase « le panneau et un assistant gardent des progressions séparées » dit
+  d'emblée l'exception Copilot ; `source-set.*.json` régénérés par la reconstruction.
+- `build-shipped-lessons.ts --out DIR` : le test reconstruit les leçons dans un dossier temporaire et les compare.
+- Approbation : `approve` relancé une fois sur les octets finaux, sous beta-testeur, sans `--opened` ni
+  `--checklist` ; la note dit que l'agent l'a enregistrée sur la délégation du propriétaire et que personne n'a relu
+  les scènes. Les reçus du 25 novembre restent dans `reviews/` (autres octets).
+
+## 2026-11-25, nuit — approbation de la leçon de démonstration (INT-STUDIUM-064, décision 5)
+
+Mots du propriétaire : « On va approuver la leçon de démonstration pour gagner du temps. Si besoin on y reviendra. »
+Il n'a pas lu la leçon. « Discover Studium » / « Découvrir Studium » passe en mode enseignant (`authoring_mode` dans
+`sources.json`, `drafted_by: agent` conservé) et porte un `approval.json` lié aux octets de chaque `lesson.json`,
+enregistré par `experience_packet.py approve` sous le nom affiché beta-testeur (celui choisi le 10 novembre), sans
+`--opened` ni `--checklist` : le reçu dit 0 scène ouverte sur 12, et sa note dit ce qui s'est passé.
+
+- Texte : `s1-intro` dit qu'un agent d'IA a rédigé la leçon et renvoie au haut de l'écran, sans affirmer d'approbation
+  (le statut vient du registre, qu'une copie ou une reconstruction laisse derrière elle) ; la bonne réponse de `s6-quiz`
+  est l'agent d'IA ; `s10-concept` dit que Copilot partage la progression du panneau par le serveur de l'extension.
+  Les autres points de la décision 5 (formulation neutre quant à la surface, une seule durée, filtre de langue) restent
+  ouverts, à la demande du propriétaire.
+- Textes de l'application (plan d'étude, `list_lessons`, sélecteur, vue vide) : disent qui a rédigé la démo, rien d'un
+  enseignant. Documentation et CHANGELOG : « approuvée sans l'avoir lue ».
+- Tests d'abord : le registre est lié aux octets, le reçu existe, le texte n'affirme pas d'approbation ; ils ne fixent
+  aucun nom de relecteur. `check-vsix.sh` exige les deux `approval.json`.
+- Relecture contradictoire (trois angles, deux sceptiques par constat) : 11 constats confirmés, tous corrigés, puis
+  trois imprécisions relevées par deux vérificateurs, corrigées. Deux passages d'`approve` sur des octets
+  intermédiaires, jamais enregistrés dans git, ont été retirés avant l'approbation finale.
+- Portes : build, `pnpm test` (lesson-mcp 302 + 2 ignorés, extension-host 166), lint 0 erreur, docs 0 problème.
+
+## 2026-11-25, soir — l'expérience de l'attente (INT-STUDIUM-064, décisions 1 à 4)
+
+Mots du propriétaire : « this takes time to build a lesson and it is acceptable since it has to be done once, what is
+more essential is for user experience », puis « Okay pour 1 », « Okay pour 2 », « Allons vers B directement »,
+« Decision 4: selon recommendation », « laisser les panneaux natifs de claude code codex et opencode gui quand c'est
+utilisé. Ou modifier le comportement selon décisions de l'utilisateurs », « Ok pour recommendation suppression par
+agent. Push et PR et merge autorise ». Branche `feat/2026-11-25-waiting-experience`, intégration de sept lots faits
+en worktrees séparés, chacun relu par un agent indépendant puis corrigé.
+
+- Signaux indépendants du modèle : VS Code annonce « préparation » puis « leçon prête » (`d8f2b71`, `3064fb8`,
+  `553385f`, `3694951` et corrections), lecteur navigateur qui relit la liste (`57fcc47`), `readOnlyHint` (`92f0991`),
+  panneau MCP Apps sans catalogue de libellés (`bcfb9c5`).
+- Décision 2 : `tell_learner` et esquisse avant le brouillon (`cb4a39a`, `c60e565`, `31813c9`). Décision 3 :
+  brouillon gardé et renvoi des seules étapes fautives (`b99b99c`, `8d1ac01`, `b58f143`, `5f0cbee`).
+- Décision 1 : volet d'abord après une construction Copilot, apprenant partagé, garde-fou contre l'écrasement
+  (`39fe30a` à `6de7084`, corrections de relecture `e15eb73` à `343f241`) ; défaut réel trouvé : les liens
+  `vscode://` n'ouvraient aucune leçon dans un vrai VS Code (`5e6bbfe`).
+- Décision 4 : lecteur navigateur démarré par le serveur stdio, une clé par apprenant (`c3c2fef`, `263b647`, `f10a32d`,
+  `e3229a5`, corrections `f4975e3` à `9c83737`) ; suite : surface native d'abord, choix de l'apprenant retenu, ligne
+  dans la première étape (`1dd077d`, `f8a4ed9` et corrections).
+- Test instable corrigé : `learn-and-review.e2e` cherchait « ada » dans des pseudonymes hexadécimaux (`7061a75`).
+- Mesures (Mistral Large 4) : Vibe sans interface, 3 + 3 constructions, annonce reportée au dernier message, durées
+  dans le bruit ; OpenCode 1.19.6, 3 constructions (~0,06 $ chacune), annonce à 10, 10 et 28 s contre 89 s le matin ;
+  une construction OpenCode et une Vibe sur la version intégrée : le modèle démarre la leçon dans le chat et ne
+  recopie pas l'adresse du navigateur (d'où la ligne dans la première étape et la clé d'adresse neutre). Incident :
+  OpenCode lisait `~/.claude/skills` et en envoyait les descriptions à Mistral ; corrigé par
+  `OPENCODE_DISABLE_CLAUDE_CODE=1`. Preuves : hub, `docs/superpowers/audits/2026-11-25-waiting-experience/`.
+- Rien n'a été essayé dans un vrai VS Code avec Copilot, ni dans Codex Desktop ou Claude Code : c'est l'essai T1 sur
+  l'autre ordinateur.
+
+
+---
+
 ## 2026-11-25 — OpenCode 1.x, son interface web et Mistral ; version 0.6.4
 
 Mots du propriétaire : « a nice idea would be to use opencode GUI », « we have a mistral APIkey to use […] Mistral

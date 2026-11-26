@@ -23,6 +23,12 @@ export {
 export { replyToInput, checkDisplayedChoice, ResponseInputError } from "./reply-mapping.js";
 export { type SelfRating } from "./fsrs-memory.js";
 export { type StudyPlan, type StudyItem, DEFAULT_REVIEW_SECONDS } from "./study-plan.js";
+export { browserOffer, browserReady, openLessonLink, paneLink, paneOffer, paneReady, type PaneLink } from "./open-link.js";
+// Follow-up to decision 4: the surfaces a lesson is offered on, in their order, and the learner's last one.
+export {
+  ANSWER_SURFACES, chatStartLine, offerReady, offerSentences, surfaceOrder,
+  type AnswerSurface, type OfferClient, type OfferedSurface, type SurfaceOffer,
+} from "./surface-offer.js";
 export { type CatalogLesson, type LessonRoot } from "./lesson-catalog.js";
 export { operatorContext } from "./operator-context.js";
 // INT-STUDIUM-058: where the learner is, as data and as one status line (every surface reads these).
@@ -76,8 +82,9 @@ export {
 export {
   AuthoringInputError, GUIDE_VERSION, LessonDraftSchema, authoringGuide, createLesson, guideLanguageOf, prepareSources,
   MAX_SOURCES, MAX_SOURCE_CHARS, MAX_TOTAL_SOURCE_CHARS, SOURCE_KINDS, lintBundleData, placeholderPaths,
+  discardBuild, unfinishedBuilds, DRAFTS_DIR, UNFINISHED_BUILD_DAYS, BUILD_GRACE_MINUTES,
   type CreateLessonInput, type CreateLessonResult, type LessonDraft, type SourceSet, type LintFinding as BundleLintFinding,
-  type SourceFilePolicy, type SourceFileRecord,
+  type SourceFilePolicy, type SourceFileRecord, type UnfinishedBuild,
 } from "./authoring-draft/index.js";
 export { shuffleQuizChoices } from "./shuffle-choices.js";
 export { ResponseInputSchema, RESPONSE_KINDS, type HostResponseInput, type ReplyInput, type UnnamedQuizChoice } from "./response-input-schema.js";

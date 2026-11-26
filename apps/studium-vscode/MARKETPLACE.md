@@ -17,7 +17,7 @@ Knowing this saves the first ten minutes:
 | Part | What it does | What it does not do |
 |---|---|---|
 | **An AI assistant** connected to the Studium server (Copilot in VS Code, which this extension connects for you, Claude Code, Codex, Cursor) | builds a lesson from the sources you name, and can play it with you in the conversation | answer for you |
-| **This extension** | shows a lesson in a pane, keeps your progress, tells you when reviews are due | build a lesson: right after installation its **Lessons** view says "No lesson found yet" and offers only the demo lesson it ships with |
+| **This extension** | shows a lesson in a pane, keeps your progress, tells you when reviews are due | build a lesson: right after installation its **Lessons** view says "No lesson of your own yet" and offers only the demo lesson it ships with |
 
 So a new lesson starts in an assistant. A lesson someone already made plays here with nothing else.
 
@@ -27,8 +27,8 @@ To see how Studium works, select the **Studium** icon in the activity bar, then 
 run **Studium: Try the demo lesson** from the Command Palette. « Discover Studium » takes about ten minutes, in
 English or French, and ships with the extension: you read a step, answer a quiz with its optional confidence
 scale, ask for a hint, write an answer and compare it with the reference, rate your recall, and open the concept
-map. An AI agent drafted it from Studium's documentation and no teacher has checked it yet, as its first screen
-says. It is not saved as your course and never replaces a lesson of yours.
+map. An AI agent drafted it from Studium's documentation; the project's owner approved it, under the name
+beta-testeur, without reading it. It is not saved as your course and never replaces a lesson of yours.
 
 ## Play a lesson you were given
 
@@ -50,7 +50,9 @@ For computers an IT team prepares for a class, see
 **Copilot in VS Code, agent mode: nothing to do.** From VS Code 1.101, this extension offers its own Studium
 server to Copilot: no Node, no terminal. Run **MCP: List Servers** to see **Studium** in the list. If you
 already added `studium` yourself, the extension adds no second one. The setting
-`studium.registerMcpServer` turns this off. This has not yet been tried in a real Copilot session; see
+`studium.registerMcpServer` turns this off. The first time Copilot calls a Studium tool, open the arrow next to
+**Allow Once** and choose **Allow Tools from Studium in this Session** or **Always Allow Tools from Studium**;
+otherwise VS Code asks again at each tool. This has not yet been tried in a real Copilot session; see
 [Connect Copilot](https://github.com/HolobiomicsLab/studium/blob/main/docs/start/copilot.md).
 
 **Other assistants.** You need Node 20 or later (`node --version`). Run the line for your assistant once, in
@@ -81,8 +83,10 @@ lesson is saved on your machine, in `~/.studium/library`. Each step is described
 
 ### 3. Open it here
 
-Select the **Studium** icon in the activity bar. The lesson is in the **Lessons** view; use the refresh
-button of the view if VS Code was already open. Select the lesson to play it.
+Building the lesson takes a few minutes; it is done once. Meanwhile the status bar says
+**Studium · preparing a lesson…**, and you can try the demo lesson. When the lesson is ready, VS Code tells
+you, with **Open**; if you were in another window, the notice waits until you come back. The lesson is also
+in the **Lessons** view (select the **Studium** icon in the activity bar). Select it to play it.
 
 For a guided tour in five steps, run **Studium: Getting started**.
 
@@ -119,10 +123,12 @@ In Copilot Chat, `@studium` plays the current lesson in the conversation.
 - The extension calls no AI model. A judge model for written answers is optional and off, unless
   `LITELLM_BASE_URL` is set in the environment VS Code was started from.
 - Class telemetry is off unless you turn on `studium.telemetryConsent`.
-- The pane and an assistant keep separate progress: a lesson started in the conversation starts again
-  from its first step in the pane. The server this extension offers to Copilot keeps its progress in the
-  extension's storage too; **Studium: Forget my data** does not stop it, so stop **Studium** in
-  **MCP: List Servers** first.
+- Copilot, with the Studium server this extension offers, plays the pane's learner (`studium.learnerId`) and
+  keeps its progress in the extension's storage: a lesson started in the conversation goes on in the pane at
+  the step you reached, and the reverse (finish or close it in one before going on in the other). Another
+  assistant, or a Studium server added to VS Code by hand, keeps its own progress: a lesson started there
+  starts again from its first step in the pane. **Studium: Forget my data** does not stop the server offered
+  to Copilot, so stop **Studium** in **MCP: List Servers** first.
 
 ## Requirements
 
@@ -155,7 +161,7 @@ Le savoir épargne les dix premières minutes :
 | Partie | Ce qu'elle fait | Ce qu'elle ne fait pas |
 |---|---|---|
 | **Un assistant IA** relié au serveur Studium (Copilot dans VS Code, que cette extension relie pour vous, Claude Code, Codex, Cursor) | construit une leçon à partir des sources que vous nommez, et peut la jouer avec vous dans la conversation | répondre à votre place |
-| **Cette extension** | affiche une leçon dans un panneau, garde votre progression, vous dit quand des révisions sont dues | construire une leçon : juste après l'installation, sa vue **Leçons** dit « Aucune leçon trouvée pour l'instant » et ne propose que la leçon de démonstration livrée avec elle |
+| **Cette extension** | affiche une leçon dans un panneau, garde votre progression, vous dit quand des révisions sont dues | construire une leçon : juste après l'installation, sa vue **Leçons** dit « Pas encore de leçon à vous » et ne propose que la leçon de démonstration livrée avec elle |
 
 Une nouvelle leçon commence donc dans un assistant. Une leçon déjà faite se joue ici sans rien d'autre.
 
@@ -166,8 +172,8 @@ Pour voir comment fonctionne Studium, sélectionnez l'icône **Studium** dans la
 palette de commandes. « Découvrir Studium » prend une dizaine de minutes, en français ou en anglais, et est
 livrée avec l'extension : vous lisez une étape, répondez à un quiz avec son échelle de confiance facultative,
 demandez un indice, rédigez une réponse et la comparez à la référence, notez votre rappel et ouvrez la carte des
-notions. Un agent d'IA l'a rédigée à partir de la documentation de Studium et aucun enseignant ne l'a encore
-vérifiée, comme le dit son premier écran. Elle n'est pas enregistrée comme votre cours et ne remplace jamais une
+notions. Un agent d'IA l'a rédigée à partir de la documentation de Studium ; le responsable du projet l'a
+approuvée, sous le nom beta-testeur, sans l'avoir lue. Elle n'est pas enregistrée comme votre cours et ne remplace jamais une
 de vos leçons.
 
 ### Jouer une leçon qu'on vous a donnée
@@ -190,8 +196,10 @@ Pour des ordinateurs qu'une équipe informatique prépare pour une classe, voir
 **1. Reliez votre assistant à Studium.** **Copilot dans VS Code, mode agent : rien à faire.** Depuis
 VS Code 1.101, cette extension propose son propre serveur Studium à Copilot : ni Node, ni terminal. Lancez
 **MCP: List Servers** pour voir **Studium** dans la liste. Si vous avez déjà ajouté `studium` vous-même,
-l'extension n'en ajoute pas un second. Le réglage `studium.registerMcpServer` le désactive. Cela n'a pas
-encore été essayé dans une vraie session Copilot ; voir
+l'extension n'en ajoute pas un second. Le réglage `studium.registerMcpServer` le désactive. La première fois
+que Copilot appelle un outil Studium, ouvrez la flèche à côté de **Autoriser une fois** et choisissez
+**Autoriser les outils de Studium dans cette session** ou **Toujours autoriser les outils de Studium** ; sinon
+VS Code redemande à chaque outil. Cela n'a pas encore été essayé dans une vraie session Copilot ; voir
 [Connecter Copilot](https://github.com/HolobiomicsLab/studium/blob/main/docs/start/copilot.fr.md).
 
 **Autres assistants.** Il vous faut Node 20 ou plus récent (`node --version`). Lancez une fois, dans un
@@ -221,9 +229,11 @@ L'assistant construit une leçon à partir de vos sources, vous montre son plan 
 La leçon est enregistrée sur votre machine, dans `~/.studium/library`. Chaque étape est décrite dans
 [Apprendre avec votre assistant](https://github.com/HolobiomicsLab/studium/blob/main/docs/learn/learn-with-your-assistant.fr.md).
 
-**3. Ouvrez-la ici.** Sélectionnez l'icône **Studium** dans la barre d'activité. La leçon est dans la vue
-**Leçons** ; utilisez le bouton de rafraîchissement de la vue si VS Code était déjà ouvert. Sélectionnez la
-leçon pour la jouer.
+**3. Ouvrez-la ici.** Construire la leçon prend quelques minutes ; c'est fait une fois. Pendant ce temps, la
+barre d'état indique **Studium · leçon en préparation…**, et vous pouvez essayer la leçon de démonstration.
+Quand la leçon est prête, VS Code vous prévient, avec **Ouvrir** ; si vous étiez dans une autre fenêtre, l'avis
+attend votre retour. La leçon est aussi dans la vue **Leçons** (icône **Studium** de la barre d'activité).
+Sélectionnez-la pour la jouer.
 
 Pour une visite guidée en cinq étapes, lancez **Studium : Prise en main**.
 
@@ -261,10 +271,13 @@ Dans Copilot Chat, `@studium` joue la leçon courante dans la conversation.
 - L'extension n'appelle aucun modèle d'IA. Un modèle juge pour les réponses rédigées est facultatif et
   désactivé, sauf si `LITELLM_BASE_URL` est défini dans l'environnement d'où VS Code a été lancé.
 - La télémétrie de classe est désactivée tant que vous n'activez pas `studium.telemetryConsent`.
-- Le panneau et un assistant gardent des progressions séparées : une leçon commencée dans la conversation
-  reprend à sa première étape dans le panneau. Le serveur que cette extension propose à Copilot garde lui
-  aussi sa progression dans l'espace de stockage de l'extension ; **Studium : Oublier mes données** ne
-  l'arrête pas : arrêtez d'abord **Studium** dans **MCP: List Servers**.
+- Copilot, avec le serveur Studium que propose cette extension, joue l'apprenant du panneau
+  (`studium.learnerId`) et garde sa progression dans l'espace de stockage de l'extension : une leçon
+  commencée dans la conversation se poursuit dans le panneau à l'étape où vous en étiez, et inversement
+  (terminez-la ou fermez-la dans l'un avant de continuer dans l'autre). Un autre assistant, ou un serveur
+  Studium ajouté à la main dans VS Code, garde sa propre progression : une leçon commencée là reprend à sa
+  première étape dans le panneau. **Studium : Oublier mes données** n'arrête pas le serveur proposé à
+  Copilot : arrêtez d'abord **Studium** dans **MCP: List Servers**.
 
 ### Prérequis
 

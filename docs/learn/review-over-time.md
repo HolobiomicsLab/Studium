@@ -85,6 +85,7 @@ Progress is durable by default: it survives a restart of the assistant or the co
 |---|---|
 | Lessons your assistant writes | `~/.studium/library/<course>/lesson.json`, whatever `BUNDLES_ROOT` names |
 | Prepared sources | `~/.studium/library/_sources/` |
+| Drafts of unfinished lessons | `~/.studium/library/_drafts/`, until the lesson is written, discarded, or 14 days old |
 | Progress, mastery, review memory, study record | `~/.studium/data/`, one folder per learner pseudonym |
 | Pseudonym secret | `~/.studium/data/.studium-secret`, created with a new data folder |
 | VS Code pane progress | VS Code's own extension storage |

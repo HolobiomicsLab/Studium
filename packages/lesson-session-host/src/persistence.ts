@@ -31,6 +31,9 @@ export interface PersistenceInfo {
   data_dir: string | null;
   library_root: string | null;
   learner_id_default: string;
+  /** D1: present (true) only when the editor names the learner (the server the Studium VS Code extension offers):
+   * every call then plays learner_id_default, and a learner_id passed is ignored. */
+  learner_id_from_editor?: true;
   /** Present only when nothing is durable; meant for the harness to relay. */
   warning?: string;
 }
@@ -71,12 +74,14 @@ export function persistenceInfo(p: {
   dataDir: string | null;
   libraryRoot: string | null;
   learnerIdDefault: string;
+  learnerIdFromEditor?: boolean;
 }): PersistenceInfo {
   const info: PersistenceInfo = {
     durable: p.dataDir !== null,
     data_dir: p.dataDir,
     library_root: p.libraryRoot,
     learner_id_default: p.learnerIdDefault,
+    ...(p.learnerIdFromEditor ? { learner_id_from_editor: true as const } : {}),
   };
   if (p.dataDir === null) info.warning = NOT_DURABLE_WARNING;
   return info;

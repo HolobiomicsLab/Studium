@@ -23,7 +23,9 @@ import { hostFromEnvironment } from "./index.js";
 import { buildMcpServer } from "./server.js";
 
 const DAY = 86_400_000;
-const LEARNER = "ada";
+// Changed: was "ada", which a random 16-hex pseudonym can contain ("8adacf1d…"), so the last test failed about once in
+// a few hundred runs. A learner id with letters outside 0-9a-f can never appear inside a pseudonym by chance.
+const LEARNER = "ada-lovelace";
 const READING_SCENES = new Set(["intro", "concept"]);
 
 const home = mkdtempSync(join(tmpdir(), "studium-e2e-home-"));

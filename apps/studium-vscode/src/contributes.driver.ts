@@ -236,8 +236,60 @@ const hasCmd = (id: string) => commandIds.includes(id);
     expect(typeof nls["command.openDemoLesson.title"] === "string", `${file} titles the demo command`);
     expect(String(nls["viewsWelcome.empty"]).includes(`(command:${id})`), `${file}: the empty Lessons view offers the demo`);
     expect(String(nls["walkthrough.step.open.description"]).includes(`(command:${id})`), `${file}: the first walkthrough step offers the demo`);
+    // 2026-11-25: the demo carries an approval record now; the empty view says who drafted it and claims nothing
+    // about a teacher, so it stays true whether the record matches, is stale or is missing.
+    const empty = String(nls["viewsWelcome.empty"]);
+    expect(/drafted it from Studium's documentation|l'a rédigée à partir de la documentation de Studium/.test(empty)
+      && !/no teacher has checked|aucun enseignant ne l'a encore vérifiée/.test(empty), `${file}: the empty view says who drafted the demo, nothing about a teacher`);
   }
   expect(/shipped-lessons/.test(pkg.scripts?.vendor ?? ""), "the vendor script copies the shipped lessons into dist/shipped-lessons");
+}
+
+// 13) BN-3 and the critic's approval point: what a learner waiting for their first lesson reads. The empty Lessons view
+//     and the self-study step of the walkthrough say that the lesson the assistant writes appears here when it is
+//     ready, after a few minutes, and that the demo can be tried meanwhile; they no longer send the learner to
+//     right-click a lesson.json in a folder that is not open. The walkthrough tells a Copilot user to allow Studium's
+//     tools for the session at the first prompt (VS Code 1.139 labels), else each tool call waits for a click.
+{
+  const words = {
+    en: { few: /a few minutes/, ready: /appears here when it is ready|appears in the Lessons view/, rightClick: /right-click/i,
+      allow: /Allow Tools from Studium in this Session/, always: /Always Allow Tools from Studium/, oldEmpty: /No lesson found yet/ },
+    fr: { few: /quelques minutes/, ready: /apparaît ici dès qu'elle est prête|apparaît dans la vue Leçons/, rightClick: /clic droit/i,
+      allow: /Autoriser les outils de Studium dans cette session/, always: /Toujours autoriser les outils de Studium/, oldEmpty: /Aucune leçon trouvée/ },
+  } as const;
+  for (const [file, md, w] of [["package.nls.json", "self-study.md", words.en], ["package.nls.fr.json", "self-study.nls.fr.md", words.fr]] as const) {
+    const nls = JSON.parse(readFileSync(resolve(root, file), "utf8"));
+    const empty = String(nls["viewsWelcome.empty"]);
+    expect(w.few.test(empty) && w.ready.test(empty) && /assistant/.test(empty), `${file}: the empty Lessons view says the assistant's lesson appears there when ready, in a few minutes`);
+    expect(!w.oldEmpty.test(empty), `${file}: the empty Lessons view no longer opens with « no lesson found »`);
+    const step = String(nls["walkthrough.step.selfStudy.description"]);
+    expect(w.few.test(step) && !w.rightClick.test(step), `${file}: the self-study step gives the build time and no right-click advice`);
+    expect(w.allow.test(step) && w.always.test(step), `${file}: the self-study step says how to allow Studium's tools at the first prompt`);
+    expect(step.includes("(command:studium.openDemoLesson)"), `${file}: the self-study step offers the demo to try while waiting`);
+    const page = readFileSync(resolve(root, "media/walkthrough", md), "utf8");
+    expect(w.few.test(page) && w.ready.test(page) && !w.rightClick.test(page), `${md}: build time, where the lesson appears, no right-click advice`);
+    expect(w.allow.test(page) && w.always.test(page), `${md}: how to allow Studium's tools at the first prompt`);
+  }
+}
+
+// 14) Review finding 4: « Don't show again » on the lesson-ready notice can be undone. It turns off a setting,
+//     studium.notifyLessonReady, on by default, whose description in both languages names that button; it holds in
+//     user settings only (application scope), as the choice applies to every window. Every setting the extension
+//     contributes is listed in the settings table of docs/start/vscode.md and vscode.fr.md.
+{
+  const setting = c.configuration?.properties?.["studium.notifyLessonReady"];
+  expect(setting?.type === "boolean" && setting?.default === true && setting?.scope === "application" && /^%.+%$/.test(setting?.description ?? ""),
+    `studium.notifyLessonReady is a boolean user setting, on by default, with a localized description (got ${JSON.stringify(setting)})`);
+  const key = (setting?.description ?? "").replace(/%/g, "");
+  const nlsEn = JSON.parse(readFileSync(resolve(root, "package.nls.json"), "utf8"));
+  const nlsFr = JSON.parse(readFileSync(resolve(root, "package.nls.fr.json"), "utf8"));
+  expect(/Don't show again/.test(nlsEn[key] ?? "") && /Ne plus afficher/.test(nlsFr[key] ?? ""),
+    "its description names the button that turns it off, in English and in French");
+  const repo = resolve(root, "..", "..");
+  for (const page of ["docs/start/vscode.md", "docs/start/vscode.fr.md"]) {
+    const text = readFileSync(resolve(repo, page), "utf8");
+    for (const name of Object.keys(c.configuration?.properties ?? {})) expect(text.includes(`| \`${name}\` |`), `${page} lists the setting ${name}`);
+  }
 }
 
 if (failures.length) {

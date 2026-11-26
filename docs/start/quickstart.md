@@ -13,8 +13,8 @@ the page with the details.
 
 To see how Studium works, install the Studium extension from the Extensions view and run **Studium: Try
 the demo lesson** (or **Try the demo lesson** in its empty **Lessons** view): « Discover Studium », about ten
-minutes, ships with the extension; an AI agent drafted it from Studium's documentation and no teacher has
-checked it yet. To play a lesson a teacher gave you, or the demo lessons of the repository, you need only VS
+minutes, ships with the extension; an AI agent drafted it from Studium's documentation and the project's
+owner approved it, under the name beta-testeur, without reading it. To play a lesson a teacher gave you, or the demo lessons of the repository, you need only VS
 Code too: run **Studium: Pick a course**, choose **Choose another course
 folder…** and select the folder of lessons; the demo lessons are the `fixtures` folder of the
 [repository archive](https://github.com/HolobiomicsLab/studium/archive/refs/heads/main.zip). No Node, terminal or AI account is involved. Details:
@@ -112,9 +112,10 @@ date moves; your measured mastery does not. See [Review over time](../learn/revi
 
 ## Prefer a visual pane
 
-To play the same lessons in VS Code, install the extension (see [VS Code](vscode.md)), then run
-**Studium: Pick a course** or right-click a `lesson.json` and choose **Studium: Open this lesson**. Your
-assistant can also hand a lesson over with a `vscode://` link.
+To play the same lessons in VS Code, install the extension (see [VS Code](vscode.md)). A lesson your
+assistant builds appears in its **Lessons** view when it is ready, a few minutes after you ask, and VS Code
+tells you. You can also run **Studium: Pick a course**, or right-click a `lesson.json` in an open folder and
+choose **Studium: Open this lesson**. Your assistant can also hand a lesson over with a `vscode://` link.
 
 ## Next steps
 
