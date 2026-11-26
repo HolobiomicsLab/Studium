@@ -153,6 +153,17 @@ describe("instructions and prompts (RT-8a, RFR-16, L-4)", () => {
     expect(lines.length).toBeLessThanOrEqual(13);
   });
 
+  // OpenCode and Vibe trials (2026-11-25): the model started the lesson in the chat and did not copy the browser
+  // player's address (« via le lien fourni par Studium », without the link). The display line says the learner reads
+  // only the assistant's messages, so an address in display_markdown is copied; still 13 lines at most.
+  it("tell the harness the learner sees no tool result, so display_markdown goes with its links and addresses", () => {
+    const lines = SERVER_INSTRUCTIONS.split("\n");
+    const display = lines.find((line) => /show display_markdown as it is/i.test(line))!;
+    expect(display).toMatch(/The learner sees none of your tool results, only your messages/);
+    expect(display).toMatch(/with its links and addresses written out/);
+    expect(lines.length).toBeLessThanOrEqual(13);
+  });
+
   it("call list_lessons only when the plan's next step is not to author, and pass the language", async () => {
     const { client } = await connect({ bundlesRoot: tmp() });
     const en = await promptText(client, "learn", { topic: "binary search", learner_id: "ren", language: "en" });
