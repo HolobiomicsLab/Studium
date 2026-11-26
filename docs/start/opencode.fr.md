@@ -80,8 +80,8 @@ vous répondez à chaque étape sans passer par la conversation ; dites « ici �
 conversation. L'adresse vit le
 temps de la session d'OpenCode et joue l'identifiant d'apprenant qu'OpenCode a passé. Vos réponses y sont
 vérifiées par Studium sur votre ordinateur et ne vont pas au modèle, tant qu'aucun modèle juge n'est
-configuré. `STUDIUM_BROWSER_PLAYER=off` dans `environment` désactive cela. Pas encore essayé avec OpenCode
-lui-même : seuls des scripts l'ont vérifié.
+configuré. `STUDIUM_BROWSER_PLAYER=off` dans `environment` désactive cela. Essayé une fois dans `opencode web`
+(voir Limites).
 
 OpenCode 1.19.6 n'annonce pas MCP Apps à la connexion : le navigateur vient donc d'abord. Dans un essai du
 25 novembre 2026, le modèle a commencé une leçon aussitôt dans la conversation, comme demandé, et relayé sa
@@ -96,9 +96,16 @@ dit que la leçon se suit dans la conversation et donne l'adresse une fois
   2026, avec `mistral/mistral-large-4` par `opencode run`, la forme en ligne de commande. À la question « par où
   commencer ? » avec une bibliothèque vide, il a montré la première étape de la leçon de démonstration livrée
   avec Studium en 23 secondes ; il a construit une leçon de 9 étapes à partir de notes de cours d'environ
-  2 400 caractères, désignées par leur chemin, en 3 minutes 4 secondes. L'interface web a été lancée et sa
-  page a répondu, mais aucune leçon n'y a été jouée. La configuration v2 ci-dessus n'a pas été exécutée ce
-  jour-là.
+  2 400 caractères, désignées par leur chemin, en 3 minutes 4 secondes. La configuration v2 ci-dessus n'a pas été
+  exécutée ce jour-là.
+- Un essai de l'interface web : OpenCode 1.19.6 sous macOS, le 26 novembre 2026, `opencode web` avec
+  `mistral/mistral-large-4`. Les deux demandes ont été envoyées par l'API du serveur, celle qu'utilise sa page,
+  et la page a été lue dans un navigateur sans fenêtre. À la demande, en français, d'apprendre à partir des
+  mêmes notes désignées par leur chemin, l'assistant a annoncé l'attente au bout de 12 secondes, montré une
+  esquisse et construit une leçon de 13 étapes en 2 minutes 45 secondes (un refus, renvoyé avec les seules
+  scènes nommées). Son dernier message donnait l'adresse du lecteur dans le navigateur, que la page affichait
+  comme un lien. Deux étapes répondues dans le navigateur, puis « ici » dans la conversation : elle a repris à
+  l'étape 3 sur 13. Les deux messages ont coûté environ 0,09 USD.
 - Les versions antérieures d'OpenCode utilisent une autre forme de configuration.
 - Un modèle ouvert proposé par votre fournisseur n'est par défaut ni gratuit, ni local, ni de qualité
   équivalente.
