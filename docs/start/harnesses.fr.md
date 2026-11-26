@@ -40,7 +40,7 @@ Fusionnez-les dans le fichier de votre client, sans écraser les autres serveurs
 ## Choisir votre client
 
 Avec l'extension Studium pour VS Code, **Studium : Relier un assistant…** relie Mistral Vibe, Codex, Claude Code,
-Claude Desktop et OpenCode en un clic, sans Node ni terminal : elle écrit une entrée `studium` dans le fichier de chaque
+Claude Desktop, Cursor et OpenCode en un clic, sans Node ni terminal : elle écrit une entrée `studium` dans le fichier de chaque
 assistant, qui lance le serveur que l'extension contient. Copilot dans VS Code a déjà le serveur. Chaque page
 ci-dessous commence par cette voie, puis donne la voie manuelle.
 
@@ -50,7 +50,7 @@ ci-dessous commence par cette voie, puis donne la voie manuelle.
 | Claude Code | **Studium : Relier un assistant…** dans VS Code (sans Node), le plugin `studium`, `claude mcp add`, ou `.mcp.json` à la racine du projet | [Connecter Claude Code](claude-code.fr.md) |
 | Copilot dans VS Code | `.vscode/mcp.json` | [Connecter Copilot dans VS Code](copilot.fr.md) |
 | OpenCode | **Studium : Relier un assistant…** dans VS Code (sans Node), ou `opencode.jsonc` à la racine du projet | [Connecter OpenCode](opencode.fr.md) |
-| Cursor | `.cursor/mcp.json` ou `~/.cursor/mcp.json` | [Connecter Cursor](cursor.fr.md) |
+| Cursor | **Studium : Relier un assistant…** dans VS Code (sans Node), ou `.cursor/mcp.json` ou `~/.cursor/mcp.json` | [Connecter Cursor](cursor.fr.md) |
 | Mistral Vibe | **Studium : Relier un assistant…** ou **Studium : Relier Mistral Vibe** dans VS Code (sans Node), ou `~/.vibe/config.toml`, ou `vibe mcp add` | [Connecter Mistral Vibe](vibe.fr.md) |
 | Claude Desktop | **Studium : Relier un assistant…** dans VS Code (sans Node), ou `claude_desktop_config.json` | [ci-dessous](#claude-desktop) |
 | Un script ou un client sur mesure | aucune configuration MCP | [API HTTP](../reference/http-api.fr.md) et [canal fichiers](../reference/agentic-session-protocol.fr.md) |

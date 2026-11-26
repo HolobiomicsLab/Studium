@@ -66,7 +66,7 @@ account.
 ## Add the server to your assistant
 
 With the Studium extension for VS Code installed, you need neither Node nor this section: **Studium: Connect an
-Assistant…** connects Mistral Vibe, Codex, Claude Code, Claude Desktop or OpenCode in one click (see
+Assistant…** connects Mistral Vibe, Codex, Claude Code, Claude Desktop, Cursor or OpenCode in one click (see
 [Connect your assistant](harnesses.md#choose-your-client)), and Copilot in VS Code has the server already.
 
 Otherwise, you need Node 20 or later. `npx` fetches the server the first time; there is nothing else to install.

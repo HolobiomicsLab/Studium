@@ -6,6 +6,11 @@ Journal des unités TDD par milestone. Mis à jour à chaque commit significatif
 
 ---
 
+## 2026-11-27 — Cursor dans « Relier un assistant… »
+
+Même délégation. `cursor` : `~/.cursor/mcp.json`, `mcpServers.studium` avec `type: "stdio"` (forme de
+`docs/start/cursor.md`). Cursor n'est pas installé sur ce Mac : vérifié par le pilote (112 assertions), pas dans Cursor.
+
 ## 2026-11-27 — revoir une étape déjà faite, en lecture seule (« précédent »)
 
 Décision du propriétaire : revenir en arrière est une relecture, jamais un retour en arrière de la séance (« Je valide

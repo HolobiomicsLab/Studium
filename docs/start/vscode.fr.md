@@ -238,7 +238,7 @@ contrôle la sortie s'exécute sous une limite de 50 ms : une leçon défectueu
 | Studium : Oublier mes données | effacer ce que l'extension garde (ci-dessous) |
 | Studium : Relier Mistral Vibe | permettre à Mistral Vibe (son extension VS Code, Vibe Desktop, sa ligne de commande) d'utiliser le serveur Studium de cette extension, sans Node ; voir [Connecter Mistral Vibe](vibe.fr.md) |
 | Studium : Délier Mistral Vibe | retirer l'entrée écrite par cette commande |
-| Studium : Relier un assistant… | permettre à Mistral Vibe, Codex, Claude Code, Claude Desktop ou OpenCode d'utiliser le serveur Studium de cette extension, sans Node : cochez les assistants dans la liste ; voir [Connecter votre assistant](harnesses.fr.md#choisir-votre-client) |
+| Studium : Relier un assistant… | permettre à Mistral Vibe, Codex, Claude Code, Claude Desktop, Cursor ou OpenCode d'utiliser le serveur Studium de cette extension, sans Node : cochez les assistants dans la liste ; voir [Connecter votre assistant](harnesses.fr.md#choisir-votre-client) |
 | Studium : Délier un assistant… | retirer les entrées écrites par cette commande |
 
 ## Vos données

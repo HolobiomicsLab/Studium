@@ -1,6 +1,6 @@
 // assistant-connection.ts — « Studium: Connect an Assistant… » and « Studium: Disconnect an Assistant… »: let the
 // assistants that read a local MCP configuration file use this extension's own Studium server, with no Node and no
-// terminal (spec 2026-11-27-connect-assistants-design). Codex, Claude Code, Claude Desktop and OpenCode are edited
+// terminal (spec 2026-11-27-connect-assistants-design). Codex, Claude Code, Claude Desktop, Cursor and OpenCode are edited
 // through assistant-config.ts; Mistral Vibe keeps its own path (vibe-connection.ts) and is offered in the same list.
 // An entry is written only on the user's pick; once written, it is kept current at each activation (a new Studium
 // version moves dist/lesson-mcp.cjs) and removed by « Disconnect » or, best effort, at uninstall (vibe-uninstall.ts).
@@ -24,6 +24,7 @@ const NAMES: Record<Choice, { en: string; fr: string; where: { en: string; fr: s
   "codex": { en: "Codex", fr: "Codex", where: { en: "its VS Code extension, its CLI", fr: "son extension VS Code, sa ligne de commande" } },
   "claude-code": { en: "Claude Code", fr: "Claude Code", where: { en: "its VS Code extension, its CLI", fr: "son extension VS Code, sa ligne de commande" } },
   "claude-desktop": { en: "Claude Desktop", fr: "Claude Desktop", where: { en: "the desktop app", fr: "l'application de bureau" } },
+  "cursor": { en: "Cursor", fr: "Cursor", where: { en: "its MCP servers for every project", fr: "ses serveurs MCP pour tous les projets" } },
   "opencode": { en: "OpenCode", fr: "OpenCode", where: { en: "its desktop app, its web UI, its terminal UI", fr: "son application de bureau, son interface web, son interface terminal" } },
 };
 /** VS Code extensions that run the assistant inside the editor, which a window reload restarts. */
@@ -91,7 +92,7 @@ async function keepAfterRewrite(id: AssistantId, path: string, context: vscode.E
 
 function restartAdvice(ids: Choice[]): string {
   const inEditor = ids.filter((id) => IN_EDITOR[id]).map(name);
-  const outside = ids.filter((id) => id === "claude-desktop" || id === "opencode").map(name);
+  const outside = ids.filter((id) => id === "claude-desktop" || id === "cursor" || id === "opencode").map(name);
   const parts: string[] = [];
   if (inEditor.length) parts.push(say(`Reload this window for ${inEditor.join(", ")} in VS Code`, `Rechargez cette fenêtre pour ${inEditor.join(", ")} dans VS Code`));
   if (outside.length) parts.push(say(`quit and reopen ${outside.join(", ")} if open`, `quittez et rouvrez ${outside.join(", ")} s'il est ouvert`));

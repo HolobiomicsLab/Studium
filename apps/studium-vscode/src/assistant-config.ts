@@ -4,6 +4,7 @@
 //   - Codex (its VS Code extension and its CLI): <CODEX_HOME or ~/.codex>/config.toml, a [mcp_servers.studium] table;
 //   - Claude Code (its VS Code extension and its CLI): <CLAUDE_CONFIG_DIR or ~>/.claude.json, mcpServers.studium;
 //   - Claude Desktop: claude_desktop_config.json in Claude's application-data folder, mcpServers.studium;
+//   - Cursor: ~/.cursor/mcp.json, mcpServers.studium (the shape of docs/start/cursor.md; not run on this Mac);
 //   - OpenCode (its desktop app, its web UI and its terminal UI): <XDG_CONFIG_HOME or ~/.config>/opencode/opencode.json
 //     (or .jsonc), mcp.studium (mcp.servers.studium when the file already nests its servers that way, OpenCode 2).
 // Shapes measured on 26 Nov 2026 with `codex mcp add` (codex-cli 0.170.0), `claude mcp add -s user` (Claude Code
@@ -16,8 +17,8 @@ import { applyEdits, getNodeValue, modify, parseTree, type ParseError } from "js
 import { parse } from "smol-toml";
 import { VIBE_MARKER, VIBE_MARKER_KEY, VIBE_SERVER_NAME } from "./vibe-config.js";
 
-export type AssistantId = "codex" | "claude-code" | "claude-desktop" | "opencode";
-export const ASSISTANT_IDS: readonly AssistantId[] = ["codex", "claude-code", "claude-desktop", "opencode"];
+export type AssistantId = "codex" | "claude-code" | "claude-desktop" | "cursor" | "opencode";
+export const ASSISTANT_IDS: readonly AssistantId[] = ["codex", "claude-code", "claude-desktop", "cursor", "opencode"];
 
 export interface ServerEntry {
   command: string;
@@ -54,6 +55,8 @@ export function assistantConfigPath(id: AssistantId, opts: {
       }
       return null;
     }
+    case "cursor":
+      return join(homedir, ".cursor", "mcp.json");
     case "opencode": {
       const xdg = configured(env, "XDG_CONFIG_HOME");
       const dir = join(xdg ? expand(xdg, homedir) : join(homedir, ".config"), "opencode");
@@ -266,6 +269,7 @@ const FORMATS: Record<AssistantId, Format> = {
   "codex": codexFormat,
   "claude-code": jsonFormat(claudeShape(true)),
   "claude-desktop": jsonFormat(claudeShape(false)),
+  "cursor": jsonFormat(claudeShape(true)),
   "opencode": jsonFormat(opencodeShape),
 };
 
