@@ -195,6 +195,7 @@ faulty lesson cannot freeze the editor. **Studium: Run reproduction** starts the
 | `studium.learnerId` | `vscode-learner` | your learner id; it salts your on-disk pseudonym |
 | `studium.registerMcpServer` | `true` | offer the extension's own server to Copilot's agent mode (VS Code 1.101 or later); none is offered when you already added a Studium server yourself |
 | `studium.notifyLessonReady` | `true` | tell you when a lesson your assistant built is ready; **Don't show again** on that notice turns it off, and turning it back on brings the notices back. A user setting, for every window |
+| `studium.offerVibeConnection` | `true` | when Mistral Vibe is installed, offer once to connect it to Studium; **Studium: Connect Mistral Vibe** works whatever this setting says. A user setting |
 | `studium.telemetryConsent` | `false` | opt in to recording pseudonymised class telemetry in the extension's data folder (nothing is sent) |
 | `studium.modalityPreference` | `balanced` | `visual` or `textual` reorders each step's material; nothing is removed |
 | `studium.showGraph` | `true` | open a companion pane with the live learning graph |
@@ -214,6 +215,8 @@ faulty lesson cannot freeze the editor. **Studium: Run reproduction** starts the
 | Studium: Run reproduction (current scene's capsule) | run the current step's capsule, after confirmation |
 | Studium: Getting started | open the walkthrough |
 | Studium: Forget my data | erase what this extension keeps (below) |
+| Studium: Connect Mistral Vibe | let Mistral Vibe (its VS Code extension, Vibe Desktop, its CLI) use this extension's Studium server, with no Node; see [Connect Mistral Vibe](vibe.md) |
+| Studium: Disconnect Mistral Vibe | remove the entry that command wrote |
 
 ## Your data
 

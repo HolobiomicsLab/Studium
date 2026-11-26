@@ -88,6 +88,9 @@ describe('browserPlayerWanted', () => {
     expect(browserPlayerWanted({})).toBe(true);
     expect(browserPlayerWanted({STUDIUM_BROWSER_PLAYER:'on'})).toBe(true);
     expect(browserPlayerWanted({STUDIUM_OPEN_LINK:'vscode://holobiomicslab.studium-vscode/open?bundle='})).toBe(false);
+    // Vibe connection (2026-11-26): the entry the extension writes may drop the pane link at start (STUDIUM_OPEN_LINK_UNDER):
+    // the player stays available, and starts only for a lesson offered without the pane link.
+    expect(browserPlayerWanted({STUDIUM_OPEN_LINK:'vscode://holobiomicslab.studium-vscode/open?bundle=', STUDIUM_OPEN_LINK_UNDER:'/Applications/Visual Studio Code.app/'})).toBe(true);
     for (const off of ['off', 'OFF', ' off ', '0', 'false', 'none', 'no']) expect(browserPlayerWanted({STUDIUM_BROWSER_PLAYER:off}), off).toBe(false);
   });
 });

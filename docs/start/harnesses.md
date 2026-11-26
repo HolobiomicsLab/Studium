@@ -44,7 +44,7 @@ them into your client's file; never overwrite other servers already configured t
 | Copilot in VS Code | `.vscode/mcp.json` | [Connect Copilot in VS Code](copilot.md) |
 | OpenCode | `opencode.jsonc` at the project root | [Connect OpenCode](opencode.md) |
 | Cursor | `.cursor/mcp.json` or `~/.cursor/mcp.json` | [Connect Cursor](cursor.md) |
-| Mistral Vibe | `~/.vibe/config.toml`, or `vibe mcp add` | [Connect Mistral Vibe](vibe.md) |
+| Mistral Vibe | **Studium: Connect Mistral Vibe** in VS Code (no Node), or `~/.vibe/config.toml`, or `vibe mcp add` | [Connect Mistral Vibe](vibe.md) |
 | Claude Desktop | `claude_desktop_config.json` | [below](#claude-desktop) |
 | A script or a custom client | no MCP configuration | [HTTP API](../reference/http-api.md) and [file channel](../reference/agentic-session-protocol.md) |
 

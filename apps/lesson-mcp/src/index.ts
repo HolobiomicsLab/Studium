@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { existsSync, realpathSync } from "node:fs";
 import { homedir } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
@@ -45,6 +46,8 @@ export function hostFromEnvironment(
   env: Readonly<Record<string, string | undefined>> = process.env, home: string = homedir(),
   opts: {
     shippedRoot?: string | null; browserLink?: (learnerId: string, bundleRef: string, language?: string) => Promise<string | null>; servesOnePerson?: boolean;
+    /** The command lines of this process's ancestors, nearest first (processAncestors); for STUDIUM_OPEN_LINK_UNDER. */
+    ancestors?: () => readonly string[];
   } = {},
 ): { host: SessionHost; config: PersistenceConfig; live: boolean } {
   const config = resolvePersistence(env, home);
@@ -52,7 +55,13 @@ export function hostFromEnvironment(
   // D1/D2 (waiting review 2026-11-25): the Studium VS Code extension starts the server it offers to Copilot with
   // STUDIUM_OPEN_LINK (how to open a lesson in its pane) and the pane's STUDIUM_LEARNER_ID: that learner is then the
   // only one, and the lessons are offered in the pane first.
-  const openLink = env["STUDIUM_OPEN_LINK"]?.trim() || undefined;
+  // Vibe connection (spec 2026-11-26-vibe-connect, owner's rule): the entry the extension writes into Mistral Vibe's
+  // configuration serves Vibe in VS Code and Vibe Desktop alike; it keeps the pane link only when the editor started
+  // this server (through Vibe's agent), else the browser player is offered. Vibe passes no editor variable to its
+  // servers, so the editor is recognised among the ancestor processes, by its installation folder.
+  const under = env["STUDIUM_OPEN_LINK_UNDER"]?.trim();
+  const configuredLink = env["STUDIUM_OPEN_LINK"]?.trim() || undefined;
+  const openLink = configuredLink && under && !startedUnder(under, (opts.ancestors ?? processAncestors)()) ? undefined : configuredLink;
   const editorNamesLearner = openLink !== undefined && !!env["STUDIUM_LEARNER_ID"]?.trim();
   const host = new SessionHost({
     bundlesRoot: config.bundlesRoot, libraryRoot: config.libraryRoot, dataDir: config.dataDir,
@@ -71,6 +80,30 @@ export function hostFromEnvironment(
  * through one assistant, an evaluation); otherwise it plays one learner. */
 export function playsSeveralLearners(env: Readonly<Record<string, string | undefined>>): boolean {
   return env["STUDIUM_LEARNERS"]?.trim().toLowerCase() === "several";
+}
+
+/** Whether one of `ancestors` (command lines) runs from `root`, an editor's installation folder. */
+export function startedUnder(root: string, ancestors: readonly string[]): boolean {
+  return ancestors.some((command) => command.includes(root));
+}
+
+/** The command lines of this process's ancestors, nearest first, at most 12, read with `ps` (macOS, Linux). None on
+ * Windows or when `ps` fails: the pane link is then dropped and the browser player offered. */
+export function processAncestors(
+  pid: number = process.ppid, run: (pid: number) => string = (p) => execFileSync("ps", ["-o", "ppid=,command=", "-p", String(p)], { encoding: "utf8", timeout: 2000 }),
+  platform: string = process.platform,
+): string[] {
+  if (platform === "win32") return [];
+  const found: string[] = [];
+  for (let current = pid; current > 1 && found.length < 12;) {
+    let line: string;
+    try { line = run(current).trim(); } catch { break; }
+    const m = line.match(/^(\d+)\s+(.*)$/s);
+    if (!m) break;
+    found.push(m[2]!);
+    current = Number(m[1]);
+  }
+  return found;
 }
 
 const HELP = `studium-mcp ${SERVER_VERSION}
@@ -105,6 +138,9 @@ Environment
   STUDIUM_OPEN_LINK   set by the Studium VS Code extension: the start of a link that opens a lesson
                       in its pane; lessons are then offered there first, and with STUDIUM_LEARNER_ID
                       that learner is the only one (a learner_id passed is ignored)
+  STUDIUM_OPEN_LINK_UNDER  set by the Studium extension for Mistral Vibe: keep STUDIUM_OPEN_LINK
+                      only when a parent process runs from this folder (the editor), else
+                      offer the browser player
   STUDIUM_SHIPPED_LESSONS  the lessons shipped with Studium (default: shipped-lessons/ beside
                       the server); off for none
   STUDIUM_BROWSER_PLAYER  off: never start the browser player. Otherwise, without STUDIUM_OPEN_LINK,

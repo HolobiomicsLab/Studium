@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { MCP_SERVER_NAME, cliAnswer, hostFromEnvironment } from "./index.js";
+import { MCP_SERVER_NAME, cliAnswer, hostFromEnvironment, processAncestors, startedUnder } from "./index.js";
 import packageJson from "../package.json" with { type: "json" };
 
 describe("lesson-mcp", () => {
@@ -61,5 +61,47 @@ describe("cliAnswer", () => {
   it("starts the server for no argument or an unknown one", () => {
     expect(cliAnswer([])).toBeNull();
     expect(cliAnswer(["--stdio"])).toBeNull();
+  });
+});
+
+// Vibe connection (spec 2026-11-26-vibe-connect): the entry the VS Code extension writes into Mistral Vibe's
+// configuration keeps the pane link only under the editor that wrote it; Vibe Desktop gets the browser player.
+describe("STUDIUM_OPEN_LINK_UNDER", () => {
+  const ROOT = "/Applications/Visual Studio Code.app/";
+  const LINK = "vscode://holobiomicslab.studium-vscode/open?bundle=";
+  const env = { STUDIUM_OPEN_LINK: LINK, STUDIUM_LEARNER_ID: "vscode-learner", STUDIUM_OPEN_LINK_UNDER: ROOT, STUDIUM_EPHEMERAL: "1" };
+  const browserLink = async () => "http://127.0.0.1:1/play";
+
+  it("keeps the pane link when an ancestor runs from the editor's folder", () => {
+    const { host } = hostFromEnvironment(env, "/home/ada", {
+      servesOnePerson: true, browserLink,
+      ancestors: () => ["/Users/ada/.local/bin/vibe-acp", `${ROOT}Contents/Frameworks/Code Helper (Plugin).app/Contents/MacOS/Code Helper (Plugin) --type=extensionHost`],
+    });
+    expect(host.openLink).toBe(LINK);
+    expect(host.editorNamesLearner).toBe(true);
+  });
+
+  it("drops it under Vibe Desktop: the browser player instead, the same learner", async () => {
+    const { host } = hostFromEnvironment(env, "/home/ada", {
+      servesOnePerson: true, browserLink, ancestors: () => ["/Users/ada/.local/bin/vibe-acp", "/Applications/Vibe.app/Contents/MacOS/Vibe"],
+    });
+    expect(host.openLink).toBeNull();
+    expect(host.editorNamesLearner).toBe(false);
+    expect(host.learnerFixed).toBe(true);
+    expect(host.defaultLearnerId).toBe("vscode-learner");
+    expect(await host.browserLinkFor("x/lesson.json")).toBe("http://127.0.0.1:1/play");
+  });
+
+  it("changes nothing without the variable", () => {
+    const { host } = hostFromEnvironment({ STUDIUM_OPEN_LINK: LINK, STUDIUM_LEARNER_ID: "vscode-learner" }, "/home/ada", { ancestors: () => [] });
+    expect(host.openLink).toBe(LINK);
+  });
+
+  it("reads the ancestors with ps, nearest first, and none on Windows", () => {
+    const table: Record<number, string> = { 50: "40 /bin/vibe-acp", 40: "1 /Applications/Vibe.app/Contents/MacOS/Vibe" };
+    expect(processAncestors(50, (pid) => table[pid]!, "darwin")).toEqual(["/bin/vibe-acp", "/Applications/Vibe.app/Contents/MacOS/Vibe"]);
+    expect(processAncestors(50, () => { throw new Error("no ps"); }, "linux")).toEqual([]);
+    expect(processAncestors(50, (pid) => table[pid]!, "win32")).toEqual([]);
+    expect(startedUnder(ROOT, ["/bin/zsh", `${ROOT}Contents/MacOS/Electron`])).toBe(true);
   });
 });

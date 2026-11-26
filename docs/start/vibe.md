@@ -2,17 +2,45 @@ English · [Français](vibe.fr.md)
 
 # Connect Mistral Vibe to Studium
 
-Add the Studium server to Mistral Vibe, the command-line assistant of Mistral AI, so that a Mistral model
-builds and plays your lessons through Studium's tools.
+Add the Studium server to Mistral Vibe, the assistant of Mistral AI (in VS Code, on the desktop or in a terminal), so
+that a Mistral model builds and plays your lessons through Studium's tools.
 
-## Before you start
+## In VS Code or Vibe Desktop: one click, no Node
+
+With the Studium extension for VS Code installed, you need no terminal and no Node:
+
+1. In VS Code, run **Studium: Connect Mistral Vibe** from the Command Palette (when Vibe is installed, the extension
+   also offers it once in a notification, and the empty **Lessons** view has the link).
+2. Start a new Vibe session: open a new chat in the Mistral Vibe extension, or restart Vibe Desktop.
+3. Ask Vibe: "I want to learn … with Studium", naming your sources, for example a file of course notes.
+
+The command writes one entry, `studium`, into Vibe's configuration (`~/.vibe/config.toml`, or `$VIBE_HOME/config.toml`)
+and nothing else; the previous file is kept as `config.toml.studium-backup`. The entry runs the Studium server the
+extension carries, with VS Code's own executable, so Node is not needed. It uses the same lessons folder, progress and
+learner as the Studium pane: a lesson built with Vibe appears in the **Lessons** view. When Vibe runs inside VS Code,
+the lesson is offered in the Studium pane; when it runs elsewhere (Vibe Desktop, Vibe in a terminal), in your
+[browser](browser.md#from-your-assistant). If Vibe already has a `studium` entry you wrote yourself, the command asks
+before replacing it. Each Studium update rewrites the entry (the server's path changes with the version);
+**Studium: Disconnect Mistral Vibe** removes it, and uninstalling the extension removes it too, as far as VS Code runs
+its uninstall step.
+
+What was checked, on 26 November 2026 with Vibe 3.1.3 (command line, headless) and Mistral Large 4 on macOS: with the
+entry the command writes, Vibe started the server, built a two-step lesson from a notes file in about 3.5 minutes and
+gave the browser address; started from VS Code's executable, it gave the pane link. According to Mistral's
+documentation, the Vibe extension for VS Code and Vibe Desktop read the same configuration; this was not tried in them
+yet. On Windows the server cannot tell whether VS Code started it and always offers the browser. In a remote VS Code
+window (SSH, WSL, containers) the command does not run.
+
+## Vibe in a terminal, without the extension
+
+### Before you start
 
 - Read [Connect your assistant](harnesses.md): it explains the two ways to start the server
   (`npx -y studium-mcp`, or `node` on a file from a checkout or a release), `BUNDLES_ROOT` and
   `LITELLM_BASE_URL`. The `npx` form needs only Node; see [Installation](installation.md).
 - Install Vibe and sign in following the [Mistral Vibe documentation](https://docs.mistral.ai/mistral-vibe/introduction).
 
-## Do the task
+### Do the task
 
 1. Add the server to your Vibe configuration (`~/.vibe/config.toml`). **With `npx`** (no checkout):
 
@@ -42,7 +70,7 @@ builds and plays your lessons through Studium's tools.
 3. Ask: "I want to learn … with Studium", and name your sources, for example a file of course notes in
    the folder.
 
-## What you get
+### What you get
 
 The check lists 40 tools. In the run described under Limits, Vibe read a file of course notes, built a
 lesson of 8 steps on 4 concepts whose quotations Studium accepted at the first `create_lesson` call,
@@ -54,16 +82,16 @@ Studium's [browser player](browser.md#from-your-assistant), on your computer, wh
 without going through the chat; say "here" to play it in the chat. The address lives as long as the
 Vibe session and plays the learner the server plays (`STUDIUM_LEARNER_ID`, else `anonymous`). Your answers there are checked by Studium on your
 computer and do not go to Mistral AI, as long as no judge model is configured. `STUDIUM_BROWSER_PLAYER=off`
-in the server's `env` turns this off. Not yet tried with Vibe itself: only scripts have checked it.
+in the server's `env` turns this off. Checked with Vibe 3.1.3 headless on 26 November 2026 (above): Vibe gave the address.
 
-## What leaves your machine
+### What leaves your machine
 
 Studium itself sends nothing: lessons and progress stay in `~/.studium`. The assistant's model does
 receive what it reads and relays: your sources, the lesson and your answers go to the provider of that
 model, here Mistral AI, under the terms of your plan. Whether those terms suit your course material is for
 you and your institution to decide; see [Privacy and limits](../concepts/privacy-and-limits.md).
 
-## Limits
+### Limits
 
 - One run supports this page: Vibe 3.1.3 with the model Mistral Large 4 on macOS, `studium-mcp` 0.6.3,
   25 November 2026, in Vibe's headless mode (`vibe -p`), from French course notes of about 2,400

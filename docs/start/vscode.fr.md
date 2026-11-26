@@ -205,6 +205,7 @@ contrôle la sortie s'exécute sous une limite de 50 ms : une leçon défectueu
 | `studium.learnerId` | `vscode-learner` | votre identifiant d'apprenant ; il sale votre pseudonyme sur le disque |
 | `studium.registerMcpServer` | `true` | proposer le serveur de l'extension au mode agent de Copilot (VS Code 1.101 ou plus récent) ; aucun n'est proposé si vous avez déjà ajouté vous-même un serveur Studium |
 | `studium.notifyLessonReady` | `true` | vous prévenir quand une leçon construite par votre assistant est prête ; **Ne plus afficher** sur cette notification le désactive, et le réactiver fait revenir les notifications. Un réglage utilisateur, pour toutes les fenêtres |
+| `studium.offerVibeConnection` | `true` | quand Mistral Vibe est installé, proposer une fois de le relier à Studium ; **Studium : Relier Mistral Vibe** fonctionne quel que soit ce réglage. Un réglage utilisateur |
 | `studium.telemetryConsent` | `false` | consentir à l'enregistrement d'une télémétrie de classe pseudonymisée dans le dossier de données de l'extension (rien n'est envoyé) |
 | `studium.modalityPreference` | `balanced` | `visual` ou `textual` réordonne le contenu de chaque étape ; rien n'est retiré |
 | `studium.showGraph` | `true` | ouvrir un panneau compagnon avec le graphe d'apprentissage en direct |
@@ -224,6 +225,8 @@ contrôle la sortie s'exécute sous une limite de 50 ms : une leçon défectueu
 | Studium : Exécuter la reproduction (capsule de la scène courante) | lancer la capsule de l'étape courante, après confirmation |
 | Studium : Prise en main | ouvrir le parcours de prise en main |
 | Studium : Oublier mes données | effacer ce que l'extension garde (ci-dessous) |
+| Studium : Relier Mistral Vibe | permettre à Mistral Vibe (son extension VS Code, Vibe Desktop, sa ligne de commande) d'utiliser le serveur Studium de cette extension, sans Node ; voir [Connecter Mistral Vibe](vibe.fr.md) |
+| Studium : Délier Mistral Vibe | retirer l'entrée écrite par cette commande |
 
 ## Vos données
 
