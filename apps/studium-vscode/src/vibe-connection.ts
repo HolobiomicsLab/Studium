@@ -4,13 +4,13 @@
 // current at each activation (a new Studium version moves dist/lesson-mcp.cjs), and removed by « Disconnect » or,
 // best effort, when the extension is uninstalled (vibe-uninstall.ts).
 import * as vscode from "vscode";
-import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { chmodSync, copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { openLinkPrefix, registeredServerEnv } from "./mcp-provider.js";
 import {
   connectEntry, disconnectEntry, editorInstallRoot, entryIsCurrent, hasOurEntry, hasStudiumServer, otherStudiumServer,
-  studiumEntryToml, vibeConfigPath, vibeHome,
+  studiumEntryToml, vibeConfigPath, vibeHome, type VibeEntry,
 } from "./vibe-config.js";
 
 const EXTENSION_ID = "holobiomicslab.studium-vscode";
@@ -27,28 +27,34 @@ export interface VibeConnectionDeps {
 const fr = (): boolean => vscode.env.language.toLowerCase().startsWith("fr");
 const say = (en: string, french: string): string => (fr() ? french : en);
 
-function readIfPresent(path: string): string | undefined {
+export function readIfPresent(path: string): string | undefined {
   try { return readFileSync(path, "utf8"); } catch { return undefined; }
 }
 
-/** Write Vibe's configuration, keeping the previous file as config.toml.studium-backup. */
-function writeConfig(path: string, text: string): void {
+/** Write an assistant's configuration, keeping the previous file as <name>.studium-backup, readable by its owner only
+ *  (a state file such as ~/.claude.json may hold more than servers). */
+export function writeConfig(path: string, text: string): void {
   mkdirSync(dirname(path), { recursive: true });
-  if (existsSync(path)) copyFileSync(path, `${path}.studium-backup`);
+  if (existsSync(path)) { copyFileSync(path, `${path}.studium-backup`); chmodSync(`${path}.studium-backup`, 0o600); }
   writeFileSync(path, text, "utf8");
 }
 
-/** The entry this extension writes: VS Code's own executable run as Node on the server it carries, with the pane's
+/** The server entry this extension writes (for Vibe and the assistants of assistant-connection.ts): VS Code's own executable run as Node on the server it carries, with the pane's
  *  places and learner, the pane link kept only under this editor (STUDIUM_OPEN_LINK_UNDER). Null when the server
  *  file is missing (a checkout that was never built). */
-function entryBlock(context: vscode.ExtensionContext, deps: VibeConnectionDeps): string | null {
+export function serverEntry(context: vscode.ExtensionContext, deps: VibeConnectionDeps): VibeEntry | null {
   const script = join(context.extensionPath, "dist", "lesson-mcp.cjs");
   if (!existsSync(script)) return null;
   const env = registeredServerEnv({
     launchEnv: { ELECTRON_RUN_AS_NODE: "1" }, ...deps.locations(), hostEnv: process.env, learnerId: deps.learnerId(),
     studiumHome: deps.studiumHome, openLink: openLinkPrefix(vscode.env.uriScheme, context.extension?.id ?? EXTENSION_ID),
   });
-  return studiumEntryToml({ command: process.execPath, args: [script], env: { ...env, STUDIUM_OPEN_LINK_UNDER: editorInstallRoot(process.execPath) } });
+  return { command: process.execPath, args: [script], env: { ...env, STUDIUM_OPEN_LINK_UNDER: editorInstallRoot(process.execPath) } };
+}
+
+function entryBlock(context: vscode.ExtensionContext, deps: VibeConnectionDeps): string | null {
+  const entry = serverEntry(context, deps);
+  return entry ? studiumEntryToml(entry) : null;
 }
 
 /** « Studium: Connect Mistral Vibe ». */

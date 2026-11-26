@@ -19,6 +19,7 @@ import { LessonPanelLifecycle, type ActionResult } from "./panel-lifecycle.js";
 import { registerStudiumChat } from "./chat.js";
 import { registerStudiumMcpServer } from "./mcp-registration.js";
 import { setUpVibeConnection } from "./vibe-connection.js";
+import { setUpAssistantConnections } from "./assistant-connection.js";
 import { toCytoscape, buildStylesheet, egoFilter, type GraphView } from "@studium/typed-graph-lens";
 import { registerStudiumNotebook } from "./notebook.js";
 import { ClientMsSchema, PanelActionSchema, type PanelView, type PanelBackend } from "@studium/lesson-panel";
@@ -238,12 +239,14 @@ export function activate(context: vscode.ExtensionContext) {
   }
   // Spec 2026-11-26-vibe-connect: Mistral Vibe (CLI, VS Code extension, Desktop) gets the same server on the user's click.
   try {
-    setUpVibeConnection(context, {
+    const connectionDeps = {
       locations: () => lessonServerLocations(context, resolveLessonBundlesRoot(context)),
       learnerId: () => cfg<string>("learnerId", "vscode-learner"),
       studiumHome: studiumHomeDir,
-      log: (line) => mcpOutput.appendLine(line),
-    });
+      log: (line: string) => mcpOutput.appendLine(line),
+    };
+    setUpVibeConnection(context, connectionDeps);
+    setUpAssistantConnections(context, connectionDeps);
   } catch (e: any) {
     mcpOutput.appendLine(`[studium] the Mistral Vibe connection was not set up: ${e?.message ?? e}`);
   }
