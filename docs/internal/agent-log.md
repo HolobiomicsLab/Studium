@@ -20,6 +20,9 @@ Mots : « Fais selon ta recommendation. Vas y ». Branche `feat/2026-11-26-lesso
 - Relier Mistral Vibe : bouton « Recharger la fenêtre ».
 - Pilote extension-host : l'ancien bloc de notification tourne avec le réglage désactivé (ajout d'une ligne) ; nouveau
   bloc pour l'ouverture automatique, le bouton et l'ouverture en double.
+- Docs (`40dc8e1` et suivant) : VS Code, Copilot, README, configuration. Second essai du propriétaire : la leçon
+  s'ouvre seule en onglet. Vibe Desktop 1.3.0, quitté puis relancé : `vibe-app-server` a lancé le serveur de
+  l'entrée (vérifié par `ps`) ; « Ça a l'air de marcher ».
 
 ## 2026-11-26 — relier Mistral Vibe en un clic, sans Node (INT-STUDIUM-064, A et B)
 

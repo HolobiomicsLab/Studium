@@ -12,7 +12,7 @@ Avec l'extension Studium pour VS Code installée, il ne faut ni terminal ni Node
 1. Dans VS Code, lancez **Studium : Relier Mistral Vibe** depuis la palette de commandes (quand Vibe est installé,
    l'extension le propose aussi une fois dans une notification, et la vue **Leçons** vide en donne le lien).
 2. Rechargez la fenêtre de VS Code (la notification a un bouton **Recharger la fenêtre**) : l'extension Vibe lit sa
-   configuration à son démarrage, et une nouvelle conversation ne suffit pas. Relancez aussi Vibe Desktop s'il est ouvert.
+   configuration à son démarrage, et une nouvelle conversation ne suffit pas. Quittez et relancez aussi Vibe Desktop (Cmd+Q sous macOS) s'il est ouvert.
 3. Demandez à Vibe : « je veux apprendre … avec Studium », en indiquant vos sources, par exemple un fichier de notes de
    cours. Dans VS Code, la leçon s'ouvre d'elle-même dans le panneau Studium quand elle est prête.
 
@@ -31,8 +31,8 @@ macOS : avec l'entrée écrite par la commande, Vibe a lancé le serveur, constr
 fichier de notes en environ 3 minutes 30 et donné l'adresse du navigateur ; lancé depuis l'exécutable de VS Code, il a
 donné le lien du panneau. Le même jour, dans l'extension Vibe pour VS Code
 (1.30.0) : après un rechargement de la fenêtre, Vibe a vu les 40 outils de Studium et construit la leçon ; sa conversation
-a montré le lien `vscode://` comme du texte et non comme un lien, d'où l'ouverture automatique de la leçon. Dans un second essai avec ce changement, la leçon s'est ouverte d'elle-même en onglet de la zone d'édition. D'après la
-documentation de Mistral, Vibe Desktop lit la même configuration ; cela n'y a pas encore été essayé. Sous Windows, le serveur ne sait pas si VS Code l'a lancé et
+a montré le lien `vscode://` comme du texte et non comme un lien, d'où l'ouverture automatique de la leçon. Dans un second essai avec ce changement, la leçon s'est ouverte d'elle-même en onglet de la zone d'édition. Vibe Desktop 1.3.0, quitté
+puis relancé après la commande, a lancé le serveur depuis la même entrée. Sous Windows, le serveur ne sait pas si VS Code l'a lancé et
 propose toujours le navigateur. Dans une fenêtre VS Code distante (SSH, WSL, conteneurs), la commande ne s'exécute pas.
 
 ## Vibe dans un terminal, sans l'extension
