@@ -4,6 +4,27 @@ English · [Français](opencode.fr.md)
 
 Add the Studium server to OpenCode, so that OpenCode plays your lessons through Studium's tools.
 
+## With the VS Code extension: one click, no Node
+
+With the Studium extension for VS Code installed, you need no terminal and no Node:
+
+1. In VS Code, run **Studium: Connect an Assistant…** from the Command Palette and tick **OpenCode** (the empty
+   **Lessons** view has the link too).
+2. Quit and restart OpenCode: its desktop app, `opencode` or `opencode web`.
+3. Ask OpenCode: "I want to learn … with Studium", naming your sources.
+
+The command writes one `studium` entry into `~/.config/opencode/opencode.json` (or `opencode.jsonc`, under `$XDG_CONFIG_HOME` when it is set), under `mcp`, or `mcp.servers` when the file already nests its servers that way, and nothing else; the previous file is kept beside it as
+`<file>.studium-backup`. The entry runs the Studium server the extension carries, with VS Code's own executable, and
+uses the same lessons folder, progress and learner as the Studium pane. When OpenCode runs inside VS Code, a lesson is
+offered in the Studium pane and opens there by itself when it is ready; elsewhere, in your
+[browser](browser.md#from-your-assistant). A `studium` entry you wrote yourself is replaced only if you say yes. Each
+Studium update rewrites the entry; **Studium: Disconnect an Assistant…** removes it, and so does uninstalling the
+extension, as far as VS Code runs its uninstall step.
+
+Checked on 26 November 2026 on macOS: `opencode mcp list` (OpenCode 2.3.0) reported the server connected; the file keeps its comments. The desktop app and a conversation with this entry were not tried yet.
+
+The sections below set the server up by hand.
+
 ## Before you start
 
 - Read [Connect your assistant](harnesses.md): it explains the two ways to start the server

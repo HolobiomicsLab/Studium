@@ -67,7 +67,11 @@ demandent aucun compte.
 
 ## Ajouter le serveur à votre assistant
 
-Il vous faut Node 20 ou plus. `npx` récupère le serveur la première fois ; rien d'autre à installer.
+Avec l'extension Studium pour VS Code installée, il ne faut ni Node ni cette section : **Studium : Relier un
+assistant…** relie Mistral Vibe, Codex, Claude Code, Claude Desktop ou OpenCode en un clic (voir
+[Connecter votre assistant](harnesses.fr.md#choisir-votre-client)), et Copilot dans VS Code a déjà le serveur.
+
+Sinon, il vous faut Node 20 ou plus. `npx` récupère le serveur la première fois ; rien d'autre à installer.
 `LITELLM_BASE_URL=` (vide) indique à Studium de n'appeler aucun modèle juge, même si votre shell en
 définit un.
 
