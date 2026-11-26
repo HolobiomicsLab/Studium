@@ -6,6 +6,28 @@ Journal des unités TDD par milestone. Mis à jour à chaque commit significatif
 
 ---
 
+## 2026-11-26 — relier Mistral Vibe en un clic, sans Node (INT-STUDIUM-064, A et B)
+
+Mots du propriétaire : « Okay pour A et B. C dans un deuxieme temps », puis « Je te donne delegation pour faire le
+necessaire jusqu'a realisation de cela ». Christophe Garelli : Copilot marche, mais l'extension Vibe pour VS Code
+cherchait un `node` qu'il n'a pas. Spec hub `2026-11-26-vibe-connect-design.md`, plan `2026-11-26-vibe-connect.md`.
+Branche `feat/2026-11-26-vibe-connect`.
+
+- `vibe-config.ts` (pur, smol-toml) : chemin `VIBE_HOME`/`~/.vibe/config.toml`, entrée `[[mcp_servers]]` marquée
+  `STUDIUM_WRITTEN_BY = "studium-vscode"`, ajout ou remplacement par découpage du texte (le reste du fichier octet pour
+  octet), refus d'un fichier illisible, une entrée écrite à la main remplacée seulement sur un oui. `command` est une
+  liste : Vibe découpe une chaîne aux espaces (shlex) et « Visual Studio Code.app » en contient, mesuré
+  (`mcp_transport_failed`, puis Vibe a contourné en pilotant le dépôt par bash et écrit sous ~/.studium, nettoyé).
+- `vibe-connection.ts` : commandes Relier/Délier, proposition unique (`studium.offerVibeConnection`), mise à jour
+  silencieuse à l'activation, copie `config.toml.studium-backup`, refus en fenêtre distante. `vibe-uninstall.ts` →
+  `dist/vibe-uninstall.cjs` (`vscode:uninstall`).
+- lesson-mcp : `STUDIUM_OPEN_LINK_UNDER` garde le lien du panneau seulement si un processus parent vient du dossier de
+  l'éditeur (`ps`, 12 niveaux ; Windows : jamais), car Vibe ne transmet aucune variable VSCODE_* ;
+  `browserPlayerWanted` reste vrai dans ce cas pour que le navigateur prenne le relais.
+- Essais réels, Vibe 3.1.3 sans interface, Mistral Large 4 (abonnement), `VIBE_HOME` de travail : leçon de 2 étapes
+  construite en ~3 min 30, adresse du navigateur donnée ; Vibe lancé depuis l'exécutable de VS Code : lien du panneau.
+  Non essayé dans l'extension Vibe pour VS Code ni Vibe Desktop.
+
 ## 2026-11-26 — le serveur lancé par un assistant joue un seul apprenant
 
 Mots du propriétaire : « Ok pour travailler sur identifiants apres », puis « Ok pour la recommendation ». Les modèles
