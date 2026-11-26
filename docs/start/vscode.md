@@ -2,7 +2,7 @@ English · [Français](vscode.fr.md)
 
 # VS Code
 
-The Studium extension plays a lesson in a pane beside your editor: each step shows its figures, equations,
+The Studium extension plays a lesson in a pane, as a tab of the editor area: each step shows its figures, equations,
 plots and 3D models, asks one question at a time, gives feedback as a step of its own, and tells you when
 reviews are due. It follows your editor theme and language (English or French), and works with the
 keyboard and a screen reader (target: WCAG 2.2 AA).

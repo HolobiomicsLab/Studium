@@ -2,7 +2,7 @@
 
 # VS Code
 
-L'extension Studium joue une leçon dans un panneau à côté de votre éditeur : chaque étape affiche ses
+L'extension Studium joue une leçon dans un panneau, en onglet de la zone d'édition : chaque étape affiche ses
 figures, équations, graphiques et modèles 3D, pose une question à la fois, donne son retour dans une étape
 à part et vous signale les révisions dues. Elle suit le thème et la langue de votre éditeur (français ou
 anglais) et s'utilise au clavier comme avec un lecteur d'écran (objectif : WCAG 2.2 AA).

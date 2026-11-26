@@ -92,7 +92,7 @@ want. With the Studium extension installed, VS Code shows where the build is:
 | When | What VS Code shows |
 |---|---|
 | The assistant has prepared its sources | the status bar says **Studium · preparing a lesson…**; its tooltip names the source and says to answer the assistant in the chat if it asks to allow a step |
-| The lesson is written to your library | **Studium: your lesson “…” is ready (n steps).** with **Open**, **Later** and **Don't show again** (it turns off the `studium.notifyLessonReady` setting); the lesson appears in the **Lessons** view. If you were in another window, the notice waits until you come back to VS Code |
+| The lesson is written to your library | the lesson opens in the Studium pane by itself, as a tab of the editor area, and the focus stays in the chat; a notice says **Studium: your lesson “…” is ready (n steps). It is open in the Studium pane.** with **Don't open lessons by themselves** (it turns off the `studium.openLessonWhenReady` setting). With that setting off, the notice offers **Open**, **Later** and **Don't show again** instead (the last turns off `studium.notifyLessonReady`). Either way the lesson appears in the **Lessons** view. If you were in another window, this waits until you come back to VS Code |
 
 Meanwhile, you can try the demo lesson (**Studium: Try the demo lesson**). The extension watches your
 library, `~/.studium/library` (or `<STUDIUM_HOME>/library`), the folder the Studium server writes lessons to;

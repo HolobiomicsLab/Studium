@@ -31,7 +31,7 @@ macOS : avec l'entrée écrite par la commande, Vibe a lancé le serveur, constr
 fichier de notes en environ 3 minutes 30 et donné l'adresse du navigateur ; lancé depuis l'exécutable de VS Code, il a
 donné le lien du panneau. Le même jour, dans l'extension Vibe pour VS Code
 (1.30.0) : après un rechargement de la fenêtre, Vibe a vu les 40 outils de Studium et construit la leçon ; sa conversation
-a montré le lien `vscode://` comme du texte et non comme un lien, d'où l'ouverture automatique de la leçon. D'après la
+a montré le lien `vscode://` comme du texte et non comme un lien, d'où l'ouverture automatique de la leçon. Dans un second essai avec ce changement, la leçon s'est ouverte d'elle-même en onglet de la zone d'édition. D'après la
 documentation de Mistral, Vibe Desktop lit la même configuration ; cela n'y a pas encore été essayé. Sous Windows, le serveur ne sait pas si VS Code l'a lancé et
 propose toujours le navigateur. Dans une fenêtre VS Code distante (SSH, WSL, conteneurs), la commande ne s'exécute pas.
 
