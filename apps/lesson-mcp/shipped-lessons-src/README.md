@@ -5,7 +5,8 @@ English · [Français](README.fr.md)
 `apps/lesson-mcp/shipped-lessons/` holds the lessons that ship inside the VS Code extension
 (`dist/shipped-lessons/`) and the npm package `studium-mcp` (`shipped-lessons/`). The server finds them beside
 itself and searches them after the bundles root and the learner's library: a learner's own lesson always
-wins, `list_lessons` lists them apart (`shipped_lessons`), and `get_study_plan` offers one only to a learner
+wins, `list_lessons` lists them apart (`shipped_lessons`; asked in a language, only the one in that language when it
+exists), and `get_study_plan` offers one only to a learner
 who has no lesson of their own. This folder holds what they are built from.
 
 ## Discover Studium / Découvrir Studium
@@ -13,10 +14,10 @@ who has no lesson of their own. This folder holds what they are built from.
 | | |
 |---|---|
 | Lessons | `discover-studium-en/lesson.json` (English), `discover-studium-fr/lesson.json` (French) |
-| Content | 12 scenes, about 11 minutes, 5 concepts: the assistant relays and the learner answers; a course is a graph of concepts (with a prerequisite detour); who holds the key and where it comes from; spaced reviews; local first |
+| Content | 12 scenes, about ten minutes, 5 concepts: the assistant relays and the learner answers; a course is a graph of concepts (with a prerequisite detour); who holds the key and where it comes from; spaced reviews; local first |
 | Sources | seven pages of Studium's own documentation, in the lesson's language (`sources.json`), CC BY 4.0 |
-| Drafted by | an AI agent (Claude Opus 5.5 in Claude Code), 25 November 2026 |
-| Status | teacher mode (`authoring_mode` in `sources.json`), `drafted_by: agent`; the project's owner approved them on 25 November 2026, under the name beta-testeur, without reading them (no scene opened, no checklist declared); `approval.json` is bound to the exact bytes of `lesson.json` (rule 003) |
+| Drafted by | an AI agent (Claude Opus 5.5 in Claude Code), 25 November 2026; rewritten by an AI agent on 26 November 2026 (decision D7: each instruction names the control on screen, not a surface, and one duration, ten minutes) |
+| Status | teacher mode (`authoring_mode` in `sources.json`), `drafted_by: agent`; the project's owner approved them on 25 November 2026, under the name beta-testeur, without reading them (no scene opened, no checklist declared); the rewrite of 26 November 2026 was approved again under the same name, recorded by the agent on the owner's delegation, with no scene read; `approval.json` is bound to the exact bytes of `lesson.json` (rule 003) |
 
 | File | What it is |
 |---|---|
@@ -39,14 +40,16 @@ The script runs `prepare_sources` and `create_lesson` (the library functions the
 library: every quote is checked against its passage character for character, so a documentation page that no
 longer holds a quoted sentence makes the build fail. `create_lesson` always writes a self-study lesson; the script
 then sets the authoring mode `sources.json` names, keeping `drafted_by: agent`, and lints the lesson it ships. The test plays both lessons
-through the MCP server and checks that every quoted passage is still in the page it cites.
+through the MCP server, checks that every quoted passage is still in the page it cites, and rebuilds them with `--out` into a
+temporary folder to check that the shipped lessons are what the drafts give.
 
 ## Review and approve
 
 `experience_packet.py approve` refuses a self-study lesson, so these lessons are built in teacher mode
 (`authoring_mode` in `sources.json`), still `drafted_by: agent`. The project's owner approved them on 25 November
 2026, under the name beta-testeur, without reading them: their receipt in `reviews/` says that no scene was
-opened, and their approval record declares no checklist. The lesson's text never says that it was approved, since
+opened, and their approval record declares no checklist. The rewrite of 26 November 2026 (decision D7) was approved the
+same way, recorded by the agent on the owner's delegation: no scene read, no checklist. The lesson's text never says that it was approved, since
 the status comes from the record, which a copy or a rebuild leaves behind: the welcome text (`s1-intro`) says that
 an AI agent drafted the lesson and points to the top of the screen, which says whether someone validated this exact
 version and who; the right answer of `s6-quiz` ("Who wrote this key") is the AI agent.

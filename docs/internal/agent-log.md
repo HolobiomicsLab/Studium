@@ -6,6 +6,24 @@ Journal des unités TDD par milestone. Mis à jour à chaque commit significatif
 
 ---
 
+## 2026-11-26 — leçon de démonstration neutre quant à la surface (décision D7)
+
+Mots du propriétaire : « Oui vas y pour 1-4 ». Branche `fix/2026-11-26-demo-lesson-d7`.
+
+- Texte (`draft.en.json`, `draft.fr.json`) : chaque consigne nomme la commande à l'écran puis ce qu'on dit à un
+  assistant (« Appuie sur **Carte des notions** sous l'étape ou, avec un assistant, demande « où en suis-je ? » ») ;
+  plus de « panneau VS Code » ni de « dis à ton assistant ». Les faits sur les données (stockage de VS Code, Copilot
+  qui partage la progression par le serveur de l'extension) restent. Une seule durée : dix minutes (texte,
+  `duration_minutes`, 600 s de scènes ; l'en-tête disait 11).
+- `list_lessons {language}` ne liste que la démo de cette langue quand elle existe ; sans langue, les deux (le lecteur
+  garde le changement de langue, et chaque version s'ouvre par sa référence).
+- `docs/learn/student-guide` (EN/FR) : la phrase « le panneau et un assistant gardent des progressions séparées » dit
+  d'emblée l'exception Copilot ; `source-set.*.json` régénérés par la reconstruction.
+- `build-shipped-lessons.ts --out DIR` : le test reconstruit les leçons dans un dossier temporaire et les compare.
+- Approbation : `approve` relancé une fois sur les octets finaux, sous beta-testeur, sans `--opened` ni
+  `--checklist` ; la note dit que l'agent l'a enregistrée sur la délégation du propriétaire et que personne n'a relu
+  les scènes. Les reçus du 25 novembre restent dans `reviews/` (autres octets).
+
 ## 2026-11-25, nuit — approbation de la leçon de démonstration (INT-STUDIUM-064, décision 5)
 
 Mots du propriétaire : « On va approuver la leçon de démonstration pour gagner du temps. Si besoin on y reviendra. »
