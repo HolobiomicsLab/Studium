@@ -116,7 +116,8 @@ describe("the stdio server without the VS Code extension offers its browser play
     expect(created).toMatchObject({ isError: false, body: { ok: true, course_ref: LESSON } });
     const link = String(created.body["open_link"]);
     // Changed: the key is named k, not token (review G, item 5).
-    const [, port, key] = link.match(/^http:\/\/127\.0\.0\.1:(\d+)\/play#k=([0-9a-f]{64})&from=assistant&lesson=photosynthese%2Flesson\.json$/) ?? [];
+    // Changed 2026-11-26 (trial): the address says the French lesson's language, which the page speaks over the browser's.
+    const [, port, key] = link.match(/^http:\/\/127\.0\.0\.1:(\d+)\/play#k=([0-9a-f]{64})&from=assistant&lesson=photosynthese%2Flesson\.json&lang=fr$/) ?? [];
     expect(port, link).toBeDefined();
     expect(created.body).not.toHaveProperty("lesson_path");
     const shown = String(created.body["display_markdown"]);

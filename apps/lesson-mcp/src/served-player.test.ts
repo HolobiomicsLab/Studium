@@ -62,6 +62,17 @@ describe('servedPlayer', () => {
     expect(lines[0]).toMatch(/EPERM/);
   });
 
+  // Trial of 2026-11-26: the page spoke the browser's language, not the French lesson's. The address says the lesson's
+  // language when the interface has it (fr, en); the page prefers it to the browser's (bridge-browser.test.mjs).
+  it('says the language of the lesson in the address, fr or en, and nothing for another', async () => {
+    const {player} = served();
+    expect(await player.linkFor('ana', 'a/lesson.json', 'fr')).toMatch(/#k=[0-9a-f]{64}&from=assistant&lesson=a%2Flesson\.json&lang=fr$/);
+    expect(await player.linkFor('ana', 'a/lesson.json', ' en-GB ')).toMatch(/&lesson=a%2Flesson\.json&lang=en$/);
+    expect(await player.linkFor('ana', 'a/lesson.json', 'FR_ca')).toMatch(/&lang=fr$/);
+    expect(await player.linkFor('ana', 'a/lesson.json', 'de')).not.toContain('lang=');
+    expect(await player.linkFor('ana', 'a/lesson.json')).not.toContain('lang=');
+  });
+
   it('stops listening when closed', async () => {
     const {player} = served();
     const link = await player.linkFor('ana');

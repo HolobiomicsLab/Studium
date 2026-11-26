@@ -58,7 +58,7 @@ function serve(opts: { openLink?: string } = {}) {
   let player: ServedPlayer | null = null;
   const host: SessionHost = new SessionHost({
     bundlesRoot: library, libraryRoot: library, live: false, dataDir: null,
-    ...(opts.openLink ? { openLink: opts.openLink } : { browserLink: (learner: string, ref: string) => player!.linkFor(learner, ref) }),
+    ...(opts.openLink ? { openLink: opts.openLink } : { browserLink: (learner: string, ref: string, language?: string) => player!.linkFor(learner, ref, language) }),
   });
   player = servedPlayer({ host: () => host, log: () => {} });
   players.push(player);
@@ -240,7 +240,8 @@ describe("C: one line at the end of the first step of a lesson started in the ch
     const shown = String(started.presentation.display_markdown);
     // Changed: the browser's line said "For immediate answers"; it promises no speed now (review G, finding 2).
     // Changed: the served player names its key k (review G, item 5).
-    expect(shown).toMatch(/\n\n_To answer each step without going through this chat, follow it in your web browser: <http:\/\/127\.0\.0\.1:\d+\/play#k=[0-9a-f]{64}&from=assistant&lesson=photo%2Flesson\.json>_$/);
+    // Changed 2026-11-26 (trial): the address says the lesson's language (en here), which the page speaks.
+    expect(shown).toMatch(/\n\n_To answer each step without going through this chat, follow it in your web browser: <http:\/\/127\.0\.0\.1:\d+\/play#k=[0-9a-f]{64}&from=assistant&lesson=photo%2Flesson\.json&lang=en>_$/);
     const answered = await call("submit_response", { session_id: started.session_id, input: { kind: "reply", text: rightReply(started.presentation.scene) } });
     expect(JSON.stringify(answered)).not.toMatch(/follow it in your web browser/);
     // The learner answered in the chat: their choice. The lesson resumed in the chat carries no line.

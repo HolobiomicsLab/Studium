@@ -50,8 +50,13 @@ When an assistant runs Studium without the Studium VS Code extension (OpenCode, 
 configured by hand, among others), its Studium server offers this player too, with no command to type. The
 first time it offers a lesson (one it has just built, or the one the study plan says to start or continue),
 it starts the player on 127.0.0.1, on a free port, and the assistant shows an address such as
-`http://127.0.0.1:53817/play#k=…&from=assistant&lesson=…`. Open it in your browser: the lesson opens at
+`http://127.0.0.1:53817/play#k=…&from=assistant&lesson=…&lang=fr`. Open it in your browser: the lesson opens at
 your current step. Or say "here" to play it in the chat. Studium never opens the browser itself.
+
+- **The page speaks the lesson's language.** The address says the lesson's language (`lang`, French or
+  English), and the page's buttons and labels use it whatever your browser's language. To change it, use the
+  language setting in the page's settings. A lesson in another language leaves the page in your browser's
+  language, as does `studium-mcp play`.
 
 - **One learner per address.** The address plays the learner the assistant named in that call (its
   `learner_id`, else `STUDIUM_LEARNER_ID`, else `anonymous`): a step answered in the browser is that

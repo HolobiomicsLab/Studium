@@ -10,6 +10,12 @@ export const SESSION_KEY = "studium-player-session";
 /** D4 (owner decision 4): "assistant" when the address came from the server an assistant runs, not from
  * `studium-mcp play`: the page then says, once that server is gone, to ask the assistant for a new address. */
 export const FROM_KEY = "studium-player-from";
+/** The language of the lesson an assistant's address opens (`&lang=fr|en`, served-player.ts): the interface speaks it
+ * rather than the browser's (trial of 2026-11-26: a French lesson in an English browser came out in English). Kept for
+ * this tab, so that a reload speaks it too; the learner's choice in the settings changes the lesson's view afterwards. */
+export const LANG_KEY = "studium-player-lang";
+/** The interface languages an address may name. */
+const ADDRESS_LANGUAGES = new Set(["fr", "en"]);
 
 /** The key of an address's fragment: `k` in the addresses an assistant shows (served-player.ts), `token` in the one
  * `studium-mcp play` prints. An assistant's address names it neutrally because a careful model may withhold an address
@@ -19,8 +25,8 @@ export function keyOf(fragment) {
 }
 
 /** The address the server gave, taken out of the address bar at once: its key (`#k=…` or `#token=…`, keyOf), the
- * lesson it opens (`&lesson=…`, a bundle_ref) and who gave it (`&from=assistant`). The key and who gave it stay in
- * this tab's storage; the lesson is opened once. */
+ * lesson it opens (`&lesson=…`, a bundle_ref), who gave it (`&from=assistant`) and the lesson's language (`&lang=…`,
+ * fr or en; null otherwise). The key, who gave it and the language stay in this tab's storage; the lesson is opened once. */
 export function takeAddress(win) {
   const fragment = new URLSearchParams(win.location.hash.slice(1));
   const token = keyOf(fragment);
@@ -29,10 +35,17 @@ export function takeAddress(win) {
     win.sessionStorage.setItem(TOKEN_KEY, token);
     if (fragment.get("from") === "assistant") win.sessionStorage.setItem(FROM_KEY, "assistant");
     else win.sessionStorage.removeItem(FROM_KEY);
+    const lang = fragment.get("lang")?.trim().toLowerCase();
+    if (lang && ADDRESS_LANGUAGES.has(lang)) win.sessionStorage.setItem(LANG_KEY, lang);
+    else win.sessionStorage.removeItem(LANG_KEY);
     lesson = fragment.get("lesson") || null;
     win.history.replaceState(null, "", win.location.pathname + win.location.search);
   }
-  return { token: win.sessionStorage.getItem(TOKEN_KEY), lesson, fromAssistant: win.sessionStorage.getItem(FROM_KEY) === "assistant" };
+  const lang = win.sessionStorage.getItem(LANG_KEY);
+  return {
+    token: win.sessionStorage.getItem(TOKEN_KEY), lesson, fromAssistant: win.sessionStorage.getItem(FROM_KEY) === "assistant",
+    lang: ADDRESS_LANGUAGES.has(lang) ? lang : null,
+  };
 }
 
 /** The key of the address the server gave (keyOf), taken out of the address bar at once. */
@@ -82,9 +95,10 @@ export async function startBrowserPlayer({ window: win, document: doc, connectMc
   win.addEventListener("hashchange", () => {
     if (keyOf(new URLSearchParams(win.location.hash.slice(1)))) reload();
   });
-  const locale = localeFromLanguage(win.navigator?.language);
+  const { token, lesson, fromAssistant, lang } = takeAddress(win);
+  // The lesson's language when the address says it, else the browser's.
+  const locale = lang ?? localeFromLanguage(win.navigator?.language);
   const words = browserPhrases(locale);
-  const { token, lesson, fromAssistant } = takeAddress(win);
   if (fromAssistant) {
     // The server an assistant runs ends with the assistant's session: one that does not answer is gone, and a new
     // address comes from asking the assistant again. One that answers but refuses the key was given an address

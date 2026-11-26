@@ -12,7 +12,7 @@ const bundle = async (file) => {
   return import(`data:text/javascript;base64,${Buffer.from(compiled.outputFiles[0].text).toString("base64")}`);
 };
 const { connectMcpApp } = await bundle("bridge-mcp-app.js");
-const { startBrowserPlayer, TOKEN_KEY, SESSION_KEY, FROM_KEY } = await bundle("bridge-browser.js");
+const { startBrowserPlayer, TOKEN_KEY, SESSION_KEY, FROM_KEY, LANG_KEY } = await bundle("bridge-browser.js");
 const { browserPhrases } = await bundle("../../../packages/lesson-panel/src/phrases.ts");
 const pane = readFileSync(new URL("artifact-pane.js", import.meta.url), "utf8").replace(/export \{ renderView \};?\s*$/, "");
 const TOKEN = "t".repeat(64);
@@ -342,6 +342,45 @@ test("an assistant's address that stopped answering says the session ended and t
   await played.start();
   assert.equal(text(played.doc.querySelector(".player-notice")), flat(fr.player_token_rejected));
   played.dom.window.close();
+});
+
+// Trial of 2026-11-26: a French learner asked the assistant in French, got a French lesson, opened the address, and the
+// whole interface was English because the browser's language was. An assistant's address now says the lesson's language
+// (`&lang=fr|en`, served-player.ts): the interface speaks it, whatever the browser's. The learner's own choice in the
+// settings still changes it afterwards (setLanguage, on the server); an address without it leaves the browser's.
+test("an assistant's address that says the lesson's language sets the interface's, over the browser's", async () => {
+  const english = (p) => Object.defineProperty(p.dom.window.navigator, "language", { value: "en-US", configurable: true });
+  const p = page({ hash: `${ASSISTANT}&lang=fr` });
+  english(p);
+  await p.start();
+  assert.equal(p.dom.window.location.href, `${ORIGIN}/play`);
+  assert.equal(p.doc.documentElement.lang, "fr");
+  assert.deepEqual(p.calls.map(call => [call.url, call.body.arguments]),
+    [["/play/api/tools/open_lesson_panel", { bundle_ref: "photosynthese/lesson.json", locale: "fr" }]]);
+  assert.equal(p.dom.window.sessionStorage.getItem(LANG_KEY), "fr");
+  p.dom.window.close();
+  // A reload of that tab keeps the lesson's language: its list and its notices too.
+  const reloaded = page({ hash: "", stored: { [TOKEN_KEY]: TOKEN, [LANG_KEY]: "fr" } });
+  english(reloaded);
+  await reloaded.start();
+  assert.deepEqual(reloaded.calls.map(call => [call.url.split("/").pop(), call.body.arguments]), [["list_lessons", { language: "fr" }]]);
+  assert.equal(text(reloaded.doc.querySelector("h1")), "Leçons Studium");
+  reloaded.dom.window.close();
+  // The other way round: an English lesson in a French browser.
+  const en = page({ hash: `${ASSISTANT}&lang=en` });
+  await en.start();
+  assert.deepEqual(en.calls[0].body, { arguments: { bundle_ref: "photosynthese/lesson.json", locale: "en" } });
+  en.dom.window.close();
+  // Without it, or with a language the interface does not have, the browser's, as before; a new address without it
+  // forgets the one an earlier address of this tab gave.
+  for (const hash of [ASSISTANT, `${ASSISTANT}&lang=de`]) {
+    const plain = page({ hash, stored: { [LANG_KEY]: "fr" } });
+    english(plain);
+    await plain.start();
+    assert.deepEqual(plain.calls[0].body, { arguments: { bundle_ref: "photosynthese/lesson.json", locale: "en" } }, hash);
+    assert.equal(plain.dom.window.sessionStorage.getItem(LANG_KEY), null, hash);
+    plain.dom.window.close();
+  }
 });
 
 test("the notice for a page opened without its key names both addresses Studium gives", () => {
