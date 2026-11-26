@@ -51,7 +51,7 @@
         "studium.relay"
       ],
       "estimated_seconds": 40,
-      "markdown": "This lesson ships with Studium and takes about ten minutes. It shows how Studium works by making you use it: each mechanism is explained on the step where you meet it.\n\n**Look at the top of the screen first.** The notice there says who wrote this lesson and what is assessed. It is true of this lesson too: an AI agent drafted it from Studium's own documentation, and no teacher has checked it yet. In the VS Code pane the notice is the banner above the step; in a chat, your assistant shows it on the first screen.\n\n**You answer, the assistant relays.** Studium asks the questions and keeps the answer keys. When you play through an assistant (Copilot, Claude Code, Codex or another), it shows each step as Studium wrote it, waits for your answer and passes your own words on. It must never answer, choose or rate for you.\n\nContinue when you are ready.",
+      "markdown": "This lesson ships with Studium and takes about ten minutes. It shows how Studium works by making you use it: each mechanism is explained on the step where you meet it.\n\n**Look at the top of the screen first.** Studium says there whether someone validated this exact version of the lesson, and who: in the VS Code pane or the browser, a chip above the step; in a chat, your assistant shows it on the first screen. This lesson was drafted by an AI agent from Studium's own documentation.\n\n**You answer, the assistant relays.** Studium asks the questions and keeps the answer keys. When you play through an assistant (Copilot, Claude Code, Codex or another), it shows each step as Studium wrote it, waits for your answer and passes your own words on. It must never answer, choose or rate for you.\n\nContinue when you are ready.",
       "quotes": [
         {
           "passage_id": "doc:assistant",
@@ -184,11 +184,11 @@
       "question": "Who wrote the key that checks your answers to the questions of this lesson?",
       "choices": [
         {
-          "text": "An AI agent, from Studium's documentation; no teacher has checked it yet",
+          "text": "An AI agent, from Studium's documentation",
           "correct": true
         },
         {
-          "text": "A teacher, who validated the lesson",
+          "text": "A teacher, who wrote the lesson",
           "correct": false
         },
         {
@@ -196,19 +196,15 @@
           "correct": false
         }
       ],
-      "feedback_correct": "Right, and the notice at the top said so. A lesson reads as validated only when a teacher's approval record matches its exact file.",
-      "feedback_incorrect": "Not this one. Look at the notice at the top of the lesson again.",
+      "feedback_correct": "Right, and the first step said so. A lesson reads as validated only when an approval record matches its exact file, and that record names who approved it.",
+      "feedback_incorrect": "Not this one. Reread the first step of the lesson.",
       "hints": [
-        "The notice at the top of the lesson names who drafted it."
+        "The first step of the lesson names who drafted it."
       ],
       "quotes": [
         {
           "passage_id": "doc:honesty",
           "text": "The approval record is the only source of the validated status."
-        },
-        {
-          "passage_id": "doc:honesty",
-          "text": "Demo lesson shipped with Studium, drafted by an AI agent from Studium's documentation, not checked by a teacher"
         }
       ]
     },
@@ -318,7 +314,7 @@
         "studium.local"
       ],
       "estimated_seconds": 60,
-      "markdown": "Studium keeps your progress on your own machine.\n\n- With an assistant, the lessons it builds for you go to `~/.studium/library` and your progress to `~/.studium/data`, in folders named by a pseudonym, never by your id. The VS Code extension keeps its own progress in VS Code's storage.\n- Class telemetry is off unless you opt in.\n- **What leaves your machine** is what your assistant reads: if it runs on a remote model, the steps it shows and the answers it relays go to that model's provider, under the provider's terms. Playing in the VS Code pane needs no AI account.\n- To erase your progress, ask your assistant to forget your data, or run **Studium: Forget my data** in VS Code.\n\nThis lesson ships with Studium, inside the VS Code extension and the npm package. It stays apart from your library: it never replaces a lesson of yours. When you are done, build a lesson from your own sources: tell your assistant \"I want to learn … with Studium\".",
+      "markdown": "Studium keeps your progress on your own machine.\n\n- With an assistant, the lessons it builds for you go to `~/.studium/library` and your progress to `~/.studium/data`, in folders named by a pseudonym, never by your id. The VS Code pane keeps its progress in VS Code's storage, and so does Copilot when it uses the server the extension offers: the two then share it.\n- Class telemetry is off unless you opt in.\n- **What leaves your machine** is what your assistant reads: if it runs on a remote model, the steps it shows and the answers it relays go to that model's provider, under the provider's terms. Playing in the VS Code pane needs no AI account.\n- To erase your progress, ask your assistant to forget your data, or run **Studium: Forget my data** in VS Code.\n\nThis lesson ships with Studium, inside the VS Code extension and the npm package. It stays apart from your library: it never replaces a lesson of yours. When you are done, build a lesson from your own sources: tell your assistant \"I want to learn … with Studium\".",
       "quotes": [
         {
           "passage_id": "doc:privacy",

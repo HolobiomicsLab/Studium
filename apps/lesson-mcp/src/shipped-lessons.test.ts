@@ -4,10 +4,13 @@
 // « Discover Studium » demo beside itself (shippedLessonsRoot) and offers it to a learner who has none. Here the
 // real shipped bundles are played end to end through the real MCP server, in English and in French, the way a
 // harness plays them: get_study_plan's next step, each display_markdown, the learner's words. The demo is drafted
-// by an AI agent and validated by nobody: the tests hold it to that, and check that every passage it quotes is
-// still in the documentation page it cites.
+// by an AI agent and carries an approval record: the tests check that the record and its receipt are bound to the
+// exact bytes of lesson.json, whoever the reviewer, so a rebuild or a hand edit of lesson.json fails here until
+// approve runs again; that the lesson's own text never asserts an approval (the status comes from the record); and
+// that every passage it quotes is still in the documentation page it cites.
 import { afterAll, describe, expect, it } from "vitest";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -25,6 +28,25 @@ const LANGUAGES = ["en", "fr"] as const;
 const refOf = (language: string) => `discover-studium-${language}/lesson.json`;
 const bundleOf = (language: string): Json => JSON.parse(readFileSync(join(SHIPPED, refOf(language)), "utf8"));
 const draftOf = (language: string): Json => JSON.parse(readFileSync(join(DRAFTS, `draft.${language}.json`), "utf8"));
+const approvalOf = (language: string): Json =>
+  JSON.parse(readFileSync(join(SHIPPED, `discover-studium-${language}`, "approval.json"), "utf8"));
+
+/** Words a lesson's fixed text must not hold: the approval status comes from the record, which can be missing or
+ * stale (a copy in a library or a course folder, a rebuild), so the text never asserts it (rule 003). */
+const APPROVAL_CLAIMS = [
+  "approved by a teacher",
+  "a teacher then approved",
+  "teacher's approval record",
+  "approuvée par un enseignant",
+  "un enseignant a ensuite approuvé",
+  "registre d'approbation d'un enseignant",
+];
+function stringsOf(value: unknown): string[] {
+  if (typeof value === "string") return [value];
+  if (Array.isArray(value)) return value.flatMap(stringsOf);
+  if (value && typeof value === "object") return Object.values(value).flatMap(stringsOf);
+  return [];
+}
 
 const temps: string[] = [];
 afterAll(() => { for (const dir of temps) rmSync(dir, { recursive: true, force: true }); });
@@ -81,16 +103,46 @@ describe("where the server finds the shipped lessons", () => {
 });
 
 describe("the shipped « Discover Studium » lessons", () => {
-  it("are drafted by an AI agent and validated by nobody, with no approval record (rule 003)", () => {
-    // When the owner approves them after review (shipped-lessons-src/README.md), this assertion changes with it.
+  // Changed: 2026-11-25, the demo carries an approval record. It was a self-study lesson validated by nobody, with no
+  // approval record (and the old check looked for approval.json in shipped-lessons/ instead of the language folder).
+  // Now: teacher mode, drafted by an agent, an approval record bound to the exact bytes of lesson.json and one receipt
+  // for those bytes that agrees with it. Nothing here names the reviewer or the scenes opened: any later honest
+  // approval passes once approve runs on the current bytes (rule 003: the receipt says what happened).
+  it("are drafted by an AI agent and carry an approval record bound to their exact bytes, with its receipt (rule 003)", () => {
+    expect(readdirSync(SHIPPED).sort()).toEqual(LANGUAGES.map((language) => `discover-studium-${language}`));
     for (const language of LANGUAGES) {
-      const bundle = bundleOf(language);
-      expect(bundle.metadata).toMatchObject({ language, authoring: { mode: "self_study", drafted_by: "agent", author_is_learner: false } });
-      expect(bundle.validated_by).toBe("SELF-STUDY — not teacher-validated");
-      expect(readdirSync(join(SHIPPED, `discover-studium-${language}`))).toEqual(["lesson.json"]);
+      const folder = join(SHIPPED, `discover-studium-${language}`);
+      const bytes = readFileSync(join(folder, "lesson.json"));
+      const bundle = JSON.parse(bytes.toString("utf8")) as Json;
+      expect(bundle.metadata).toMatchObject({ language, authoring: { mode: "teacher", drafted_by: "agent", author_is_learner: false } });
       expect(bundle.source_plan_id).toBe(JSON.parse(readFileSync(join(DRAFTS, `source-set.${language}.json`), "utf8")).source_set_id);
+      expect(readdirSync(folder).sort(), language).toEqual(["approval.json", "lesson.json", "reviews"]);
+      // The CI guard: a rebuild or a hand edit of lesson.json changes its sha256, so this fails until
+      // experience_packet.py approve runs again (shipped-lessons-src/README.md).
+      const sha256 = createHash("sha256").update(bytes).digest("hex");
+      const approval = JSON.parse(readFileSync(join(folder, "approval.json"), "utf8")) as Json;
+      expect(approval, `${language}: approval.json is bound to these exact bytes`).toMatchObject({
+        schema: "studium-approval/1", bundle_sha256: sha256,
+      });
+      expect(typeof approval.reviewer === "string" && approval.reviewer.trim().length > 0, `${language}: the record names its reviewer`).toBe(true);
+      expect(bundle.validated_by).toBe(approval.reviewer);
+      const reviews = readdirSync(join(folder, "reviews"));
+      expect(reviews).toContain("telemetry.jsonl");
+      const receipts = reviews.filter((name) => name.endsWith(".json"))
+        .map((name) => JSON.parse(readFileSync(join(folder, "reviews", name), "utf8")) as Json)
+        .filter((receipt) => receipt.bundle_sha256 === sha256);
+      expect(receipts, `${language}: one receipt for these bytes`).toHaveLength(1);
+      expect(receipts[0]).toMatchObject({ decision: "approved", reviewer: approval.reviewer });
+      expect(receipts[0]!.opened + receipts[0]!.not_opened, `${language}: the receipt accounts for every scene`).toBe(bundle.scenes.length);
+      expect(typeof receipts[0]!.note === "string" && receipts[0]!.note.trim().length > 0, `${language}: the receipt says what happened`).toBe(true);
     }
-    expect(existsSync(join(SHIPPED, "approval.json"))).toBe(false);
+  });
+
+  it("never assert an approval in their own text: the status comes from the record (rule 003)", () => {
+    for (const language of LANGUAGES) {
+      const text = stringsOf(bundleOf(language).scenes).join("\n").toLowerCase();
+      for (const claim of APPROVAL_CLAIMS) expect(text, `${language}: "${claim}"`).not.toContain(claim);
+    }
   });
 
   it("quote, character for character, passages still in the documentation pages they cite", () => {
@@ -124,8 +176,16 @@ describe("a newcomer plays the demo through the MCP server", () => {
       expect(listed.display_markdown).toMatch(language === "en" ? /Shipped with Studium/ : /Livrée avec Studium/);
 
       const started = await call(plan.next_step.tool, plan.next_step.arguments);
-      expect(started.authoring).toMatchObject({ mode: "self_study", drafted_by: "agent", validated: false, shipped: true });
-      expect(started.presentation.display_markdown).toContain(started.authoring.notice.slice(0, 40));
+      // Changed: 2026-11-25, the demo carries an approval record: it is a teacher-mode lesson whose record matches,
+      // so it has no self-study notice and its first screen names who drafted it and the reviewer the record names.
+      const reviewer = approvalOf(language).reviewer as string;
+      expect(started.authoring).toMatchObject({
+        mode: "teacher", drafted_by: "agent", validated: true, shipped: true,
+        approval: { recorded: true, matches: true, reviewer },
+      });
+      expect(started.authoring.notice).toBeNull();
+      expect(started.presentation.display_markdown).toContain(language === "en"
+        ? `> AI-drafted lesson, validated by ${reviewer}.` : `> Leçon rédigée par l'IA, validée par ${reviewer}.`);
       const sessionId = started.session_id as string;
       let presentation = started.presentation as Json;
       const types = new Set<string>();
@@ -200,7 +260,15 @@ describe("a newcomer plays the demo through the MCP server", () => {
     expect(listed.shipped_lessons.map((l: Json) => l.bundle_ref)).toEqual([refOf("fr")]);
     const started = await call("start_lesson_session", { bundle_ref: refOf("en"), learner_id: "owner" });
     expect(started.authoring.shipped).toBeUndefined();
-    expect(started.authoring.notice).toMatch(/^AI-drafted lesson from your sources/);
+    // Changed: 2026-11-25, the demo is a teacher-mode lesson now. A copy in the learner's library has no approval
+    // record beside it: no self-study notice, not validated, and its first screen gives the voice line of an
+    // AI-drafted lesson without a record, never the name in its validated_by.
+    expect(started.authoring).toMatchObject({ mode: "teacher", drafted_by: "agent", validated: false, approval: { recorded: false } });
+    expect(started.authoring.notice).toBeNull();
+    expect(started.presentation.display_markdown).toContain("> AI-drafted lesson, not reviewed by a teacher.");
+    // The first screen claims no approval: neither the record's reviewer nor the lesson's own text says one happened.
+    expect(started.presentation.display_markdown).not.toContain(approvalOf("en").reviewer);
+    expect(started.presentation.display_markdown).not.toMatch(/validated by|approved/i);
     await close();
   });
 });

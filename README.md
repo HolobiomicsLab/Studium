@@ -33,7 +33,8 @@ terminal and no AI account.
    HolobiomicsLab.
 2. To see how Studium works first, select the **Studium** icon in the activity bar, then **Try the demo
    lesson**: « Discover Studium » (about ten minutes, English or French) ships with the extension. An AI agent
-   drafted it from Studium's documentation and no teacher has checked it yet, as its first screen says.
+   drafted it from Studium's documentation; the project's owner approved it, under the name beta-testeur,
+   without reading it.
 3. For other lessons, have a folder of lessons: the one your teacher gave you, or the demo lessons, which are the `fixtures`
    folder of the [repository archive](https://github.com/HolobiomicsLab/studium/archive/refs/heads/main.zip) (about 30 MB; unzip it first).
 4. Select the **Studium** icon in the activity bar, then **Pick a course**, **Choose another course

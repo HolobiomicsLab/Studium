@@ -236,6 +236,11 @@ const hasCmd = (id: string) => commandIds.includes(id);
     expect(typeof nls["command.openDemoLesson.title"] === "string", `${file} titles the demo command`);
     expect(String(nls["viewsWelcome.empty"]).includes(`(command:${id})`), `${file}: the empty Lessons view offers the demo`);
     expect(String(nls["walkthrough.step.open.description"]).includes(`(command:${id})`), `${file}: the first walkthrough step offers the demo`);
+    // 2026-11-25: the demo carries an approval record now; the empty view says who drafted it and claims nothing
+    // about a teacher, so it stays true whether the record matches, is stale or is missing.
+    const empty = String(nls["viewsWelcome.empty"]);
+    expect(/drafted it from Studium's documentation|l'a rédigée à partir de la documentation de Studium/.test(empty)
+      && !/no teacher has checked|aucun enseignant ne l'a encore vérifiée/.test(empty), `${file}: the empty view says who drafted the demo, nothing about a teacher`);
   }
   expect(/shipped-lessons/.test(pkg.scripts?.vendor ?? ""), "the vendor script copies the shipped lessons into dist/shipped-lessons");
 }

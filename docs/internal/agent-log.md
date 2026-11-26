@@ -6,6 +6,28 @@ Journal des unités TDD par milestone. Mis à jour à chaque commit significatif
 
 ---
 
+## 2026-11-25, nuit — approbation de la leçon de démonstration (INT-STUDIUM-064, décision 5)
+
+Mots du propriétaire : « On va approuver la leçon de démonstration pour gagner du temps. Si besoin on y reviendra. »
+Il n'a pas lu la leçon. « Discover Studium » / « Découvrir Studium » passe en mode enseignant (`authoring_mode` dans
+`sources.json`, `drafted_by: agent` conservé) et porte un `approval.json` lié aux octets de chaque `lesson.json`,
+enregistré par `experience_packet.py approve` sous le nom affiché beta-testeur (celui choisi le 10 novembre), sans
+`--opened` ni `--checklist` : le reçu dit 0 scène ouverte sur 12, et sa note dit ce qui s'est passé.
+
+- Texte : `s1-intro` dit qu'un agent d'IA a rédigé la leçon et renvoie au haut de l'écran, sans affirmer d'approbation
+  (le statut vient du registre, qu'une copie ou une reconstruction laisse derrière elle) ; la bonne réponse de `s6-quiz`
+  est l'agent d'IA ; `s10-concept` dit que Copilot partage la progression du panneau par le serveur de l'extension.
+  Les autres points de la décision 5 (formulation neutre quant à la surface, une seule durée, filtre de langue) restent
+  ouverts, à la demande du propriétaire.
+- Textes de l'application (plan d'étude, `list_lessons`, sélecteur, vue vide) : disent qui a rédigé la démo, rien d'un
+  enseignant. Documentation et CHANGELOG : « approuvée sans l'avoir lue ».
+- Tests d'abord : le registre est lié aux octets, le reçu existe, le texte n'affirme pas d'approbation ; ils ne fixent
+  aucun nom de relecteur. `check-vsix.sh` exige les deux `approval.json`.
+- Relecture contradictoire (trois angles, deux sceptiques par constat) : 11 constats confirmés, tous corrigés, puis
+  trois imprécisions relevées par deux vérificateurs, corrigées. Deux passages d'`approve` sur des octets
+  intermédiaires, jamais enregistrés dans git, ont été retirés avant l'approbation finale.
+- Portes : build, `pnpm test` (lesson-mcp 302 + 2 ignorés, extension-host 166), lint 0 erreur, docs 0 problème.
+
 ## 2026-11-25, soir — l'expérience de l'attente (INT-STUDIUM-064, décisions 1 à 4)
 
 Mots du propriétaire : « this takes time to build a lesson and it is acceptable since it has to be done once, what is

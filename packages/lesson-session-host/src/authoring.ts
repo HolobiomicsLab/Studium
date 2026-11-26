@@ -47,8 +47,9 @@ const AGENT_DRAFTED = {
   en: "AI-drafted lesson from your sources, not checked by a teacher: each item cites its passage; tell the " +
     "assistant about a key that looks wrong. ",
 };
-/** The demo lessons shipped with Studium (« Discover Studium »): drafted by an agent from Studium's own
- * documentation, not from the learner's sources. */
+/** A self-study lesson shipped with Studium: drafted by an agent from Studium's own documentation, not from the
+ * learner's sources. (« Discover Studium » was one until the owner approved it, 25 November 2026: in teacher mode it
+ * shows no notice.) */
 const SHIPPED_AGENT_DRAFTED = {
   fr: "Leçon de démonstration livrée avec Studium, rédigée par l'IA à partir de la documentation de Studium, non " +
     "vérifiée par un enseignant : chaque question cite son passage ; signale à l'agent une clé qui te semble fausse. ",

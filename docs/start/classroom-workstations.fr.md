@@ -82,8 +82,8 @@ réglages utilisateur, ou ceux du dossier qu'il a ouvert.
 L'extension contient aussi « Découvrir Studium », une leçon de démonstration d'une dizaine de minutes sur le
 fonctionnement de Studium et de son panneau (**Studium : Essayer la leçon de démonstration**, proposée aussi dans
 la liste des cours, dans la langue d'affichage de VS Code). Elle sert pour une première séance en salle, avant le
-cours. Un agent d'IA l'a rédigée à partir de la documentation de Studium et aucun enseignant ne l'a relue, comme
-le dit son premier écran : relisez-la comme toute leçon avant de l'utiliser avec une classe. Elle reste à part du
+cours. Un agent d'IA l'a rédigée à partir de la documentation de Studium ; le responsable du projet l'a approuvée,
+sous le nom beta-testeur, sans l'avoir lue : relisez-la comme toute leçon avant de l'utiliser avec une classe. Elle reste à part du
 dossier de cours et n'écrit aucun réglage.
 
 ## Où la progression est gardée
