@@ -4,7 +4,9 @@ All notable changes to Studium are recorded here. The format follows [Keep a Cha
 
 ## Unreleased
 
-A tester found that building a lesson leaves the screen silent for minutes and that nothing says when the lesson is ready. Building stays a few minutes, done once; this work is about what the learner sees while waiting and where the lesson is played afterwards. Measured with Mistral Large 4: in OpenCode the assistant now relays Studium's announcement of the wait about 10 s after the request (89 s before); in headless Vibe it still keeps it for its last message. Nothing here has been tried yet in a real VS Code with Copilot, Codex Desktop or Claude Code.
+## 0.6.5 — 2026-11-26
+
+This release is about the wait while an assistant builds a lesson and where the lesson is played afterwards: VS Code says when a lesson is being prepared and when it is ready, the assistant announces the wait and shows a sketch, a refused draft is fixed step by step, and the lesson is offered in the VS Code pane or, elsewhere, in a local browser player that speaks the lesson's language. The demo lesson now carries an approval record, given by the project's owner without reading it. A tester found that building a lesson leaves the screen silent for minutes and that nothing says when the lesson is ready. Building stays a few minutes, done once; this work is about what the learner sees while waiting and where the lesson is played afterwards. Measured with Mistral Large 4: in OpenCode the assistant now relays Studium's announcement of the wait about 10 s after the request (89 s before); in headless Vibe it still keeps it for its last message. Nothing here has been tried yet in a real VS Code with Copilot, Codex Desktop or Claude Code.
 
 ### Added
 
