@@ -41,6 +41,8 @@ const FR = {
   lesson_ready_open: "Ouvrir",
   lesson_ready_later: "Plus tard",
   lesson_ready_never: "Ne plus afficher",
+  lesson_ready_opened: "Elle est ouverte dans le panneau Studium.",
+  lesson_ready_stop_opening: "Ne plus ouvrir toute seule",
   // Review finding 2: lessons that land together share one notice; « Afficher » opens the Lessons view.
   lessons_ready: "Studium : {count} leçons sont prêtes : {titles}.",
   lessons_ready_more: "Studium : {count} leçons sont prêtes, dont {titles}.",
@@ -130,6 +132,8 @@ const EN: Record<HostPhraseKey, string> = {
   lesson_ready_open: "Open",
   lesson_ready_later: "Later",
   lesson_ready_never: "Don't show again",
+  lesson_ready_opened: "It is open in the Studium pane.",
+  lesson_ready_stop_opening: "Don't open lessons by themselves",
   lessons_ready: "Studium: {count} lessons are ready: {titles}.",
   lessons_ready_more: "Studium: {count} lessons are ready, including {titles}.",
   lessons_ready_title: "“{title}”",

@@ -364,6 +364,12 @@
           "scope": "application",
           "description": "%configuration.notifyLessonReady.description%"
         },
+        "studium.openLessonWhenReady": {
+          "type": "boolean",
+          "default": true,
+          "scope": "application",
+          "description": "%configuration.openLessonWhenReady.description%"
+        },
         "studium.offerVibeConnection": {
           "type": "boolean",
           "default": true,

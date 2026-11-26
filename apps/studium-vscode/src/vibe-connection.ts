@@ -89,9 +89,13 @@ export async function connectVibe(context: vscode.ExtensionContext, deps: VibeCo
   }
   deps.log(`[studium] Mistral Vibe connected: ${path} (${result.replaced === "none" ? "entry added" : "entry replaced"}; backup alongside).`);
   const other = text ? otherStudiumServer(text) : null;
+  // Measured 26 Nov 2026: the Vibe extension for VS Code reads its configuration when its engine starts, with the
+  // window; a new conversation does not read it again. Reloading the window restarts it.
+  const reload = say("Reload Window", "Recharger la fenêtre");
   void vscode.window.showInformationMessage(say(
-    `Studium is connected to Mistral Vibe. Start a new Vibe session (or restart Vibe Desktop) to use it.${other ? ` Vibe also has "${other}", which runs Studium: remove it to avoid two.` : ""}`,
-    `Studium est relié à Mistral Vibe. Ouvrez une nouvelle session Vibe (ou relancez Vibe Desktop) pour l'utiliser.${other ? ` Vibe a aussi « ${other} », qui lance Studium : supprimez-le pour ne pas en avoir deux.` : ""}`));
+    `Studium is connected to Mistral Vibe. Reload this window so that Vibe in VS Code sees it (restart Vibe Desktop too, if it is open).${other ? ` Vibe also has "${other}", which runs Studium: remove it to avoid two.` : ""}`,
+    `Studium est relié à Mistral Vibe. Rechargez cette fenêtre pour que Vibe dans VS Code le voie (relancez aussi Vibe Desktop s'il est ouvert).${other ? ` Vibe a aussi « ${other} », qui lance Studium : supprimez-le pour ne pas en avoir deux.` : ""}`),
+    reload).then((answer) => { if (answer === reload) void vscode.commands.executeCommand("workbench.action.reloadWindow"); });
   return true;
 }
 

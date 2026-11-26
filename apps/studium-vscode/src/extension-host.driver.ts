@@ -113,7 +113,8 @@ function fakePanel(viewType?: string) {
     },
     onDidDispose: (h: () => void) => { handlers.push(h); return noop(); },
     dispose: () => { if (panel.disposed) return; panel.disposed = true; handlers.forEach((h) => h()); },
-    reveal() {},
+    revealed: 0,
+    reveal() { panel.revealed++; },
   };
   return panel;
 }
@@ -135,7 +136,7 @@ const fakeVscode: Json = {
   ThemeIcon: class { constructor(public id: string) {} },
   TreeItemCollapsibleState: { None: 0, Collapsed: 1, Expanded: 2 },
   StatusBarAlignment: { Left: 1, Right: 2 },
-  ViewColumn: { Beside: -2 }, ConfigurationTarget: { Global: 1, Workspace: 2, WorkspaceFolder: 3 }, TaskScope: { Workspace: 2 },
+  ViewColumn: { Active: -1, Beside: -2 }, ConfigurationTarget: { Global: 1, Workspace: 2, WorkspaceFolder: 3 }, TaskScope: { Workspace: 2 },
   Task: class { constructor(public definition: Json, public scope: unknown, public name: string, public source: string, public execution: any) {} },
   CustomExecution: class { constructor(public callback: () => Promise<any>) {} },
   NotebookCellKind: { Markup: 1, Code: 2 },
@@ -947,6 +948,9 @@ async function main() {
     const panesBefore = seen.panels.length;
     const refreshesBefore = refreshes;
     infoAnswer = (message, items) => (message.includes(title) ? items[0] : undefined);
+    // The notice with Open, Later and Don't show again is the one shown when lessons do not open by themselves (the
+    // setting below, on by default since 2026-11-26, is tested after this block).
+    settings["openLessonWhenReady"] = false;
     fire(lessonsWatcher, "create", lessonPath);
     await waitFor(() => seen.infos.length > infosBefore, "the lesson-ready notice");
     const notice = seen.infos[infosBefore] ?? "";
@@ -1014,6 +1018,36 @@ async function main() {
     expect(seen.infos.length === afterMute && refreshes > refreshesMuted, "after Don't show again: refreshed, not announced");
     globalStateData.delete("studium.lessonReadyMuted");
     delete settings["notifyLessonReady"];
+
+    // Owner, 26 Nov 2026, after a live trial with Mistral Vibe (its chat shows the vscode:// link as text): one lesson
+    // opens in the pane by itself (studium.openLessonWhenReady, on by default), and the notice says so, with one button
+    // that turns the setting off. The same lesson asked again shows its pane, not a second one.
+    delete settings["openLessonWhenReady"];
+    const auto = join(libraryRoot, "photosynthese-auto", "lesson.json");
+    mkdirSync(join(libraryRoot, "photosynthese-auto"), { recursive: true });
+    copyFileSync(lessonPath, auto);
+    const autoInfos = seen.infos.length;
+    const autoPanes = seen.panels.length;
+    const autoWrites = configWrites.length;
+    infoAnswer = (_message, offered) => offered[0];
+    fire(lessonsWatcher, "create", auto);
+    await waitFor(() => seen.panels.length > autoPanes && lastPanel().posted.some((m: Json) => m.type === "render" || m.type === "error"), "the lesson opened by itself");
+    const autoPane = lastPanel();
+    expect(autoPane.posted.find((m: Json) => m.type === "render")?.view?.bundle_ref === "photosynthese-auto/lesson.json",
+      `the new lesson opens in the pane without a click (got ${JSON.stringify(autoPane.posted.find((m: Json) => m.type === "error"))})`);
+    await waitFor(() => seen.infos.length > autoInfos, "the notice that the lesson is open");
+    expect(hostEither("lesson_ready_opened").some((p) => (seen.infos[autoInfos] ?? "").endsWith(p))
+      && JSON.stringify(seen.infoItems[autoInfos]) === JSON.stringify(hostEither("lesson_ready_stop_opening").filter((p) => seen.infoItems[autoInfos]?.includes(p))),
+      `the notice says it is open and offers only to stop (got ${seen.infos[autoInfos]} ${JSON.stringify(seen.infoItems[autoInfos])})`);
+    await waitFor(() => configWrites.length > autoWrites, "the setting turned off");
+    expect(configWrites.some((w) => w.key === "openLessonWhenReady" && w.value === false && w.target === 1), "its button turns studium.openLessonWhenReady off");
+    const panesNow = seen.panels.length;
+    const revealedBefore = autoPane.revealed;
+    await seen.uriHandler.handleUri(uriFor(auto));
+    await sleep(100);
+    expect(seen.panels.length === panesNow && autoPane.revealed > revealedBefore, "the same lesson asked again shows its pane, no second one");
+    autoPane.dispose();
+    delete settings["openLessonWhenReady"];
 
     // The lessons folder (studium.bundlesRoot), when it is not the library, is watched to refresh the list only: a pull
     // that touches many lessons must not announce each one. Its watcher follows the setting.

@@ -19,7 +19,7 @@
   "configuration.registerMcpServer.description": "Offer the Studium server built into this extension to Copilot Chat in agent mode, so an assistant can build and play lessons without Node or a terminal command. Needs VS Code 1.101 or later; ignored by editors without this API. If you already added a Studium server yourself, the extension does not add a second one.",
   "configuration.notifyLessonReady.description": "Show a notice when a lesson your assistant built lands in your library, with Open, Later and Don't show again. \"Don't show again\" turns this setting off; turn it back on to see these notices again. Applies to every window.",
   "configuration.telemetryConsent.description": "Opt in to consented, pseudonymized class telemetry (STUDIUM_TELEMETRY_CONSENT).",
-  "configuration.showGraph.description": "Open a companion live Learning-Workflow-Graph panel that repaints each turn (typed-graph-lens).",
+  "configuration.showGraph.description": "Open the live Learning-Workflow-Graph as a tab next to the lesson, repainted each turn (typed-graph-lens).",
   "configuration.graphView.description": "Graph scope: 'student' (ego-graph around the current frontier) or 'teacher' (the whole graph).",
   "configuration.graphView.enum.0": "Ego-graph around the current frontier.",
   "configuration.graphView.enum.1": "The whole graph.",
@@ -54,5 +54,6 @@
   "chat.command.discuss.description": "Take a discussion turn (argue a position)",
   "command.connectVibe.title": "Studium: Connect Mistral Vibe",
   "command.disconnectVibe.title": "Studium: Disconnect Mistral Vibe",
-  "configuration.offerVibeConnection.description": "Offer once to connect Mistral Vibe (its CLI, its VS Code extension and Vibe Desktop) to Studium when Vibe is installed. The command \"Studium: Connect Mistral Vibe\" works whatever this setting says."
+  "configuration.offerVibeConnection.description": "Offer once to connect Mistral Vibe (its CLI, its VS Code extension and Vibe Desktop) to Studium when Vibe is installed. The command \"Studium: Connect Mistral Vibe\" works whatever this setting says.",
+  "configuration.openLessonWhenReady.description": "Open a lesson your assistant built in the Studium pane as soon as it is ready, leaving the focus in the chat. Off: a notice with Open instead."
 }

@@ -6,6 +6,21 @@ Journal des unités TDD par milestone. Mis à jour à chaque commit significatif
 
 ---
 
+## 2026-11-26 — la leçon s'ouvre d'elle-même, en onglet
+
+Essai en direct du propriétaire avec l'extension Vibe pour VS Code 1.30.0 : Vibe n'a vu Studium qu'après un
+rechargement de la fenêtre (son moteur avait démarré 5 s avant l'écriture de l'entrée), puis a construit la leçon ;
+le lien `vscode://` s'affichait comme du texte, et leçon, graphe et chat découpaient la fenêtre en colonnes étroites.
+Mots : « Fais selon ta recommendation. Vas y ». Branche `feat/2026-11-26-lesson-layout`.
+
+- `announceLesson` : une leçon seule s'ouvre dans le panneau (`preserveFocus`), réglage `studium.openLessonWhenReady`
+  (vrai par défaut), notification avec un seul bouton qui le désactive ; désactivé, l'ancienne notification.
+- `openLesson` : `ViewColumn.Active` au lieu de `Beside` ; graphe en onglet dans le même groupe, la leçon remise
+  devant ; une leçon déjà ouverte est montrée au lieu d'être rouverte (`openLessonPanes`).
+- Relier Mistral Vibe : bouton « Recharger la fenêtre ».
+- Pilote extension-host : l'ancien bloc de notification tourne avec le réglage désactivé (ajout d'une ligne) ; nouveau
+  bloc pour l'ouverture automatique, le bouton et l'ouverture en double.
+
 ## 2026-11-26 — relier Mistral Vibe en un clic, sans Node (INT-STUDIUM-064, A et B)
 
 Mots du propriétaire : « Okay pour A et B. C dans un deuxieme temps », puis « Je te donne delegation pour faire le
