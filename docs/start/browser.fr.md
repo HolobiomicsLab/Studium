@@ -96,7 +96,11 @@ n'ouvre jamais le navigateur de lui-même.
    avec les mêmes avis : qui a écrit la leçon et sa clé de correction, et, après une réponse, si la clé ou un
    juge l'a évaluée, ou personne. Vous avez aussi les indices, l'échelle de confiance, la note de rappel, la
    carte des notions, le français ou l'anglais (**⋯**, **Réglages**) et le bilan de fin de leçon.
-4. **⋯**, **Choisir un autre cours** ouvre une liste de cours lue à son ouverture, pas relue quand vous
+4. Pour revoir une étape déjà faite, utilisez les boutons numérotés sous la barre de progression : l'étape
+   revient telle qu'elle était, en lecture seule, avec votre réponse et le retour reçu, sous un bandeau
+   « Étape 3 sur 12, déjà faite : en relecture ». Rien n'y change ; **Reprendre où j'en étais** ramène à
+   l'étape en cours, telle que vous l'avez laissée.
+5. **⋯**, **Choisir un autre cours** ouvre une liste de cours lue à son ouverture, pas relue quand vous
    revenez à l'onglet, et sans la leçon de démonstration ; **M'oublier** efface vos données d'apprentissage
    après une confirmation.
 

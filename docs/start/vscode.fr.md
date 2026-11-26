@@ -99,6 +99,14 @@ reprend à partir de votre progression enregistrée.
   nomme une clé rédigée par l'IA ou une clé que vous avez écrite.
 - **Progression.** « Étape 3 sur 8 », sans jamais reculer ; un détour vers un prérequis est signalé comme
   tel.
+- **Étapes déjà faites.** Sous la barre de progression, chaque étape du parcours principal de la leçon que
+  vous avez déjà faite est un bouton numéroté (un lecteur d'écran lit « Revoir l'étape 3 : <titre> »). Il
+  remontre cette étape telle qu'elle était, en lecture seule, sous un bandeau « Étape 3 sur 12, déjà faite :
+  en relecture » : son texte et ses figures, votre réponse et le retour reçu (pour les réponses données depuis
+  le démarrage du serveur ; après un redémarrage, seulement si la réponse était juste, fausse ou non évaluée).
+  On ne peut rien y répondre et rien ne change : ni votre progression, ni votre maîtrise, ni vos révisions, ni
+  l'étape où vous êtes. **Reprendre où j'en étais** ramène à l'étape en cours telle que vous l'avez laissée,
+  réponse commencée comprise. Les étapes pas encore atteintes et celles d'un détour ne sont pas proposées.
 - **Réponse.** Quand le focus est dans la liste des choix, `A`–`D` ou `1`–`4` choisissent et `Entrée`
   valide ; la ligne sous les choix l'indique (« Dans la liste des choix : … »). La confiance (de 0 à 4) est
   facultative.
