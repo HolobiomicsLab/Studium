@@ -6,6 +6,26 @@ Journal des unités TDD par milestone. Mis à jour à chaque commit significatif
 
 ---
 
+## 2026-11-26 — le serveur lancé par un assistant joue un seul apprenant
+
+Mots du propriétaire : « Ok pour travailler sur identifiants apres », puis « Ok pour la recommendation ». Les modèles
+inventaient des `learner_id` (Vibe : « lfx » 21 fois, « louis-felix » 15 fois ; OpenCode : « apprenant-photosynthese »,
+un nom d'utilisateur tiré du chemin) parce que les instructions demandaient « one stable learner_id per person » et que
+le skill self-learner proposait le prénom. Branche `fix/2026-11-26-one-learner`.
+
+- `SessionHostOptions.oneLearner` ; `learnerFixed` = `editorNamesLearner` ou `oneLearner` remplace
+  `editorNamesLearner` partout où il voulait dire « l'apprenant est fixé » (`learnerFor`, `onePerson`, `listLessons`,
+  `forgetLearner`, `lessonOffer`, outils `forget_session` et `get_next_reinforcement`). Le texte propre à l'éditeur
+  reste (`learner_id_from_editor`, ligne d'instructions, refus de `forget_session`).
+- `hostFromEnvironment` : `oneLearner` quand `servesOnePerson` (le `main` stdio) et pas `STUDIUM_LEARNERS=several`.
+  `persistence.learner_id_fixed`, ligne d'instructions et description de `learner_id` pour ce cas ; `next_step.arguments`
+  ne nomme plus l'apprenant fixé ; un brouillon refusé est gardé pour l'apprenant fixé même « anonymous » (`namesNoOne`).
+- L'extension VS Code lance le serveur de son panneau, du chat @studium et du notebook avec `STUDIUM_LEARNERS=several`
+  (`lessonMcpEnv`) : ils nomment `studium.learnerId` à chaque appel ; le pilote extension-host l'a montré (6 échecs
+  avant ce réglage).
+- Tests : `editor-learner.test.ts` (6 nouveaux), `served-player.e2e.test.ts` (1 nouveau ; le test « learner of the
+  call » passe à `STUDIUM_LEARNERS=several`, commentaire « Changed 2026-11-26 »). Docs, skills et CHANGELOG mis à jour.
+
 ## 2026-11-26 — langue du lecteur navigateur et durée unique d'une leçon
 
 Deux défauts relevés lors d'un essai : un apprenant francophone, leçon française, et l'interface du lecteur navigateur

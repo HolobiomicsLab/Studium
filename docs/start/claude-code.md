@@ -167,7 +167,7 @@ Inside a session, `/mcp` shows the Studium server; `claude mcp list` shows `stud
 
 A lesson ready to play is offered in your web browser first. With the Claude Code mod
 (`apps/claude-code-mod`), once the mod has opened a lesson in this session, the next lesson is offered in
-its pane first (`/studium <lesson>`), to the learner the server plays by default (`STUDIUM_LEARNER_ID`):
+its pane first (`/studium <lesson>`), to the learner the server plays (`STUDIUM_LEARNER_ID`, else `anonymous`):
 `/studium` opens lessons for that learner only. Claude Code gives the server no sign of the mod before
 that ([Where a lesson is offered first](harness-panels.md#where-a-lesson-is-offered-first)).
 

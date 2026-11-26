@@ -30,11 +30,11 @@ const LESSON = {
 };
 const OPEN_LINK = "vscode://holobiomicslab.studium-vscode/open?bundle=";
 
-async function connect(env: Record<string, string>) {
+async function connect(env: Record<string, string>, opts: { servesOnePerson?: boolean } = {}) {
   const bundlesRoot = tmp();
   mkdirSync(join(bundlesRoot, "editor"), { recursive: true });
   writeFileSync(join(bundlesRoot, "editor", "lesson.json"), JSON.stringify(LESSON));
-  const { host } = hostFromEnvironment({ BUNDLES_ROOT: bundlesRoot, STUDIUM_HOME: tmp(), STUDIUM_EPHEMERAL: "1", ...env }, tmp());
+  const { host } = hostFromEnvironment({ BUNDLES_ROOT: bundlesRoot, STUDIUM_HOME: tmp(), STUDIUM_EPHEMERAL: "1", ...env }, tmp(), opts);
   const server = buildMcpServer(host);
   const [clientT, serverT] = InMemoryTransport.createLinkedPair();
   await server.connect(serverT);
@@ -133,5 +133,75 @@ describe("the server the VS Code extension offers: the editor names the learner"
   it("needs both variables: STUDIUM_OPEN_LINK alone leaves the learner to the model", async () => {
     const { client } = await connect({ STUDIUM_OPEN_LINK: OPEN_LINK });
     expect(client.getInstructions()).toContain("Pass one stable learner_id");
+  });
+});
+
+// Learner ids (owner's decision, 26 Nov 2026): models made ids up (« lfx » 21 times and « louis-felix » 15 times in Vibe,
+// « apprenant-photosynthese » and a user name from a path in OpenCode) and split one person's progress among them. The
+// stdio server an assistant starts (main: servesOnePerson) plays one learner, whatever id a call passes, unless
+// STUDIUM_LEARNERS=several.
+describe("the stdio server an assistant starts plays one learner", () => {
+  const ONE = { servesOnePerson: true };
+
+  it("says so in the instructions and the schema, within 13 lines, and reports it in persistence", async () => {
+    const { client, call } = await connect({}, ONE);
+    const instructions = client.getInstructions() ?? "";
+    expect(instructions.split("\n").length).toBeLessThanOrEqual(13);
+    expect(instructions).toMatch(/This server plays one learner, the person using you: omit learner_id and never make one up/);
+    expect(instructions).not.toContain("Pass one stable learner_id");
+    const plan = (await client.listTools()).tools.find((t) => t.name === "get_study_plan")!;
+    const learnerArg = (plan.inputSchema.properties as Record<string, { description?: string }>)["learner_id"]!;
+    expect(learnerArg.description).toMatch(/this server plays one learner/);
+    const info = await call("get_server_info");
+    expect(info["persistence"]).toMatchObject({ learner_id_default: "anonymous", learner_id_fixed: true });
+    expect(info["persistence"]).not.toHaveProperty("learner_id_from_editor");
+  });
+
+  it("plays every id a model makes up as its one learner, and names no learner in the next step", async () => {
+    const { call } = await connect({}, ONE);
+    const started = await startAndAnswer(call, "lfx");
+    const plan = await call("get_study_plan", { learner_id: "louis-felix", language: "en" });
+    expect(plan["in_progress"]).toEqual([expect.objectContaining({ bundle_ref: "editor/lesson.json", scenes_completed: 1 })]);
+    expect(plan["next_step"]["arguments"]).not.toHaveProperty("learner_id");
+    const again = await call("start_lesson_session", { bundle_ref: "editor/lesson.json", learner_id: "nothiasl" });
+    expect(again["session_id"]).toBe(started["session_id"]);
+    expect(again["resume"]).toMatchObject({ kind: "already_open" });
+  });
+
+  it("plays STUDIUM_LEARNER_ID when it is set", async () => {
+    const { call } = await connect({ STUDIUM_LEARNER_ID: "ada" }, ONE);
+    expect((await call("get_server_info"))["persistence"]).toMatchObject({ learner_id_default: "ada", learner_id_fixed: true });
+    await startAndAnswer(call, "lfx");
+    const listed = await call("list_lessons", { learner_id: "someone" });
+    expect(listed["lessons"]).toEqual([expect.objectContaining({ bundle_ref: "editor/lesson.json", status: expect.objectContaining({ state: "in_progress", scenes_completed: 1 }) })]);
+  });
+
+  it("forget_session erases that learner without learner_id, and refuses another id, erasing nothing", async () => {
+    const { client, call } = await connect({}, ONE);
+    const forget = (await client.listTools()).tools.find((t) => t.name === "forget_session")!;
+    expect(forget.description).toMatch(/This server plays one learner/);
+    await startAndAnswer(call);
+    const refused = await call("forget_session", { learner_id: "lfx", language: "en" });
+    expect(refused["error"]).toMatch(/nothing was erased: this server plays one learner, "anonymous"/);
+    expect(refused["error"]).toMatch(/without learner_id/);
+    expect((await call("get_study_plan", { language: "en" }))["in_progress"]).toHaveLength(1);
+    expect(await call("forget_session", { language: "en" })).toMatchObject({ forgotten: true, scope: "learner" });
+    expect((await call("get_study_plan", { language: "en" }))["in_progress"]).toEqual([]);
+  });
+
+  it("keeps a refused draft for its one learner, even « anonymous », so that the study plan offers it", async () => {
+    const { host } = await connect({}, ONE);
+    expect(await host.draftLearnerOf("lfx")).not.toBeNull();
+    const several = (await connect({}, {})).host;
+    expect(await several.draftLearnerOf()).toBeNull();
+  });
+
+  it("plays the learner_id of each call with STUDIUM_LEARNERS=several, as before", async () => {
+    const { client, call } = await connect({ STUDIUM_LEARNERS: "several" }, ONE);
+    expect(client.getInstructions()).toBe(SERVER_INSTRUCTIONS);
+    expect((await call("get_server_info"))["persistence"]).not.toHaveProperty("learner_id_fixed");
+    await startAndAnswer(call, "lfx");
+    expect((await call("get_study_plan", { language: "en" }))["in_progress"]).toEqual([]);
+    expect((await call("get_study_plan", { learner_id: "lfx", language: "en" }))["in_progress"]).toHaveLength(1);
   });
 });

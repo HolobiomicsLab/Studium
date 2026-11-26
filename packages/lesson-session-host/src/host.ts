@@ -771,6 +771,11 @@ export interface SessionHostOptions {
    * to Copilot, started with the pane's learner id (STUDIUM_LEARNER_ID with STUDIUM_OPEN_LINK). Every call then plays
    * `defaultLearnerId`, whatever learner_id it passes, so that the chat and the pane share one learner. */
   editorNamesLearner?: boolean;
+  /** Learner ids (owner's decision, 26 Nov 2026): this server plays its default learner only — the stdio server an
+   * assistant started (lesson-mcp's main), unless STUDIUM_LEARNERS=several. Every call then plays `defaultLearnerId`,
+   * whatever learner_id it passes, as when the editor names the learner: models made ids up (from a path, a skill, the
+   * topic) and split one person's progress among them. */
+  oneLearner?: boolean;
   /** D2: the start of a link that opens a lesson in the Studium VS Code pane (STUDIUM_OPEN_LINK); the encoded path
    * of the lesson file is appended (open-link.ts). Absent ⇒ no link is offered. */
   openLink?: string;
@@ -1036,6 +1041,9 @@ export class SessionHost {
   get defaultLearnerId(): string { return this.opts.defaultLearnerId ?? DEFAULT_LEARNER_ID; }
   /** D1: whether the editor names the learner (SessionHostOptions.editorNamesLearner). */
   get editorNamesLearner(): boolean { return this.opts.editorNamesLearner === true; }
+  /** Whether every call plays the default learner, whatever learner_id it passes: the editor names the learner (D1),
+   * or this server plays one learner (oneLearner). */
+  get learnerFixed(): boolean { return this.editorNamesLearner || this.opts.oneLearner === true; }
   /** D2: the start of a link that opens a lesson in the Studium VS Code pane, or null. */
   get openLink(): string | null { return this.opts.openLink?.trim() || null; }
   /** D1 review finding 4 and D4 review finding 1: whether `learnerId` is one person's — D5 merges their sessions of a
@@ -1043,7 +1051,7 @@ export class SessionHost {
    * ("anonymous" included: the studium.learnerId of one VS Code user), and the default learner of a server that serves
    * one person (servesOnePerson); a shared default identity on a server several people may reach is not. */
   private onePerson(learnerId: string): boolean {
-    return this.editorNamesLearner || (this.opts.servesOnePerson === true && learnerId === this.defaultLearnerId) || !sharedIdentity(learnerId);
+    return this.learnerFixed || (this.opts.servesOnePerson === true && learnerId === this.defaultLearnerId) || !sharedIdentity(learnerId);
   }
 
   /** D4: the address of this server's browser player that plays `bundleRef` as the learner of the call (learnerFor),
@@ -1065,9 +1073,15 @@ export class SessionHost {
   noteSurfaceOffered(id: string): void {
     this.require(id).otherSurfaceShown = true;
   }
-  /** D1: the learner a call plays: the editor's when it names the learner, else the one named, else the default. */
+  /** D1: the learner a call plays: the default when the learner is fixed (learnerFixed), else the one named, else the
+   * default. */
   learnerFor(requested?: string): string {
-    return this.editorNamesLearner ? this.defaultLearnerId : requested ?? this.defaultLearnerId;
+    return this.learnerFixed ? this.defaultLearnerId : requested ?? this.defaultLearnerId;
+  }
+  /** Review of D4: whether `learnerId` (as learnerFor gave it) names no one — the default "anonymous" of a server that
+   * may play several learners. A fixed learner is one person whatever its id. */
+  private namesNoOne(learnerId: string): boolean {
+    return learnerId === DEFAULT_LEARNER_ID && !this.learnerFixed;
   }
   /** Whether a judge model grades production scenes here (the authoring notices depend on it). */
   get judge(): boolean { return this.opts.live; }
@@ -1076,7 +1090,7 @@ export class SessionHost {
   persistence(): PersistenceInfo {
     return persistenceInfo({
       dataDir: this.dataDir, libraryRoot: this.opts.libraryRoot ?? null, learnerIdDefault: this.defaultLearnerId,
-      learnerIdFromEditor: this.editorNamesLearner,
+      learnerIdFromEditor: this.editorNamesLearner, learnerIdFixed: this.learnerFixed,
     });
   }
 
@@ -1129,7 +1143,7 @@ export class SessionHost {
       if (address === null) { browser = false; order = named(); }
     }
     if (!order.length) return null;
-    const asked = learnerId !== undefined && !this.editorNamesLearner ? { learner_id: learnerId } : {};
+    const asked = learnerId !== undefined && !this.learnerFixed ? { learner_id: learnerId } : {};
     return {
       first: order[0]!, order,
       ...(order.includes("vscode_pane") && pane ? { open_link: pane.open_link, lesson_path: pane.lesson_path } : {}),
@@ -1216,7 +1230,7 @@ export class SessionHost {
    * (learnerFor), so the draft is the editor's learner's, the one their study plan offers. */
   async draftLearnerOf(learnerId?: string): Promise<string | null> {
     const id = this.learnerFor(learnerId);
-    return id === DEFAULT_LEARNER_ID ? null : this.profilePseudonymOf(id);
+    return this.namesNoOne(id) ? null : this.profilePseudonymOf(id);
   }
 
   /** Start or resume a lesson; legacy third-argument clocks and languages remain supported. */
@@ -1600,7 +1614,7 @@ export class SessionHost {
     const [profile, stored, catalog, unfinished] = await Promise.all([
       this.profileStore.load(pseudonym), this.studyStore.load(pseudonym), this.catalog(),
       // D4: the most recent lesson build that stopped, a draft kept for this learner, offered to finish.
-      library ? unfinishedBuilds(library, nowMs, learnerId === DEFAULT_LEARNER_ID ? null : pseudonym) : Promise.resolve([]),
+      library ? unfinishedBuilds(library, nowMs, this.namesNoOne(learnerId) ? null : pseudonym) : Promise.resolve([]),
     ]);
     const record = stored ?? emptyStudyRecord();
     // The shipped lessons say nothing of the learner's language.
@@ -1629,7 +1643,8 @@ export class SessionHost {
       completedLessons: profile?.completed_lessons ?? [],
       catalog,
       locale: language ?? displayLocale(this.recordLanguage(record) ?? newestLesson?.language ?? DEFAULT_LOCALE),
-      learnerId,
+      // Learner ids (26 Nov 2026): a fixed learner is not named in next_step's arguments, so they teach no id to pass.
+      ...(this.learnerFixed ? {} : { learnerId }),
       playableReviews: new Set(reviewSeconds.keys()),
       reviewFrom,
       measured,
@@ -1654,8 +1669,8 @@ export class SessionHost {
    * lesson on disk, else English. D7: with `language`, shipped_lessons holds only the shipped lesson in that language
    * when there is one, else every one. */
   async listLessons(opts: { query?: string; learnerId?: string; language?: DisplayLocale } = {}): Promise<LessonListing> {
-    // D1: when the editor names the learner, the listing shows that learner's progress, learner_id given or not.
-    if (this.editorNamesLearner) opts = { ...opts, learnerId: this.defaultLearnerId };
+    // D1: when the learner is fixed, the listing shows that learner's progress, learner_id given or not.
+    if (this.learnerFixed) opts = { ...opts, learnerId: this.defaultLearnerId };
     const language = opts.language === undefined ? undefined : checkLocale(opts.language);
     const catalog = await this.catalog();
     const words = foldText(opts.query ?? "").split(/\s+/).filter(Boolean);
@@ -3066,12 +3081,12 @@ export class SessionHost {
    * no live session needed — every lesson's progress (their live sessions are closed), the
    * cross-lesson profile and the review schedule — and say what stays, as forget does. D10: in
    * `language` (fr|en) when given, else the learner's last lesson's, else the server default. The text names
-   * the learner forgotten. When the editor names the learner (D1), no id or the editor's own forgets the editor's
+   * the learner forgotten. When the learner is fixed (D1, oneLearner), no id or the fixed learner's own forgets that
    * learner, and another id is refused before anything is erased: this cannot be undone, so it is never played as
    * the editor's learner the way other calls are (review finding 1). */
   async forgetLearner(learnerId?: string, language?: DisplayLocale): Promise<ForgetReport> {
-    if (this.editorNamesLearner && learnerId !== undefined && learnerId !== this.defaultLearnerId) {
-      throw new Error(otherLearnerRefusal(learnerId, this.defaultLearnerId));
+    if (this.learnerFixed && learnerId !== undefined && learnerId !== this.defaultLearnerId) {
+      throw new Error(otherLearnerRefusal(learnerId, this.defaultLearnerId, this.editorNamesLearner));
     }
     learnerId = this.learnerFor(learnerId);
     const requested = language === undefined ? undefined : checkLocale(language);
@@ -3086,7 +3101,7 @@ export class SessionHost {
     const profilePseudonym = await pseudonymOf.get(learnerId, PROFILE_PSEUDONYM_SCOPE);
     // Review of D4: the drafts Studium kept for this learner (and those kept for no known learner, which may
     // be theirs) are their data in the library: erased with the rest; another learner's stay.
-    const drafts = library && await eraseLearnerDrafts(library, learnerId === DEFAULT_LEARNER_ID ? null : profilePseudonym) ? draftsErased : [];
+    const drafts = library && await eraseLearnerDrafts(library, this.namesNoOne(learnerId) ? null : profilePseudonym) ? draftsErased : [];
     // L-11: from now on no session of this learner opened before writes them back.
     this.forgotten.set(profilePseudonym, ++this.sequence);
     return this.learnerOperation(profilePseudonym, async () => {
@@ -3232,9 +3247,11 @@ function sortedTitles(titles: readonly string[]): string[] {
 
 /** Review finding 1: why forget_session {learner_id} refuses an id that is not the editor's learner, and how to
  * forget the editor's learner instead. */
-function otherLearnerRefusal(requested: string, editorLearner: string): string {
-  return `learner_id ${JSON.stringify(requested)} is not the learner here, and nothing was erased: the editor names the ` +
-    `learner, ${JSON.stringify(editorLearner)} (the Studium pane's learner, the studium.learnerId setting of VS Code), and ` +
+function otherLearnerRefusal(requested: string, learner: string, fromEditor: boolean): string {
+  const who = fromEditor
+    ? `the editor names the learner, ${JSON.stringify(learner)} (the Studium pane's learner, the studium.learnerId setting of VS Code)`
+    : `this server plays one learner, ${JSON.stringify(learner)} (STUDIUM_LEARNER_ID, else "anonymous")`;
+  return `learner_id ${JSON.stringify(requested)} is not the learner here, and nothing was erased: ${who}, and ` +
     "this server plays no other. To erase that learner's data, call forget_session without learner_id.";
 }
 

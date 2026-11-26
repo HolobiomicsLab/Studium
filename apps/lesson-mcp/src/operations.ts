@@ -27,6 +27,9 @@ const fail = (message: string): ToolResult => ({ content: [{ type: "text", text:
 /** Review finding 1: what forget_session adds to its description when the editor names the learner (D1). */
 const EDITOR_FORGET = " Here the editor names the learner: to erase all of that learner's data, pass neither session_id " +
   "nor learner_id; a learner_id that is not the editor's learner is refused and nothing is erased.";
+/** Learner ids (26 Nov 2026): the same when this server plays one learner. */
+const ONE_LEARNER_FORGET = " This server plays one learner: to erase all of that learner's data, pass neither session_id " +
+  "nor learner_id; a learner_id that is not that learner is refused and nothing is erased.";
 
 function transportTarget(target: RoutedReinforcementTarget): RoutedReinforcementTarget {
   return { ...target, due_at: Math.round(target.due_at) };
@@ -471,7 +474,7 @@ export function lessonOperations(host: SessionHost, opts: LessonOperationsOption
     async ({ session_id, learner_id, now_ms }) => {
       try {
         // D1: when the editor names the learner, a call without either is that learner's.
-        if (session_id === undefined && learner_id === undefined && !host.editorNamesLearner) {
+        if (session_id === undefined && learner_id === undefined && !host.learnerFixed) {
           return fail("at least one of session_id or learner_id is required");
         }
         const status = session_id !== undefined
@@ -645,7 +648,7 @@ export function lessonOperations(host: SessionHost, opts: LessonOperationsOption
         "display_markdown}: kept names what stays on disk (the library's lessons and their sources); show " +
         "display_markdown to the learner. language (fr|en), optional, is the language of display_markdown; by default " +
         "the lesson's with session_id, else the learner's last lesson's, else the server's. To merely close, use end_session." +
-        (host.editorNamesLearner ? EDITOR_FORGET : ""),
+        (host.editorNamesLearner ? EDITOR_FORGET : host.learnerFixed ? ONE_LEARNER_FORGET : ""),
       inputSchema: {
         session_id: z.string().min(1).optional(), learner_id: z.string().min(1).max(200).optional(),
         language: z.enum(["fr", "en"], { errorMap: () => ({ message: "language must be fr or en" }) }).optional(),
@@ -656,7 +659,7 @@ export function lessonOperations(host: SessionHost, opts: LessonOperationsOption
         // Review finding 1: when the editor names the learner, a call with neither forgets that learner, and the host
         // refuses another learner_id.
         if (session_id !== undefined && learner_id !== undefined) return fail("pass exactly one of session_id or learner_id");
-        if (session_id === undefined && learner_id === undefined && !host.editorNamesLearner) {
+        if (session_id === undefined && learner_id === undefined && !host.learnerFixed) {
           return fail("pass exactly one of session_id or learner_id");
         }
         return text(session_id !== undefined ? await host.forget(session_id, language) : await host.forgetLearner(learner_id, language));

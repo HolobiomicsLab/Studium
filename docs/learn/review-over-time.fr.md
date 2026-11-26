@@ -100,8 +100,8 @@ au redémarrage. Voir [configuration](../reference/configuration.fr.md).
 
 Les dossiers sur disque portent un pseudonyme calculé à partir de votre identifiant et du secret, jamais
 l'identifiant lui-même. Pour déplacer vos données vers une autre machine, copiez le dossier de données entier,
-secret compris : sans lui, vos dossiers ne peuvent plus être rattachés à votre identifiant. Gardez le même
-`learner_id` dans tous vos assistants pour n'avoir qu'un historique.
+secret compris : sans lui, vos dossiers ne peuvent plus être rattachés à votre identifiant. Fixez le même
+`STUDIUM_LEARNER_ID` dans tous vos assistants pour n'avoir qu'un historique.
 
 ## Limites
 

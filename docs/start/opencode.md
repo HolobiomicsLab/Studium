@@ -74,7 +74,7 @@ terms of your plan; see [Connect Mistral Vibe](vibe.md#what-leaves-your-machine)
 A lesson ready to play is offered in your web browser first: the assistant shows the address of Studium's
 [browser player](browser.md#from-your-assistant), on your computer, where you answer each step without
 going through the chat; say "here" to play it in the chat instead. The address lives as long as the OpenCode session, and plays the
-learner id OpenCode passed. Your answers there are checked by Studium on your computer and do not go to
+learner the server plays (`STUDIUM_LEARNER_ID`, else `anonymous`). Your answers there are checked by Studium on your computer and do not go to
 the model, as long as no judge model is configured. `STUDIUM_BROWSER_PLAYER=off` in `environment` turns
 this off. Tried once in `opencode web` (see Limits).
 
