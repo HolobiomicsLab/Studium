@@ -112,6 +112,15 @@ describe("PanelView boundary", () => {
     expect(isPanelView({ ...V2, actions: [...V2.actions, "closeMap", "contest"], map })).toBe(true);
   });
 
+  // Owner decision 2026-11-26: a view whose rail offers the steps already done, and a revisit view, are
+  // still views this pane shows (it does not offer the revisit itself yet).
+  test("accepts a view that offers revisit, and one that shows a step already done", () => {
+    const done = [{ index: 1, scene_id: "s1", title: "Un" }];
+    expect(isPanelView({ ...V2, progress: { ...V2.progress, done }, actions: [...V2.actions, "revisit"] })).toBe(true);
+    const revisit = { scene_id: "s1", index: 1, total: 3, title: "Un", answered: false };
+    expect(isPanelView({ ...V2, progress: { ...V2.progress, done }, actions: ["resume", "revisit"], revisit })).toBe(true);
+  });
+
   test.each([
     ["orientation", { ...V2, orientation: { step: { index: "2", total: 9 }, reviews_due: 0, waiting: "answer" } }],
     ["waiting", { ...V2, orientation: { ...V2.orientation, waiting: "sleeping" } }],

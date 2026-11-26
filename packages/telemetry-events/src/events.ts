@@ -221,7 +221,7 @@ export const InteractionSchema = BaseEventSchema.extend({
   type: z.literal("interaction"),
   act: z.enum([
     "respond", "turn", "hint", "rateRecall", "reviewNow", "restartLesson", "end", "pickCourse", "ask", "setAttention",
-    "setLanguage", "replan", "openMap", "closeMap", "contest", "prompt",
+    "setLanguage", "replan", "openMap", "closeMap", "contest", "prompt", "revisit", "resume",
   ]),
   lane: z.enum(["fast", "companion"]),
   // The rank of the surface the session is played on (as negotiated: 3 a panel or a pane, 2 forms,

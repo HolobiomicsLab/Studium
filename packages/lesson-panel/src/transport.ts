@@ -7,6 +7,7 @@ import type { PanelActionName } from "./view.js";
 const TRANSPORTED = {
   respond: true, turn: true, hint: true, rateRecall: true, reviewNow: true, restartLesson: true, end: true, pickCourse: true,
   ask: true, setAttention: true, setLanguage: true, replan: true, openMap: true, closeMap: true, contest: true, prompt: true,
+  revisit: true, resume: true,
 } as const satisfies Record<PanelActionName, true>;
 
 export const PANEL_ACTION_TYPES: readonly PanelActionName[] = Object.freeze(Object.keys(TRANSPORTED) as PanelActionName[]);

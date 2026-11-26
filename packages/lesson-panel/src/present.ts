@@ -11,6 +11,7 @@ import {
   type PublicScene, type PanelView, type NamedConcept, type Prompt, type Surface,
 } from "./view.js";
 import type { PanelBackend, PanelContext, Payload, ServedPrompt } from "./backend.js";
+import type { Revisit } from "./view.js";
 import { mapView } from "./map.js";
 
 const FORBIDDEN_FIELDS = new Set(["answer", "correct", "expected", "key", "solution"]);
@@ -104,6 +105,37 @@ async function doneView(backend: PanelBackend, ctx: PanelContext): Promise<Panel
   return view;
 }
 
+const ASSESSORS: ReadonlySet<string> = new Set(["key", "judge", "none"]);
+
+/** A step already done, read only (action revisit): its public content and assets take the scene's place,
+ * with what the session recorded of the answer and what the panel kept of it. Nothing of the current
+ * screen is answerable from here: no verdict, no proposal, no map; the only actions are resume and another
+ * revisit. `progress` and the orientation still say where the learner is. */
+async function showRevisit(backend: PanelBackend, ctx: PanelContext, view: PanelView, sceneId: string): Promise<void> {
+  const past = await backend.getPastScene!(ctx.sessionId, sceneId);
+  const scene = projectScene(past.scene, view.locale);
+  assertPublicContent(past.assets);
+  view.scene = scene;
+  view.scene_assets = selectRenderOrder(await Promise.all(past.assets.map(asset =>
+    backend.inlineImage(asset, assetBundleRef({ bundle_ref: asset.bundle_ref }, scene.id, ctx.review ?? null, ctx.bundleRef)))), view.modalityPreference);
+  view.verdict = null;
+  view.navigation = null;
+  view.self_rating = null;
+  view.explanation = null;
+  if (view.prompts) view.prompts = [];
+  delete view.map;
+  view.actions = ["resume", ...(view.progress.done?.length ? ["revisit" as const] : [])];
+  const kept = ctx.answers?.[scene.id];
+  const result: Revisit["result"] = !past.answered ? undefined : past.correct === true ? "right" : past.correct === false ? "wrong" : "unassessed";
+  view.revisit = {
+    scene_id: scene.id, index: past.index + 1, total: past.total, title: scene.title ?? "", answered: past.answered,
+    ...(result ? { result } : {}),
+    ...(past.assessed_by && ASSESSORS.has(past.assessed_by) ? { assessed_by: past.assessed_by as NonNullable<Revisit["assessed_by"]> } : {}),
+    ...(kept?.your_answer ? { your_answer: kept.your_answer } : {}),
+    ...(kept?.feedback ? { feedback: kept.feedback } : {}),
+  };
+}
+
 /** How each kind of proposal is answered: the words of « yes » and of « no » (spec § 2.6: two actions
  * at most, refusing always possible). A notice has none: it asks nothing. */
 const PROMPT_LABELS: Partial<Record<Prompt["kind"], readonly [accept: Parameters<typeof phrase>[0], dismiss: Parameters<typeof phrase>[0]]>> = {
@@ -149,8 +181,9 @@ export async function presentPanel(backend: PanelBackend, ctx: PanelContext): Pr
     const attention = ctx.attention ?? "normal";
     const surface = ctx.surface ?? DEFAULT_SURFACE;
     // The server's proposals first, then the answer to the learner's own « I have N minutes ».
-    const served = backend.getPrompts ? await backend.getPrompts(ctx.sessionId, { attention, surface, locale: view.locale }) : [];
-    const prompts = [...served.flatMap(prompt => promptOf(prompt, view.locale)), ...(ctx.prompts ?? [])];
+    // During a revisit the server is not asked: nothing is proposed, nothing is counted as shown.
+    const served = backend.getPrompts && !ctx.revisit ? await backend.getPrompts(ctx.sessionId, { attention, surface, locale: view.locale }) : [];
+    const prompts = ctx.revisit ? [] : [...served.flatMap(prompt => promptOf(prompt, view.locale)), ...(ctx.prompts ?? [])];
     Object.assign(view, placed, { schema: PANEL_VIEW_SCHEMA, prompts, attention, surface });
     // A4: on a prerequisite detour, the main-path step the learner is at, for the progress rail.
     const { detour, main } = placed.orientation.step;
@@ -162,7 +195,7 @@ export async function presentPanel(backend: PanelBackend, ctx: PanelContext): Pr
     if (view.kind === "scene") view.actions.push("ask", "setLanguage", "setAttention", "replan");
     // The map (spec § 2.7): on request, from forms upwards, for a lesson (a review session has none).
     // A closed map is not read: it costs the fast lane nothing.
-    if (backend.getConceptMapRecord && !ctx.review && (view.surface?.rank ?? 3) >= 2) {
+    if (backend.getConceptMapRecord && !ctx.review && !ctx.revisit && (view.surface?.rank ?? 3) >= 2) {
       const record = ctx.mapOpen ? await backend.getConceptMapRecord(ctx.sessionId) : null;
       if (record) view.map = mapView(record, view.locale);
       view.actions.push(view.map ? "closeMap" : "openMap");
@@ -170,6 +203,13 @@ export async function presentPanel(backend: PanelBackend, ctx: PanelContext): Pr
       if (view.map && view.kind === "scene" && backend.contestConcept) view.actions.push("contest");
     }
   }
-  ctx.lastView = PanelViewSchema.parse({ ...view, ...ctx.effects });
+  // The rail (owner decision 2026-11-26): the main-path steps already done, which the learner may revisit.
+  if (view.kind === "scene" && backend.getRevisitable && backend.getPastScene) {
+    const done = await backend.getRevisitable(ctx.sessionId);
+    if (done.length) { view.progress.done = done; view.actions.push("revisit"); }
+  }
+  if (ctx.revisit && view.kind === "scene") await showRevisit(backend, ctx, view, ctx.revisit.sceneId);
+  // The current screen's effects (a hint, a notice) wait behind a revisit, and come back with resume.
+  ctx.lastView = PanelViewSchema.parse({ ...view, ...(ctx.revisit ? {} : ctx.effects) });
   return ctx.lastView;
 }

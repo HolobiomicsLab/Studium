@@ -226,6 +226,7 @@ class Interaction(_Base):
     act: Literal[
         "respond", "turn", "hint", "rateRecall", "reviewNow", "restartLesson", "end", "pickCourse",
         "ask", "setAttention", "setLanguage", "replan", "openMap", "closeMap", "contest", "prompt",
+        "revisit", "resume",
     ]
     lane: Literal["fast", "companion"]
     surface_rank: _SurfaceRank

@@ -1,6 +1,6 @@
 import {
   PANEL_ACTION_NAMES, PANEL_VIEW_SCHEMA_V1, PANEL_VIEW_V2_FIELDS, PanelActionSchema, PanelViewSchema,
-  type Orientation, type PanelAction, type PanelView, type Prompt,
+  type Orientation, type PanelAction, type PanelActionName, type PanelView, type Prompt, type PublicScene,
 } from "./view.js";
 import type { PanelBackend, PanelContext, Payload } from "./backend.js";
 import { presentPanel } from "./present.js";
@@ -22,6 +22,8 @@ async function startAgain(backend: PanelBackend, ctx: PanelContext, review: bool
   ctx.review = review ? reviewContext(reply) : null;
   delete ctx.transition;
   delete ctx.mapOpen;
+  delete ctx.revisit;
+  delete ctx.answers;
   return {};
 }
 
@@ -85,6 +87,47 @@ function contestMessage(settled: { claim?: string; outcome?: string }, locale: "
   return phrase(`panel_contest_${settled.outcome === "confirmed" ? "confirmed" : "refuted"}_${claim}`, {}, locale);
 }
 
+/** The words of an answer as the learner gave it: their text, or the text of the choice they made on
+ * `scene` (the scene answered, when the panel showed it). Undefined for an acknowledgement, a confidence
+ * or a deck of verdicts, which have no words of their own. */
+export function answerText(input: unknown, scene?: PublicScene): string | undefined {
+  if (!input || typeof input !== "object") return undefined;
+  const given = input as { kind?: unknown; text?: unknown; choiceId?: unknown };
+  if (typeof given.text === "string" && given.text.trim()) return given.text;
+  if (given.kind === "quiz_choice" && typeof given.choiceId === "string") return scene?.choices?.find(c => c.id === given.choiceId)?.text;
+  return undefined;
+}
+
+/** Keep what the panel saw of an answer — the learner's words and the feedback its verdict carried — for
+ * a later revisit of that step. `scene` is the scene on screen when the answer was given. A transition
+ * without a verdict keeps nothing; a later answer to the same scene replaces the earlier one. */
+export function noteAnswer(ctx: PanelContext, input: unknown, transition: Payload | undefined, scene?: PublicScene): void {
+  const sceneId = transition?.verdict?.scene_id;
+  if (typeof sceneId !== "string") return;
+  const words = answerText(input, scene?.id === sceneId ? scene : undefined);
+  const feedback = transition?.verdict?.feedback;
+  (ctx.answers ??= {})[sceneId] = {
+    ...(words === undefined ? {} : { your_answer: words }),
+    ...(typeof feedback === "string" && feedback.trim() ? { feedback } : {}),
+  };
+}
+
+/** What the learner may do while a step already done is on screen: another such step, back to where
+ * they were, end the lesson, or open the picker. Anything else is refused in one line. */
+const DURING_REVISIT: ReadonlySet<PanelActionName> = new Set(["revisit", "resume", "end", "pickCourse"]);
+const REVISIT_REFUSED = "a step already done is on screen, for review only: resume (back to where the learner was) before acting on the lesson";
+
+/** Show a step already done, read only: one of the main-path steps the backend lists (progress.done). */
+async function startRevisit(backend: PanelBackend, ctx: PanelContext, sceneId: string): Promise<void> {
+  if (!backend.getRevisitable || !backend.getPastScene) throw new Error("this server cannot show a step already done");
+  if (ctx.transition?.kind === "complete") throw new Error("the lesson is complete: there is no current step to come back to");
+  const done = await backend.getRevisitable(ctx.sessionId);
+  if (!done.some(step => step.scene_id === sceneId)) {
+    throw new Error(`scene "${sceneId}" is not a step already done on the lesson's main path; only those (progress.done) can be revisited`);
+  }
+  ctx.revisit = { sceneId };
+}
+
 /** The scene changed, or the session did: what was proposed for that scene leaves with it. */
 function leaveScene(ctx: PanelContext): void {
   if (ctx.prompts) ctx.prompts = ctx.prompts.filter(p => p.expires !== "scene");
@@ -93,9 +136,11 @@ function leaveScene(ctx: PanelContext): void {
 async function execute(backend: PanelBackend, ctx: PanelContext, action: PanelAction): Promise<Partial<PanelView>> {
   switch (action.type) {
     case "respond": {
+      const answered = ctx.lastView?.scene;
       ctx.transition = action.expected_scene_id === undefined
         ? await backend.submitResponse(ctx.sessionId, action.input)
         : await backend.submitResponse(ctx.sessionId, action.input, action.expected_scene_id);
+      noteAnswer(ctx, action.input, ctx.transition, answered);
       leaveScene(ctx);
       // The answer that ends a contest's check says what the check showed.
       const settled = ctx.transition?.contest as { claim?: string; outcome?: string } | undefined;
@@ -169,6 +214,7 @@ function readAction(input: unknown): PanelAction {
 /** Validate and apply a learner action. Native picking/confirmation stays with the host. */
 export async function applyPanelAction(backend: PanelBackend, ctx: PanelContext, input: PanelAction): Promise<PanelView> {
   const action = readAction(input);
+  if (ctx.revisit && !DURING_REVISIT.has(action.type)) throw new Error(REVISIT_REFUSED);
   if (action.type === "end" && action.confirmed) {
     const previous = ctx.lastView ?? await presentPanel(backend, ctx);
     await backend.forgetSession(ctx.sessionId);
@@ -176,10 +222,16 @@ export async function applyPanelAction(backend: PanelBackend, ctx: PanelContext,
     const notice: PanelView = { ...previous, schema: PANEL_VIEW_SCHEMA_V1, kind: "notice", scene: undefined, scene_assets: [], mastery: {}, actions: ["pickCourse"], message: phrase("extension_forget_done", {}, previous.locale) };
     for (const field of PANEL_VIEW_V2_FIELDS) delete notice[field];
     delete notice.map;
+    delete notice.revisit;
+    notice.progress = { index: notice.progress.index, total: notice.progress.total };
     delete ctx.mapOpen;
+    delete ctx.revisit;
     ctx.lastView = notice;
     return PanelViewSchema.parse(ctx.lastView);
   }
+  // A revisit and its resume leave the current screen's effects as they are: resume shows them again.
+  if (action.type === "revisit") { await startRevisit(backend, ctx, action.scene_id); return presentPanel(backend, ctx); }
+  if (action.type === "resume") { delete ctx.revisit; return presentPanel(backend, ctx); }
   if (action.type !== "end" && action.type !== "pickCourse") ctx.effects = await execute(backend, ctx, action);
   return presentPanel(backend, ctx);
 }

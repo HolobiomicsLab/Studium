@@ -20,7 +20,7 @@ export interface CompanionAct { scene_id: string; act: ActKind; lane: Lane; corr
  * actions; the conversation's tools map onto the same names). Mirrors InteractionSchema.act. */
 export type InteractionAct =
   | "respond" | "turn" | "hint" | "rateRecall" | "reviewNow" | "restartLesson" | "end" | "pickCourse" | "ask"
-  | "setAttention" | "setLanguage" | "replan" | "openMap" | "closeMap" | "contest" | "prompt";
+  | "setAttention" | "setLanguage" | "replan" | "openMap" | "closeMap" | "contest" | "prompt" | "revisit" | "resume";
 /** What a caller knows of an act when it receives it: its name, its lane, the surface's rank, the
  * delay the surface measured, and `help` when the act asked for an explanation. */
 export interface ActReceived {

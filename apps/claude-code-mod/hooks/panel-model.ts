@@ -22,6 +22,9 @@ const ACTIONS = new Set<StudiumPanelActionName>([
   // The concept map (INT-STUDIUM-058 § 2.7). This pane does not draw it yet: a view that offers it,
   // or carries it, is still a view it shows.
   "openMap", "closeMap", "contest", "prompt",
+  // A step already done, read only (owner decision 2026-11-26). This pane does not offer it yet: a view
+  // that offers it, or shows one, is still a view it shows.
+  "revisit", "resume",
 ]);
 const FREE_TEXT_KINDS: Record<string, string> = {
   ai_critique: "critique",

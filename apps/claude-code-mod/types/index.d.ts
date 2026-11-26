@@ -16,7 +16,9 @@ export type StudiumPanelActionName =
   | "openMap"
   | "closeMap"
   | "contest"
-  | "prompt";
+  | "prompt"
+  | "revisit"
+  | "resume";
 
 export type StudiumPanelAction =
   | { type: "respond"; input: unknown; expected_scene_id?: string }
@@ -34,7 +36,9 @@ export type StudiumPanelAction =
   | { type: "openMap" }
   | { type: "closeMap" }
   | { type: "contest"; concept_id: string; claim: "known" | "unsure" }
-  | { type: "prompt"; id: string; outcome: "accept" | "dismiss" | "accepted" | "dismissed" };
+  | { type: "prompt"; id: string; outcome: "accept" | "dismiss" | "accepted" | "dismissed" }
+  | { type: "revisit"; scene_id: string }
+  | { type: "resume" };
 
 export type StudiumNamedConcept = { id: string; label: string };
 export type StudiumSource = {
