@@ -38,13 +38,17 @@ function host(opts: { openLink?: string; refuse?: boolean; defaultLearnerId?: st
   const shippedRoot = tmp();
   write(shippedRoot, "discover-studium-en/lesson.json", lesson("discover-studium-en"));
   const asked: Array<[string, string]> = [];
+  const languages: Array<string | undefined> = [];
   const h = new SessionHost({
     bundlesRoot: library, libraryRoot: library, live: false, dataDir: null, shippedRoot,
     ...(opts.defaultLearnerId ? { defaultLearnerId: opts.defaultLearnerId } : {}),
     ...(opts.openLink !== undefined ? { openLink: opts.openLink } : {}),
-    browserLink: async (learnerId: string, bundleRef: string) => { asked.push([learnerId, bundleRef]); return opts.refuse ? null : address(learnerId, bundleRef); },
+    browserLink: async (learnerId: string, bundleRef: string, language?: string) => {
+      asked.push([learnerId, bundleRef]); languages.push(language);
+      return opts.refuse ? null : address(learnerId, bundleRef);
+    },
   });
-  return { library, h, asked };
+  return { library, h, asked, languages };
 }
 async function answerFirst(h: SessionHost, ref: string, learnerId?: string) {
   const { sessionId, presentation } = await h.create(ref, learnerId);
@@ -66,6 +70,17 @@ describe("study plan: the browser player first when no VS Code pane serves Studi
     expect(plan.next_step.text).toMatch(/web browser[\s\S]*say “here”/);
     expect(plan.next_step.text).toMatch(/as long as this assistant session/);
     expect(plan.display_markdown).toContain(`<${link}>`);
+  });
+
+  // Trial of 2026-11-26: the player spoke the browser's language, not the French lesson's. The host asks for the address
+  // in the lesson's language (metadata.language), which the address carries to the page (served-player.ts).
+  it("asks for the address in the language of the lesson, start and continue alike", async () => {
+    const { library, h, languages } = host();
+    write(library, "photo/lesson.json", lesson("photo", "fr"));
+    await h.studyPlan("ana", { language: "fr" });
+    await answerFirst(h, "photo/lesson.json", "ana");
+    expect((await h.studyPlan("ana", { language: "fr" })).next_step).toMatchObject({ action: "continue" });
+    expect(languages).toEqual(["fr", "fr"]);
   });
 
   it("continue: the lesson in progress, for that same learner", async () => {

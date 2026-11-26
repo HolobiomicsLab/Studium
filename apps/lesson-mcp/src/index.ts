@@ -43,7 +43,7 @@ export function shippedLessonsRoot(opts: {
 export function hostFromEnvironment(
   env: Readonly<Record<string, string | undefined>> = process.env, home: string = homedir(),
   opts: {
-    shippedRoot?: string | null; browserLink?: (learnerId: string, bundleRef: string) => Promise<string | null>; servesOnePerson?: boolean;
+    shippedRoot?: string | null; browserLink?: (learnerId: string, bundleRef: string, language?: string) => Promise<string | null>; servesOnePerson?: boolean;
   } = {},
 ): { host: SessionHost; config: PersistenceConfig; live: boolean } {
   const config = resolvePersistence(env, home);
@@ -125,7 +125,7 @@ export async function main(argv: readonly string[] = process.argv.slice(2)): Pro
   // One assistant session of one user: its chat and its browser player are one person (D4 review, finding 1).
   const { host, config, live } = hostFromEnvironment(process.env, homedir(), {
     shippedRoot: shipped, servesOnePerson: true,
-    ...(player ? { browserLink: (learnerId: string, bundleRef: string) => player.linkFor(learnerId, bundleRef) } : {}),
+    ...(player ? { browserLink: (learnerId: string, bundleRef: string, language?: string) => player.linkFor(learnerId, bundleRef, language) } : {}),
   });
   served.host = host;
   const server = buildMcpServer(host);

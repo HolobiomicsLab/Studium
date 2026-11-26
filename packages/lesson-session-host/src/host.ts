@@ -783,8 +783,9 @@ export interface SessionHostOptions {
   /** D4 (waiting review 2026-11-25, owner decision 4): when no pane is offered (no openLink), the address of this
    * server's browser player that plays `bundleRef` as `learnerId`, the player started on first need (lesson-mcp's
    * served-player.ts); null when it cannot start. Asked only for a lesson to offer: create_lesson's, and the study
-   * plan's lesson to start or continue. Absent ⇒ no address is offered. */
-  browserLink?: (learnerId: string, bundleRef: string) => Promise<string | null>;
+   * plan's lesson to start or continue. Absent ⇒ no address is offered. `language`: the lesson's metadata.language,
+   * which the address carries so that the page speaks it (trial of 2026-11-26). */
+  browserLink?: (learnerId: string, bundleRef: string, language?: string) => Promise<string | null>;
   live: boolean;
   /** OPTIONAL per-run judgment regenerator. When present, a spot_the_flaw with regenerate_from_run has its
    * flawed_content/claims regenerated from the learner's OWN run (server-side) when they run the capsule —
@@ -1046,10 +1047,11 @@ export class SessionHost {
   }
 
   /** D4: the address of this server's browser player that plays `bundleRef` as the learner of the call (learnerFor),
-   * or null: the VS Code pane is offered instead (openLink), there is no player, or it could not start. */
-  async browserLinkFor(bundleRef: string, learnerId?: string): Promise<string | null> {
+   * in the lesson's `language`, or null: the VS Code pane is offered instead (openLink), there is no player, or it could
+   * not start. */
+  async browserLinkFor(bundleRef: string, learnerId?: string, language?: string): Promise<string | null> {
     if (this.openLink || !this.opts.browserLink) return null;
-    try { return await this.opts.browserLink(this.learnerFor(learnerId), bundleRef); } catch { return null; }
+    try { return await this.opts.browserLink(this.learnerFor(learnerId), bundleRef, language); } catch { return null; }
   }
   /** D4: whether the session `id` plays `learnerId`'s progress — the browser player checks it before it reads or moves
    * a session for the learner its key was minted for — or null when this server holds no such session. */
@@ -1123,7 +1125,7 @@ export class SessionHost {
     let order = named();
     let address: string | null = null;
     if (order.includes("browser")) {
-      address = await this.browserLinkFor(lesson.bundle_ref, learnerId);
+      address = await this.browserLinkFor(lesson.bundle_ref, learnerId, lesson.language);
       if (address === null) { browser = false; order = named(); }
     }
     if (!order.length) return null;

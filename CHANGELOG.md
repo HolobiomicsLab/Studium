@@ -29,6 +29,8 @@ A tester found that building a lesson leaves the screen silent for minutes and t
 
 ### Fixed
 
+- **The browser player speaks the lesson's language.** An assistant's address now carries the lesson's language (`&lang=fr` or `&lang=en`), and the page's interface uses it instead of the browser's: in a trial, a French lesson opened in an English browser showed "Step 1/13", "Continue" and "Submit". The language setting still changes it; without the parameter, the browser's language decides as before.
+- **One length per lesson.** The minutes left in the pane, the browser and the status line are now the lesson's stated duration (`metadata.duration_minutes`) times the share of steps left, as the VS Code tree and status bar already computed them; they came from the scenes' estimated seconds, so the chat said "about 20 minutes" while the player said "about 27 min" at step 1.
 - `vscode://` links to a lesson never opened it in a real VS Code, which decodes the query before the handler; they now open, and only lessons under the library, `studium.bundlesRoot` or the shipped lessons.
 - In the browser player, "restart the lesson" and "review now" acted for the default learner instead of the address's; `get_panel_view` could open a lesson the list does not show; a mistyped address said the session had ended; a second address pasted in the tab did nothing; an oversized request got a reset instead of 413.
 - A test that checked a learner id never reaches disk failed when a random pseudonym contained it.

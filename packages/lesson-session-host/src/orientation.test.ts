@@ -12,6 +12,7 @@ import { dirname, join, resolve } from "node:path";
 import { SessionHost } from "./host.js";
 import { operatorContext } from "./operator-context.js";
 import { createHash } from "node:crypto";
+import { readyLine } from "./open-link.js";
 import { helpOf, orientationOf, statusLine, voiceLine, voicesOf, VOICE_LINE_MAX, type Orientation, type Voice } from "./orientation.js";
 
 const T0 = Date.parse("2026-11-06T09:00:00Z");
@@ -83,18 +84,41 @@ describe("orientationOf — where the learner is", () => {
     for (const secret of SECRETS) expect(JSON.stringify(second)).not.toContain(secret);
   });
 
+  // Changed 2026-11-26: the minutes left are the lesson's stated duration (metadata.duration_minutes, 5 here) times the
+  // share of steps left, rounded up: the rule of the VS Code tree and status bar (study-status.ts minutesLeft). They
+  // were the scenes' estimated_seconds (4 then 3 here), which the chat's « about N minutes » did not use.
   it("names the concept on screen and the minutes left, rounded up", async () => {
     const { host, sid } = await open(threeScenes());
-    expect(orientationOf(host, sid).minutes_left).toBe(4); // 60 s + 90 s + 45 s
+    expect(orientationOf(host, sid).minutes_left).toBe(5); // 5 min × 3/3
     await host.respond(sid, { kind: "ack" });
     const second = orientationOf(host, sid);
     expect(second.concept).toEqual({ id: "c-un", title: "Notion c-un", state: "current" });
-    expect(second.minutes_left).toBe(3); // 90 s + 45 s
+    expect(second.minutes_left).toBe(4); // ⌈5 min × 2/3⌉
   });
 
-  it("gives no minutes when the lesson states no duration", async () => {
+  // Changed 2026-11-26: a lesson always states its duration (the bundle schema requires a positive integer), so scenes
+  // that estimate no time no longer hide the minutes left.
+  it("gives the minutes of the stated duration even when the scenes estimate none", async () => {
     const { host, sid } = await open(lesson([concept("s-c", "c-un", 0), quiz("s-q1", "c-deux", 0)]));
-    expect(orientationOf(host, sid)).not.toHaveProperty("minutes_left");
+    expect(orientationOf(host, sid).minutes_left).toBe(5);
+  });
+
+  // Trial of 2026-11-26: for one lesson the chat said « environ 20 minutes » (create_lesson's ready line, from
+  // metadata.duration_minutes) and the player's header « about 27 min » at step 1/13 (the scenes' estimated_seconds).
+  // One length for a lesson: its stated duration, shared by the steps left, on every surface.
+  it("agrees with the chat's ready line when the scenes' estimates add up to another length", async () => {
+    const scenes = Array.from({ length: 13 }, (_, i) => concept(`s-${i}`, "c-un", 125)); // 13 × 125 s ≈ 27 min
+    const stated = lesson(scenes);
+    const bundle = { ...stated, metadata: { ...stated.metadata, duration_minutes: 20 } };
+    const { host, sid } = await open(bundle);
+    const first = orientationOf(host, sid);
+    expect(first.step).toMatchObject({ index: 1, total: 13 });
+    expect(first.minutes_left).toBe(20);
+    const ready = readyLine("fr", { title: "Leçon O", steps: scenes.length, minutes: bundle.metadata.duration_minutes, link: "" });
+    expect(ready).toContain(`environ ${first.minutes_left} minutes`);
+    await host.respond(sid, { kind: "ack" });
+    // The VS Code tree and status bar's rule (study-status.ts minutesLeft(20, 1, 13)): ⌈20 × 12/13⌉.
+    expect(orientationOf(host, sid).minutes_left).toBe(19);
   });
 
   it("says nothing of an adaptation after a plain advance", async () => {
@@ -489,9 +513,10 @@ describe("the conversation text carries the orientation and the voices (task 1.5
 
   it("ends every screen with the status line of that screen, on each way the host serves it", async () => {
     const { host, sid } = await open(threeScenes());
-    expect(host.currentPresentation(sid).display_markdown.endsWith("`Leçon O · étape 1/3 · 4 min · à lire`")).toBe(true);
+    // Changed 2026-11-26: the minutes are the stated duration's share (5 min × 3/3, then ⌈5 × 2/3⌉), as on every surface.
+    expect(host.currentPresentation(sid).display_markdown.endsWith("`Leçon O · étape 1/3 · 5 min · à lire`")).toBe(true);
     const next = await host.respond(sid, { kind: "ack" });
-    const second = "`Leçon O · étape 2/3 · 3 min · à toi de répondre`";
+    const second = "`Leçon O · étape 2/3 · 4 min · à toi de répondre`";
     expect(next.display_markdown.endsWith(second)).toBe(true);
     expect(next.kind === "next" && next.presentation.display_markdown.endsWith(second)).toBe(true);
     expect(host.currentPresentation(sid).display_markdown.endsWith(second)).toBe(true);

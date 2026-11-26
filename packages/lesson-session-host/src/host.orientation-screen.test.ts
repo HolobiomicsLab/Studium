@@ -96,6 +96,7 @@ describe("A4: the minutes left during a prerequisite detour", () => {
     expect(t.navigation).toMatchObject({ kind: "remediate", returns_to: "c-dep" });
     const o = orientationOf(h, sid);
     expect(o.step).toMatchObject({ index: 4, total: 4, detour: { returns_to: "c-dep" }, main: { index: 2, title: "Scène c-dep" } });
-    expect(o.minutes_left).toBe(Math.ceil((60 + 600 + 600 + 60) / 60));   // q-a2, then c-dep onwards
+    // Changed 2026-11-26: the stated duration (10 min) times the share of steps left, not the scenes' estimated seconds.
+    expect(o.minutes_left).toBe(Math.ceil(10 * (1 + 3) / 4));   // q-a2, then c-dep onwards: 4 steps of 4
   });
 });

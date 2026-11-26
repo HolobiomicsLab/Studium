@@ -85,7 +85,8 @@ reprend à partir de votre progression enregistrée.
   **À propos de cette leçon** et **M'oublier**.
 - **Ligne d'état.** Une ligne au-dessus de la barre de progression, de 80 caractères au plus, dit où vous
   en êtes : la leçon, l'étape sur le total (ou quelle question de contrôle d'une contestation), un détour,
-  les minutes restantes, les révisions dues et ce qui est attendu de vous (à lire, votre réponse, votre
+  les minutes restantes (la durée annoncée de la leçon multipliée par la part des étapes qui restent, la durée
+  que la conversation donne quand la leçon est prête), les révisions dues et ce qui est attendu de vous (à lire, votre réponse, votre
   auto-évaluation, un calcul à lancer, terminé). La barre de progression garde ses segments sans répéter
   l'étape. Pendant une leçon, la barre d'état de VS Code affiche cette même ligne ; ce qui est dû en
   révision passe alors dans son info-bulle (voir [Révisions](#révisions)).

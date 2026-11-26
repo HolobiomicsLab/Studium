@@ -34,8 +34,9 @@ export interface Orientation {
   /** The first concept of the screen, in the state the concept map gives it. Absent on a screen that
    * names no concept and once the session is complete. */
   concept?: { id: string; title: string; state: ConceptMapState };
-  /** Authored durations of this screen and the ones after it, in minutes rounded up. Absent when the
-   * lesson states none. */
+  /** The lesson's stated duration (metadata.duration_minutes) times the share of steps left — this screen and the ones
+   * after it — rounded up and at least 1 (lessonMinutesLeft): the length the chat says when the lesson is ready and the
+   * VS Code tree and status bar say. Absent once the lesson is complete. */
   minutes_left?: number;
   /** For a lesson, its due concepts plus those carried from the learner's other lessons, each counted
    * once: the set `start_review_session` would play. A review session counts its own concepts only. */
@@ -63,7 +64,8 @@ export interface OrientationFacts {
   index: number;
   total: number;
   scene: { id: string; type: string; concept_refs: readonly string[] };
-  seconds_left: number;
+  /** lessonMinutesLeft of the screen; null once the lesson is complete. */
+  minutes_left: number | null;
   concept: { id: string; title: string; state: ConceptMapState } | null;
   /** The answer just given asked for the learner's own rating, the request was served with the screen
    * on display, and the rating has not been given (audit 2026-11-10 A3: the one source of `waiting`). */
@@ -143,7 +145,8 @@ export function orientationFacts(
     index: completed ? presentation.total - 1 : presentation.index,
     total: presentation.total,
     scene: { id: scene.id, type: scene.type, concept_refs: refs },
-    seconds_left: completed ? 0 : secondsLeft(entry, presentation.index),
+    minutes_left: completed ? null
+      : lessonMinutesLeft(entry.bundle.metadata.duration_minutes, stepsLeft(entry, presentation.index), entry.bundle.scenes.length),
     concept: completed ? null : concept,
     self_rating_pending: !completed && served !== undefined && served.screenSceneId === scene.id && Object.hasOwn(requests, served.sceneId)
       || completed && served !== undefined && served.screenSceneId === null && Object.hasOwn(requests, served.sceneId),
@@ -172,18 +175,28 @@ function prerequisiteDetourReturn(entry: SessionEntry): { id: string; index: num
   return index < 0 ? null : { id: id!, index, title: entry.bundle.scenes[index]!.title };
 }
 
-/** What is left of the lesson, in seconds, from the scene at `index`. During a contest's check
- * questions (audit 2026-11-10 D8), the one on screen and those still to come, then the lesson from the
- * scene it resumes on: a check question taken from the end of the lesson does not end it. During a
- * detour (A4) the same: the scene on screen, then the lesson from the scene the detour returns to — a
- * remediation taken from the end of the lesson does not end it either. */
-function secondsLeft(entry: SessionEntry, index: number): number {
-  const seconds = (at: number) => entry.bundle.scenes[at]?.estimated_seconds ?? 0;
-  const from = (at: number) => entry.bundle.scenes.slice(at).reduce((sum, s) => sum + s.estimated_seconds, 0);
+/** The minutes left in a lesson: its stated duration (metadata.duration_minutes) times the share of its steps left,
+ * rounded up and at least 1; null when the duration is unknown or no step is left. One length for a lesson on every
+ * surface (trial of 2026-11-26: the chat said « environ 20 minutes » from the duration while the player's header said
+ * « about 27 min » from the scenes' estimated_seconds): the rule of the VS Code tree and status bar
+ * (apps/studium-vscode/src/study-status.ts minutesLeft), which keep their own copy as the extension does not depend on
+ * this package. */
+export function lessonMinutesLeft(durationMinutes: unknown, stepsLeft: number, totalSteps: number): number | null {
+  if (typeof durationMinutes !== "number" || !Number.isFinite(durationMinutes) || durationMinutes <= 0) return null;
+  if (totalSteps <= 0 || stepsLeft <= 0) return null;
+  return Math.max(1, Math.ceil((durationMinutes * stepsLeft) / totalSteps));
+}
+
+/** The steps left of the lesson from the scene at `index`. During a contest's check questions (audit 2026-11-10 D8),
+ * the one on screen and those still to come, then the lesson from the scene it resumes on: a check question taken from
+ * the end of the lesson does not end it. During a detour (A4) the same: the scene on screen, then the lesson from the
+ * scene the detour returns to — a remediation taken from the end of the lesson does not end it either. */
+function stepsLeft(entry: SessionEntry, index: number): number {
+  const from = (at: number) => Math.max(0, entry.bundle.scenes.length - at);
   const route = entry.session.checkRoute();
-  if (route) return [index, ...route.queued].reduce((sum, at) => sum + seconds(at), 0) + from(route.returnIndex);
+  if (route) return 1 + route.queued.length + from(route.returnIndex);
   const detour = entry.session.detourRoute();
-  if (detour && detour.returnIndex !== index) return seconds(index) + from(detour.returnIndex);
+  if (detour && detour.returnIndex !== index) return 1 + from(detour.returnIndex);
   return from(index);
 }
 
@@ -218,7 +231,7 @@ export function orientationFrom(facts: OrientationFacts): Orientation {
       ...(facts.detour_return ? { main: { index: facts.detour_return.index + 1, title: facts.detour_return.title } } : {}),
     },
     ...(facts.concept ? { concept: facts.concept } : {}),
-    ...(facts.seconds_left > 0 ? { minutes_left: Math.ceil(facts.seconds_left / 60) } : {}),
+    ...(facts.minutes_left === null ? {} : { minutes_left: facts.minutes_left }),
     reviews_due: facts.reviews_due,
     waiting: waitingOf(facts),
     ...(adapted ? {

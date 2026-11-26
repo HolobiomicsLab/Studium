@@ -164,15 +164,16 @@ describe("D8: the status line during a contest's check questions", () => {
     const { sessionId } = await h.create("lesson.json", "synthetic-audit-ana");
     await h.respond(sessionId, { kind: "ack" });
     await h.respond(sessionId, { kind: "quiz_choice", choiceId: choice(h, sessionId, true) });
-    // On c-dep (60 s) with q-a2 (60 s) after it: two minutes left.
+    // Changed 2026-11-26: the minutes left are the stated duration (10 min) times the share of steps left (of 4), not
+    // the scenes' estimated seconds; the steps are counted as the seconds were.
+    // On c-dep with q-a2 after it: two steps left, ⌈10 × 2/4⌉ minutes.
     expect(h.currentPresentation(sessionId).scene.id).toBe("c-dep");
-    const before = h.orientationFacts(sessionId).seconds_left;
-    expect(before).toBe(120);
+    expect(h.orientationFacts(sessionId).minutes_left).toBe(5);
     const started = await h.contest(sessionId, "a", "unsure");
     expect(started.questions).toBe(2);
-    // The two check questions (60 s each), then the lesson again from c-dep.
-    expect(h.orientationFacts(sessionId).seconds_left).toBe(120 + before);
+    // The two check questions, then the lesson again from c-dep: four steps, ⌈10 × 4/4⌉.
+    expect(h.orientationFacts(sessionId).minutes_left).toBe(10);
     await h.respond(sessionId, { kind: "quiz_choice", choiceId: choice(h, sessionId, true) });
-    expect(h.orientationFacts(sessionId).seconds_left).toBe(60 + before);
+    expect(h.orientationFacts(sessionId).minutes_left).toBe(8); // ⌈10 × 3/4⌉
   });
 });

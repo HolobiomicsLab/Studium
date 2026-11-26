@@ -26,9 +26,9 @@ export function browserPlayerWanted(env: Readonly<Record<string, string | undefi
 }
 
 export interface ServedPlayer {
-  /** The address that plays `bundleRef` (else lists the lessons) in the browser as `learnerId`. The first call starts
-   * the player; null when it cannot start. */
-  linkFor(learnerId: string, bundleRef?: string): Promise<string | null>;
+  /** The address that plays `bundleRef` (else lists the lessons) in the browser as `learnerId`, in `language` (the
+   * lesson's metadata.language) when the page has it. The first call starts the player; null when it cannot start. */
+  linkFor(learnerId: string, bundleRef?: string, language?: string): Promise<string | null>;
   /** The port the player listens on, or null: not started yet, could not start, or closed. */
   port(): number | null;
   close(): Promise<void>;
@@ -41,6 +41,13 @@ export interface ServedPlayerOptions {
   log: (line: string) => void;
   /** How the server listens; tests make it fail. Default: a free port of 127.0.0.1. */
   listen?: (server: Server) => Promise<void>;
+}
+
+/** The page's interface language for a lesson's metadata.language: fr or en by its base language, else none (the page
+ * then speaks the browser's language). */
+function interfaceLanguage(language: string | undefined): 'fr' | 'en' | null {
+  const base = language?.trim().toLowerCase().split(/[-_]/)[0];
+  return base === 'fr' || base === 'en' ? base : null;
 }
 
 function listenOnLoopback(server: Server): Promise<void> {
@@ -82,14 +89,17 @@ export function servedPlayer(options: ServedPlayerOptions): ServedPlayer {
   })());
 
   return {
-    async linkFor(learnerId, bundleRef) {
+    async linkFor(learnerId, bundleRef, language) {
       const served = await start();
       if (!served) return null;
       const lesson = bundleRef === undefined ? '' : `&lesson=${encodeURIComponent(bundleRef)}`;
+      // Trial of 2026-11-26: a French lesson opened in an English browser came out in English. The address says the
+      // lesson's language; the page speaks it over the browser's (bridge-browser.js takeAddress).
+      const lang = bundleRef === undefined ? null : interfaceLanguage(language);
       // The key is named k, not token: a careful model may withhold an address whose fragment says « token », as a secret
       // (Vibe with Mistral Large 4, 2026-11-25; review G, item 5). The page takes both (bridge-browser.js keyOf);
       // studium-mcp play still prints #token= (play.ts).
-      return `${served.origin}/play#k=${keys.keyFor(learnerId)}&from=assistant${lesson}`;
+      return `${served.origin}/play#k=${keys.keyFor(learnerId)}&from=assistant${lesson}${lang ? `&lang=${lang}` : ''}`;
     },
     port: () => running?.port ?? null,
     async close() {

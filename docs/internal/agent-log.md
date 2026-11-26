@@ -6,6 +6,25 @@ Journal des unités TDD par milestone. Mis à jour à chaque commit significatif
 
 ---
 
+## 2026-11-26 — langue du lecteur navigateur et durée unique d'une leçon
+
+Deux défauts relevés lors d'un essai : un apprenant francophone, leçon française, et l'interface du lecteur navigateur
+entièrement en anglais (la langue du navigateur) ; pour la même leçon, « environ 20 minutes » dans la conversation et
+« about 27 min » à l'étape 1/13 dans le lecteur. Branche `fix/2026-11-26-player-language-and-duration`.
+
+- Langue : l'adresse d'un assistant porte `&lang=fr|en`, tiré de `metadata.language` de la leçon
+  (`SessionHost.lessonOffer` → `browserLinkFor` → `browserLink` → `served-player.ts linkFor`, qui n'écrit que
+  fr ou en). `bridge-browser.js` la préfère à `navigator.language` et la garde pour l'onglet (`LANG_KEY`) ;
+  sans elle, rien ne change ; `studium-mcp play` garde la langue du navigateur ; le réglage de langue du panneau
+  (`setLanguage`, côté serveur) change toujours la vue.
+- Durée : `orientation.minutes_left` = durée annoncée × part des étapes restantes, arrondie au supérieur, au moins 1
+  (`lessonMinutesLeft`, la règle de `study-status.ts minutesLeft` de l'extension) ; le décompte des étapes suit
+  celui qu'avaient les secondes (détour, questions de contrôle). Choisi plutôt que l'inverse parce que l'arbre et la
+  barre d'état de VS Code, et la ligne « prête » de la conversation, utilisaient déjà la durée annoncée.
+- Tests d'abord : bridge-browser (langue de l'adresse), served-player (`&lang=`), study-plan-browser-link (langue
+  demandée), orientation (accord avec `readyLine` sur 13 étapes à 125 s, 20 min annoncées). Les tests qui fixaient
+  l'ancienne estimation par secondes sont mis à la nouvelle règle, avec un commentaire « Changed 2026-11-26 ».
+
 ## 2026-11-26 — leçon de démonstration neutre quant à la surface (décision D7)
 
 Mots du propriétaire : « Oui vas y pour 1-4 ». Branche `fix/2026-11-26-demo-lesson-d7`.

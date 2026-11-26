@@ -19,7 +19,9 @@ import { buildMcpServer } from "./server.js";
 const FIXTURES = resolve("../../fixtures");
 const ATOMS = "atomistique-l1/lesson.json";
 type Json = Record<string, any>;
-const authored = JSON.parse(readFileSync(resolve(FIXTURES, ATOMS), "utf8")) as { scenes: Array<{ id: string; estimated_seconds: number }> };
+const authored = JSON.parse(readFileSync(resolve(FIXTURES, ATOMS), "utf8")) as {
+  metadata: { duration_minutes: number }; scenes: Array<{ id: string; estimated_seconds: number }>;
+};
 const WRITTEN: Record<string, string> = {
   summary_audit: "summary_audit", explain_back: "explanation", comparison: "comparison",
   prompt_practice: "prompt_submission", communication_sim: "communication", ai_critique: "critique",
@@ -45,11 +47,12 @@ async function connect() {
   return { call };
 }
 
-/** The minutes a detour screen has left: itself, then the lesson from the scene it returns to. */
-function minutesFrom(sceneId: string, returnsTo: string): number {
+/** The minutes a detour screen has left: itself, then the lesson from the scene it returns to. Changed 2026-11-26: the
+ * lesson's stated duration times the share of those steps, as on every surface (orientation.ts lessonMinutesLeft). */
+function minutesFrom(_sceneId: string, returnsTo: string): number {
   const at = authored.scenes.findIndex((s) => s.id === returnsTo);
-  const own = authored.scenes.find((s) => s.id === sceneId)!.estimated_seconds;
-  return Math.ceil((own + authored.scenes.slice(at).reduce((sum, s) => sum + s.estimated_seconds, 0)) / 60);
+  const steps = 1 + authored.scenes.length - at;
+  return Math.max(1, Math.ceil((authored.metadata.duration_minutes * steps) / authored.scenes.length));
 }
 
 describe("the orientation says what the screen asks (A3, A4, B5)", () => {
