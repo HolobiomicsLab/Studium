@@ -429,3 +429,33 @@ test("a second address pasted in the same tab loads the page again; a fragment w
     p.dom.window.close();
   }
 });
+
+// Owner decision 2026-11-26 (« précédent »): in the browser, the rail offers the steps already done; a click
+// asks the server for the revisit, the page draws it read only, and « Reprendre où j'en étais » comes back.
+test("the browser player revisits a step already done through panel_action, then resumes", async () => {
+  const done = [{ index: 1, scene_id: "s0-intro", title: "Introduction" }, { index: 2, scene_id: "s1-concept", title: "Le noyau" }];
+  const onStep = { ...VIEW, progress: { ...VIEW.progress, done }, actions: [...VIEW.actions, "revisit"] };
+  const revisit = { ...onStep, scene: { id: "s1-concept", type: "concept", title: "Le noyau", markdown: "Protons et neutrons." },
+    actions: ["resume", "revisit"], verdict: null, prompts: [],
+    revisit: { scene_id: "s1-concept", index: 2, total: 32, title: "Le noyau", answered: false } };
+  const p = page({
+    stored: { [TOKEN_KEY]: TOKEN, [SESSION_KEY]: "session-1" },
+    reply: async (name, args) => {
+      if (name === "panel_action") return [200, { structuredContent: { panel: args.action.type === "revisit" ? revisit : onStep } }];
+      return [200, { structuredContent: { panel: onStep } }];
+    },
+  });
+  await p.start();
+  const step = [...p.doc.querySelectorAll("nav.revisit-steps button")];
+  assert.deepEqual(step.map((b) => flat(b.getAttribute("aria-label"))), [flat(fr.pane_revisit_step.replace("{index}", "1").replace("{title}", "Introduction")), flat(fr.pane_revisit_step.replace("{index}", "2").replace("{title}", "Le noyau"))]);
+  step[1].click(); await settle(); await settle();
+  assert.deepEqual(p.calls.at(-1).body.arguments.action, { type: "revisit", scene_id: "s1-concept" });
+  assert.match(text(p.doc.querySelector(".revisit-banner")), new RegExp(flat(fr.pane_revisit_banner.replace("{position}", "2").replace("{total}", "32"))));
+  assert.match(text(p.doc.querySelector("#pane")), /Protons et neutrons/);
+  assert.equal(p.doc.querySelectorAll("#pane .controls").length, 0, "nothing to answer on a revisited step");
+  [...p.doc.querySelectorAll("#pane button")].find((b) => text(b) === flat(fr.pane_revisit_resume)).click(); await settle(); await settle();
+  assert.deepEqual(p.calls.at(-1).body.arguments.action, { type: "resume" });
+  assert.match(text(p.doc.querySelector(".scene-title")), /atome de fer/);
+  assert.equal(p.doc.querySelector(".revisit-banner"), null);
+  p.dom.window.close();
+});

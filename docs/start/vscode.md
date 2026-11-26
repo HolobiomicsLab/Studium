@@ -94,6 +94,13 @@ resumes from your saved progress.
   line says who assessed the answer: the author's key, a judge model, or text the assistant generated
   outside the lesson; a key verdict names a key an AI drafted or one you wrote yourself.
 - **Progress.** "Step 3 of 8", never moving backwards; a detour to a prerequisite is labelled as such.
+- **Steps already done.** Under the rail, each step of the lesson's main path you already did is a numbered
+  button (a screen reader reads "Review step 3: <title>"). It shows that step again as it was, read only, under
+  a banner "Step 3 of 12, already done: review only": its text and figures, your answer and the feedback you
+  got (for the answers given since the server started; after a restart, only whether the answer was right,
+  wrong or not assessed). Nothing can be answered there and nothing changes: not your progress, your mastery,
+  your reviews, nor the step you are on. **Back to where I was** returns to your current step as you left it,
+  a half-typed answer included. Steps not reached yet and the steps of a detour are not offered.
 - **Answer.** While the focus is in the list of choices, `A`–`D` or `1`–`4` choose and `Enter` submits; the
   line under the choices says so ("In the list of choices: …"). Confidence (0 to 4) is optional.
 - **Help ladder.** Under the answer controls, four rungs in the order to try them: **Read again**,

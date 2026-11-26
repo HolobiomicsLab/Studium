@@ -840,6 +840,37 @@ function submitFreeText(scene: any, answer: string) {
   expect(m.text().includes(ph("pane_progress", { position: 16, total: 25 }, "fr")), "the rail reads « Étape 16 sur 25 »");
 }
 
+// --- 20b) Owner decision 2026-11-26 (« précédent »): a step already done, revisited read only -------------
+{
+  const done = [{ index: 1, scene_id: "c1", title: "Le noyau" }, { index: 2, scene_id: "q2", title: "Quiz du noyau" }];
+  const onStep3 = baseState({ id: "e3", type: "explain_back", title: "Explique", prompt: "Pourquoi ?" },
+    { progress: { index: 3, total: 9, done }, actions: ["respond", "end", "revisit"] });
+  const m = mount();
+  m.render(onStep3);
+  const buttons = m.$all("nav.revisit-steps button");
+  expect(buttons.length === 2, "the rail offers the two steps already done as buttons");
+  expect(buttons[1]?.getAttribute("aria-label") === ph("pane_revisit_step", { index: 2, title: "Quiz du noyau" }, "fr"),
+    `each names its step for a screen reader (got ${buttons[1]?.getAttribute("aria-label")})`);
+  fill(m.$(".controls textarea"), "Parce que la phase");
+  m.click(buttons[1]);
+  expect(posted(m, "revisit").at(-1)?.scene_id === "q2", "a click sends revisit with the step's scene id");
+  m.render(baseState(quiz("q2", "Quiz du noyau"), {
+    progress: { index: 3, total: 9, done }, actions: ["resume", "revisit"],
+    revisit: { scene_id: "q2", index: 2, total: 9, title: "Quiz du noyau", answered: true, result: "right", assessed_by: "key", your_answer: "Quatre", feedback: "Oui, quatre." },
+  }));
+  expect(m.text().includes(ph("pane_revisit_banner", { position: 2, total: 9 }, "fr")), "the banner says « Étape 2 sur 9, déjà faite : en relecture »");
+  expect(m.win.document.activeElement === m.$(".revisit-banner"), "the focus moves to the banner");
+  expect(m.$all("#pane .choice-card, #pane textarea, #pane .controls").length === 0, "nothing can be answered on a revisited step");
+  expect(m.text().includes("Oui, quatre.") && m.text().includes(ph("pane_revisit_your_answer", {}, "fr")), "the learner's answer and the feedback they got are shown");
+  const resume = m.$all("#pane button").filter((b) => b.textContent === ph("pane_revisit_resume", {}, "fr"));
+  expect(resume.length === 1, "one button says « Reprendre où j'en étais »");
+  m.click(resume[0]);
+  expect(posted(m, "resume").length === 1, "it sends resume");
+  m.render(onStep3);
+  expect(m.$(".controls textarea")?.value === "Parce que la phase", "resume gives back the half-typed answer");
+  expect(m.win.document.activeElement === m.$(".scene-title"), "and the focus to the scene");
+}
+
 // --- 21) VSC-3: accessibility baseline -------------------------------------------------------------------
 {
   const m = mount();
@@ -1295,6 +1326,15 @@ async function axePass(): Promise<void> {
     ["self-rating request", (m) => answered(m, { id: "eA", type: "explain_back", title: "Explique A", prompt: "?" },
       { id: "cB", type: "concept", title: "B", markdown: "x" }, { feedback: "Compare." },
       { nextExtra: { self_rating: { requested: true, grades: ["again", "hard", "good", "easy"] } } })],
+    ["rail with steps to revisit", (m) => m.render(baseState(quiz("q3", "Quiz C"), {
+      progress: { index: 3, total: 9, done: [{ index: 1, scene_id: "c1", title: "Un" }, { index: 2, scene_id: "q2", title: "Deux" }] },
+      actions: ["respond", "revisit"],
+    }))],
+    ["a step already done, revisited", (m) => m.render(baseState(quiz("q2", "Deux"), {
+      progress: { index: 3, total: 9, done: [{ index: 1, scene_id: "c1", title: "Un" }, { index: 2, scene_id: "q2", title: "Deux" }] },
+      actions: ["resume", "revisit"],
+      revisit: { scene_id: "q2", index: 2, total: 9, title: "Deux", answered: true, result: "wrong", assessed_by: "key", your_answer: "Trois", feedback: "Non." },
+    }))],
     ["self-authored notice", (m) => m.render(baseState({ id: "c1", type: "concept", title: "C", markdown: "x" },
       { authoring: { mode: "self", notice: "Leçon écrite par toi-même.", judge: false } }))],
     ["completion screen", (m) => {

@@ -1,6 +1,6 @@
 import type { ModalityPreference } from "./modality.js";
 import type { ReviewContext, RecallGrade } from "./pane-messages.js";
-import type { Attention, Help, Orientation, PanelView, Prompt, SceneAsset, Surface, Voices } from "./view.js";
+import type { Attention, DoneStep, Help, Orientation, PanelView, Prompt, SceneAsset, Surface, Voices } from "./view.js";
 import type { MapRecord } from "./map.js";
 
 /** Transport payloads stay server-side until the presenter projects a PanelView. */
@@ -42,7 +42,25 @@ export interface PanelBackend {
   /** The learner accepted or dismissed a proposal: the server keeps the outcome and says the kind of
    * the prompt. Throws, with one line, when no such proposal is open. */
   settlePrompt?(sessionId: string, promptId: string, outcome: "accepted" | "dismissed"): Promise<{ kind: string }>;
+  /** The main-path steps the learner already did, in lesson order (1-based index): those the rail lets
+   * them revisit. On a detour or a contest's check, the steps before the one the lesson returns to. A
+   * backend without this method (or without getPastScene) offers no revisit. */
+  getRevisitable?(sessionId: string): Promise<DoneStep[]>;
+  /** One of those steps as it was, read only: its public scene, its 0-based index out of `total`, its
+   * assets, and what the session recorded of the answer (`answered`, `correct`, `assessed_by`).
+   * Throws, with one line, for any other scene. Changes nothing in the session. */
+  getPastScene?(sessionId: string, sceneId: string): Promise<PastScene>;
 }
+
+/** A step already done, as a backend gives it for a revisit. */
+export interface PastScene {
+  scene: Payload; index: number; total: number; assets: SceneAsset[];
+  answered: boolean; correct: boolean | null; assessed_by?: string;
+}
+
+/** What the panel itself saw of an answer given in this session: the learner's own words (or the text of
+ * the choice they made) and the feedback the verdict carried. In memory, with the context. */
+export interface KeptAnswer { your_answer?: string; feedback?: string }
 
 /** A prompt as the server's rules hold it: its kind and its reason, no label and no action. */
 export interface ServedPrompt {
@@ -82,4 +100,10 @@ export interface PanelContext {
   mapOpen?: boolean;
   /** The question of the learner's last `ask`, for the companion's brief; absent when none was written. */
   question?: string;
+  /** A step already done is on screen, read only (action revisit), until resume. The current screen's
+   * transition, effects and prompts are left as they are, so resume shows it again exactly. */
+  revisit?: { sceneId: string };
+  /** The answers given in this session that the panel saw (respond, or submit_response in the
+   * conversation), by scene: what a revisit shows of them. */
+  answers?: Record<string, KeptAnswer>;
 }

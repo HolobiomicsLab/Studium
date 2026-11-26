@@ -822,6 +822,14 @@ function persistenceWarning(error: unknown): string {
  * record), and the localized text a chat client shows as is (chat-display.ts). */
 export type ServedPresentation = PublicPresentation & { authoring: AuthoringBlock; display_markdown: string };
 
+/** A main-path step already done (SessionHost.revisitableSteps): 1-based index, scene id and title. */
+export interface RevisitStep { index: number; scene_id: string; title: string }
+/** A step already done as a revisit shows it (SessionHost.revisitScene). */
+export interface RevisitedScene {
+  scene: ReturnType<typeof publicScene>; index: number; total: number; assets: RenderAsset[];
+  answered: boolean; correct: boolean | null; assessed_by?: string;
+}
+
 /** The verdict once served: the text the learner earned by answering, and the passages the scene
  * cites — released only now (SL-5). */
 export type ServedVerdict = NonNullable<Transition["verdict"]> & { display_markdown: string; sources?: CitedSource[] };
@@ -2175,6 +2183,39 @@ export class SessionHost {
     // produces a fresh result by running it (parity with the file channel + publicScene).
     if ((scene as { run_manifest?: unknown }).run_manifest) return assets.filter((a) => a.kind !== "executed_result");
     return assets;
+  }
+  /** Owner decision 2026-11-26 (« précédent »): the main-path steps of a lesson the learner already did, in
+   * lesson order, with their 1-based index — the steps a surface lets them revisit, read only. They are the
+   * scenes before the step the learner is at (on a detour or a contest's check, the step the lesson returns
+   * to) that the session served or completed; the scene on screen is not one, nor a step not reached yet,
+   * nor a detour's scene further down the lesson. A review session has none. Reads only. */
+  revisitableSteps(id: string): RevisitStep[] {
+    const entry = this.require(id);
+    if (entry.kind !== "lesson") return [];
+    const route = entry.session.checkRoute() ?? entry.session.detourRoute();
+    const main = entry.completed ? entry.bundle.scenes.length : route ? route.returnIndex : entry.session.currentPresentation().index;
+    const onScreen = this.sceneOnScreen(entry);
+    const done = new Set([...entry.session.getState().scenes_completed, ...entry.session.learnerPath().steps.map((step) => step.scene_id)]);
+    return entry.bundle.scenes.flatMap((scene, index) =>
+      index < main && scene.id !== onScreen && done.has(scene.id) ? [{ index: index + 1, scene_id: scene.id, title: scene.title }] : []);
+  }
+  /** One of those steps as it was, read only: its public scene (publicScene: no key), its 0-based index out
+   * of the lesson's scenes, its assets (an executed reference run is withheld from a run scene, as on
+   * screen), and what the session recorded of its last answer — whether one was asked, its outcome when a
+   * key or a judge assessed it, who did. The session keeps no answer text and no feedback text: a surface
+   * that wants them keeps its own. Throws for any scene revisitableSteps does not list. Reads only. */
+  revisitScene(id: string, sceneId: string): RevisitedScene {
+    const entry = this.require(id);
+    const step = this.revisitableSteps(id).find((s) => s.scene_id === sceneId);
+    if (!step) throw new Error(`scene "${sceneId}" is not a step already done on the lesson's main path; only those can be revisited`);
+    const scene = entry.bundle.scenes[step.index - 1]!;
+    const assets = sceneRenderAssets(scene).map((a) => inlineFileAsset(a, entry.baseDir, entry.assetCache));
+    const shown = (scene as { run_manifest?: unknown }).run_manifest ? assets.filter((a) => a.kind !== "executed_result") : assets;
+    const last = entry.session.learnerPath().steps.filter((s) => s.scene_id === sceneId).at(-1);
+    return {
+      scene: publicScene(scene), index: step.index - 1, total: entry.bundle.scenes.length, assets: shown,
+      answered: last?.answered ?? false, correct: last?.correct ?? null, ...(last?.assessed_by ? { assessed_by: last.assessed_by } : {}),
+    };
   }
   /** The notation the lesson has already given for the current scene's concepts: the legends of the
    * equations carried by the scenes up to this one (in lesson order) that share a concept with it,

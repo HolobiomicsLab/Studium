@@ -58,6 +58,14 @@ hands your question to the assistant; the reference comes with the verdict, afte
 costs nothing, while a hint reduces the mastery credit of a correct answer and brings its review sooner.
 See [language and supports](language-and-supports.md) for the other kinds of help you can request.
 
+## Look back at a step already done
+
+In the VS Code pane and the browser player, each step of the lesson's main path you already did is a
+numbered button under the progress rail. It shows that step again as it was, with your answer and the
+feedback you got, read only: going back never rewinds the lesson, and nothing you do there changes your
+progress, your mastery or your reviews. **Back to where I was** returns to your current step, as you left
+it. See [What you see](../start/vscode.md#what-you-see) for the details.
+
 ## See your concept map
 
 The concept map shows each concept's state, what it needs first, the path you travelled and the assessed

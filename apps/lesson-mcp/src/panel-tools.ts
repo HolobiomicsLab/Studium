@@ -9,7 +9,7 @@ import { scanCatalog } from "../../../packages/lesson-session-host/src/lesson-ca
 import { reviewContext } from "../../../packages/lesson-panel/src/pane-messages.js";
 import { phrase } from "../../../packages/lesson-panel/src/phrases.js";
 import {
-  presentPanel, applyPanelAction, PanelActionSchema, ClientMsSchema, type PanelBackend, type PanelContext, type PanelView, type Payload, type Surface,
+  presentPanel, applyPanelAction, noteAnswer, PanelActionSchema, ClientMsSchema, type PanelBackend, type PanelContext, type PanelView, type Payload, type Surface,
 } from "../../../packages/lesson-panel/src/index.js";
 import * as imageAssets from "../../studium-vscode/src/asset-path.js";
 import type { ToolResult } from "./operations.js";
@@ -62,6 +62,12 @@ export function hostBackend(host: SessionHost, bundlesRoot: string, answeredOn?:
       locale: ask.locale, attention: ask.attention, surfaceRank: ask.surface.rank, formsAvailable: ask.surface.available.includes("form"),
     }),
     settlePrompt: async (id, promptId, outcome) => ({ kind: host.settlePrompt(id, promptId, outcome).kind }),
+    // Owner decision 2026-11-26: the steps already done, and one of them as it was; both read only.
+    getRevisitable: async id => host.revisitableSteps(id),
+    getPastScene: async (id, sceneId) => {
+      const past = host.revisitScene(id, sceneId);
+      return { ...past, scene: past.scene as unknown as Payload };
+    },
     getOrientation: async (id, ask) => {
       const orientation = orientationOf(host, id);
       const assessed = ask.verdict?.assessed_by;
@@ -132,6 +138,7 @@ function panelResult(view: PanelView, brief?: ReturnType<SessionHost["companionB
   const rank = panel.kind === "scene" ? panel.surface?.rank : undefined;
   const summary = [
     `${panel.lesson_title} — ${panel.progress.index}/${panel.progress.total}`, stem, `Actions: ${panel.actions.join(", ")}`,
+    ...(panel.revisit ? [`Revisit: step ${panel.revisit.index}/${panel.revisit.total}, already done, read only; resume goes back to where the learner was.`] : []),
     ...(rank === 1 || rank === 2 ? [CONTINUE_ON[rank]] : panel.kind === "scene" && panel.surface?.kind === "pane" ? [CONTINUE_ON_PANE] : []),
   ].join("\n");
   return {
@@ -255,7 +262,11 @@ class Panels {
       if (reply.review) started.review = reviewContext(reply);
     }
     const ctx = this.contexts.get(args.session_id);
-    if (ctx && reply.transition) { ctx.transition = reply.transition; delete ctx.effects; }
+    if (ctx && reply.transition) {
+      // An answer given in the conversation: what a later revisit of its step shows of it.
+      if (name === "submit_response") noteAnswer(ctx, args.input, reply.transition, ctx.lastView?.scene);
+      ctx.transition = reply.transition; delete ctx.effects;
+    }
     if (name === "forget_session" || name === "end_session") {
       this.contexts.delete(args.session_id);
       if (args.learner_id) for (const [id, context] of this.contexts) {
@@ -325,7 +336,7 @@ export function registerPanelTools(server: McpServer, host: SessionHost) {
     } catch (e) { return toolError(e); }
   });
   const actionTool = server.registerTool("panel_action", {
-    description: "Apply the learner's own panel action. respond {input, expected_scene_id?} answers the scene on screen: with expected_scene_id, the view's scene.id, an answer meant for another scene is refused in one line and changes nothing. end erases progress only with confirmed:true; pickCourse asks the host to open its course picker; ask hands over to the conversation and leaves the scene as it is, returning brief (the get_companion_brief object, read with peek:true so its cursor does not move); other actions return no brief; setLanguage, setAttention and replan change how the lesson is shown, never an answer; openMap adds the concept map to the view (map: each concept's state, the answers behind it with their day, who assessed them and the hints taken, what the state establishes and what it does not) until closeMap, from forms upwards and for a lesson, not a review session; contest {concept_id, claim} is the learner's own declaration on a concept of the open map, known for a concept not acquired, unsure for an acquired one: the claim changes no mastery and skips no scene, the lesson asks check questions on that concept (two, or one when it has a single key-graded scene on it, the outcome then being partial), graded as any answer, then resumes where the learner was; a contest the state does not take, or made while another is under way, is refused in one line. Never contest for the learner. prompt {id, outcome} is the learner's answer to a proposal of the view (prompts: a review that is due, a break, the map, forms): accept does what it said, dismiss keeps the scene (accepted and dismissed are taken too), and the server keeps the outcome; it proposes nothing while an answer is owed and no more than the attention level allows. Never answer a prompt for the learner, and add no proposal of your own during a session. client_ms, optional, is the delay in milliseconds between the learner's previous action and its display, as the surface measured it.",
+    description: "Apply the learner's own panel action. respond {input, expected_scene_id?} answers the scene on screen: with expected_scene_id, the view's scene.id, an answer meant for another scene is refused in one line and changes nothing. end erases progress only with confirmed:true; pickCourse asks the host to open its course picker; ask hands over to the conversation and leaves the scene as it is, returning brief (the get_companion_brief object, read with peek:true so its cursor does not move); other actions return no brief; setLanguage, setAttention and replan change how the lesson is shown, never an answer; openMap adds the concept map to the view (map: each concept's state, the answers behind it with their day, who assessed them and the hints taken, what the state establishes and what it does not) until closeMap, from forms upwards and for a lesson, not a review session; contest {concept_id, claim} is the learner's own declaration on a concept of the open map, known for a concept not acquired, unsure for an acquired one: the claim changes no mastery and skips no scene, the lesson asks check questions on that concept (two, or one when it has a single key-graded scene on it, the outcome then being partial), graded as any answer, then resumes where the learner was; a contest the state does not take, or made while another is under way, is refused in one line. Never contest for the learner. prompt {id, outcome} is the learner's answer to a proposal of the view (prompts: a review that is due, a break, the map, forms): accept does what it said, dismiss keeps the scene (accepted and dismissed are taken too), and the server keeps the outcome; it proposes nothing while an answer is owed and no more than the attention level allows. Never answer a prompt for the learner, and add no proposal of your own during a session. revisit {scene_id} shows a main-path step the learner already did (one of progress.done) as it was, read only: its content, what the session recorded of the answer, and the learner's own answer and the feedback they got when the panel saw them (revisit on the view); nothing is answered, graded or scheduled there, and every other action but resume, revisit, end and pickCourse is refused in one line; a step not reached yet, the step on screen or a detour's step is refused. resume returns to the current step exactly as it was. client_ms, optional, is the delay in milliseconds between the learner's previous action and its display, as the surface measured it.",
     // client_ms goes to the interaction log (INT-STUDIUM-058 § 2.10), under consent.
     inputSchema: { ...session, action: PanelActionSchema, client_ms: ClientMsSchema.optional() },
   }, async ({ session_id, action, client_ms }) => {

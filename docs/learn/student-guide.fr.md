@@ -62,6 +62,15 @@ tentative et transmet votre question à l'assistant ; la référence accompagne
 réponse. Relire ne coûte rien, tandis qu'un indice réduit le crédit de maîtrise d'une bonne réponse et
 rapproche sa révision. Voir [langue et supports](language-and-supports.fr.md) pour les autres aides.
 
+## Revoir une étape déjà faite
+
+Dans le panneau de VS Code et dans le lecteur du navigateur, chaque étape du parcours principal de la leçon
+que vous avez déjà faite est un bouton numéroté sous la barre de progression. Il remontre cette étape telle
+qu'elle était, avec votre réponse et le retour reçu, en lecture seule : revenir en arrière ne rembobine
+jamais la leçon, et rien de ce que vous y faites ne change votre progression, votre maîtrise ni vos
+révisions. **Reprendre où j'en étais** ramène à l'étape en cours, telle que vous l'avez laissée. Voir
+[Ce que vous voyez](../start/vscode.fr.md#ce-que-vous-voyez) pour le détail.
+
 ## Voir votre carte des notions
 
 La carte des notions montre l'état de chaque notion, ses prérequis, le chemin parcouru et les réponses

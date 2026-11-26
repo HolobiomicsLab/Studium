@@ -972,3 +972,79 @@ test("after « Session lost », the same view coming back (the server reopens th
   assert.ok(doc.querySelector(".scene-title"));
   dom.window.close();
 });
+
+// Owner decision 2026-11-26 (« précédent »): the rail lets the learner revisit a step already done, read only.
+const REVISIT_WORDS = {
+  ...WORDS, pane_revisit_nav: "Steps already done", pane_revisit_step: "Review step {index}: {title}",
+  pane_revisit_banner: "Step {position} of {total}, already done: review only", pane_revisit_resume: "Back to where I was",
+  pane_revisit_your_answer: "Your answer", pane_revisit_feedback: "The feedback you got", pane_revisit_note: "Nothing changes here.",
+  pane_revisit_not_kept: "Not kept.", pane_revisit_no_answer: "A step to read.", pane_revisit_your_choice: "your choice",
+};
+const DONE = [{ index: 1, scene_id: "intro", title: "Intro" }, { index: 2, scene_id: "quiz", title: "A question" }];
+const EXPLAIN = { id: "explain", type: "explain_back", title: "Explain it", prompt: "Why does the sign change?" };
+const onStep3 = (extra = {}) => view({
+  ...V2, strings: REVISIT_WORDS, orientation: { ...V2.orientation, step: { index: 3, total: 4 } }, scene: EXPLAIN,
+  progress: { index: 3, total: 4, done: DONE }, actions: ["respond", "end", "ask", "revisit"], ...extra,
+});
+const revisiting = (extra = {}) => onStep3({
+  scene: QUIZ, actions: ["resume", "revisit"], verdict: null, navigation: null,
+  revisit: { scene_id: "quiz", index: 2, total: 4, title: "A question", answered: true, result: "wrong", assessed_by: "key", your_answer: "Second", feedback: "Read the definition again." },
+  ...extra,
+});
+
+test("the rail offers each step already done as a button that names it, and sends revisit", () => {
+  const { dom, sent, doc } = mountWithSend();
+  dom.window.renderView(onStep3());
+  const nav = doc.querySelector("nav.revisit-steps");
+  assert.ok(nav, "a navigation region holds the steps already done");
+  assert.equal(nav.getAttribute("aria-label"), "Steps already done");
+  const buttons = [...nav.querySelectorAll("button")];
+  assert.deepEqual(buttons.map((b) => b.getAttribute("aria-label")), ["Review step 1: Intro", "Review step 2: A question"]);
+  assert.ok(buttons.every((b) => b.type === "button" && !b.disabled), "each step is a keyboard-reachable button");
+  buttons[1].click();
+  assert.deepEqual(plain(sent.at(-1)[0]), { type: "revisit", scene_id: "quiz" });
+  dom.window.close();
+});
+
+test("a view that offers no revisit draws no step buttons", () => {
+  const { dom, doc } = mountWithSend();
+  dom.window.renderView(onStep3({ actions: ["respond", "end"] }));
+  assert.equal(doc.querySelector("nav.revisit-steps"), null);
+  dom.window.close();
+});
+
+test("a revisit shows the step as it was, read only, with a banner that takes the focus and one way back", () => {
+  const { dom, sent, doc } = mountWithSend();
+  dom.window.renderView(revisiting());
+  const banner = doc.querySelector(".revisit-banner");
+  assert.ok(banner, "a banner says the step is a revisit");
+  assert.match(text(banner), /Step 2 of 4, already done: review only/);
+  assert.equal(doc.activeElement, banner, "the focus moves to the banner");
+  assert.match(text(doc.querySelector("#pane")), /Which one\?/);
+  assert.match(text(doc.querySelector(".revisit-record")), /Your answer.*Second/);
+  assert.match(text(doc.querySelector(".revisit-record")), /The feedback you got.*Read the definition again\./);
+  assert.equal(doc.querySelectorAll("#pane textarea, #pane .choice, #pane [data-choice]").length, 0, "nothing can be answered");
+  assert.equal(doc.querySelectorAll(".revisit-steps button[aria-current='step']").length, 1, "the rail marks the step on screen");
+  const resume = [...doc.querySelectorAll("#pane button")].filter((b) => text(b) === "Back to where I was");
+  assert.equal(resume.length, 1, "one button goes back");
+  resume[0].click();
+  assert.deepEqual(plain(sent.at(-1)[0]), { type: "resume" });
+  dom.window.close();
+});
+
+test("resume brings back the current step with its half-typed answer, and the focus on the scene", () => {
+  const { dom, doc } = mountWithSend();
+  const current = onStep3();
+  dom.window.renderView(current);
+  const box = doc.querySelector("#pane .controls textarea");
+  assert.ok(box, "the current step takes a written answer");
+  box.value = "Because the phase";
+  box.dispatchEvent(new dom.window.Event("input", { bubbles: true }));
+  doc.querySelector(".revisit-steps button").click();
+  dom.window.renderView(revisiting());
+  assert.equal(doc.querySelector("#pane .controls textarea"), null);
+  dom.window.renderView(current);
+  assert.equal(doc.querySelector("#pane .controls textarea").value, "Because the phase");
+  assert.equal(doc.activeElement, doc.querySelector(".scene-title"), "the focus goes back to the scene");
+  dom.window.close();
+});

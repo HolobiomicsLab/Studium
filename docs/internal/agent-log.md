@@ -6,6 +6,29 @@ Journal des unités TDD par milestone. Mis à jour à chaque commit significatif
 
 ---
 
+## 2026-11-27 — revoir une étape déjà faite, en lecture seule (« précédent »)
+
+Décision du propriétaire : revenir en arrière est une relecture, jamais un retour en arrière de la séance (« Je valide
+pour le point 2 précédent »). Branche `feat/2026-11-27-review-past-steps`, sur `origin/dev`.
+
+- `lesson-panel` : actions `revisit {scene_id}` et `resume` ; `progress.done` (étapes du parcours principal déjà
+  faites) et `revisit` sur la vue ; pendant une relecture, tout sauf `resume`, `revisit`, `end` et `pickCourse` est
+  refusé en une ligne, aucune proposition n'est demandée au serveur, la carte est fermée ; `resume` rend l'écran courant
+  à l'identique (effets compris). Le panneau garde en mémoire le texte de la réponse et le retour (`noteAnswer`), pour
+  les réponses vues par `respond` ou `submit_response`.
+- `lesson-session-host` : `revisitableSteps` et `revisitScene`, en lecture seule ; les étapes avant celle où l'on est
+  (en détour ou en contrôle : celle où l'on revient), servies ou terminées, ni l'écran courant ni une étape de détour.
+  La séance ne garde ni le texte des réponses ni celui des retours : seulement juste, faux, non évalué, et par qui.
+- Contrat d'interaction (TS et Python) et `InteractionAct` : `revisit`, `resume`. Mod Claude Code : lit ces vues.
+- Rendu partagé (`artifact-pane.js`) : boutons numérotés sous le rail (`aria-label` « Revoir l'étape N : titre »),
+  bandeau qui prend le focus, contenu, réponse et retour, un bouton « Reprendre où j'en étais » ; la réponse commencée
+  revient au retour, le focus sur la scène. Sous une barre segmentée (30 étapes ou moins), chaque bouton est aligné
+  sous son segment (on revient « par la barre de progression »), vérifié dans le lecteur navigateur avec Chromium
+  sans tête sur « Découvrir Studium » : relecture d'une intro et d'un quiz juste, puis reprise.
+- Tests : lesson-panel (10), hôte (4), MCP (1), rendu (4), lecteur navigateur (1), pilotes webview-pane et
+  extension-host (blocs nouveaux), mod (1). Docs VS Code, navigateur, guide de l'étudiant (EN, FR), outils MCP
+  régénérés, CHANGELOG.
+
 ## 2026-11-27 — relier les autres assistants en un clic (Codex, Claude Code, Claude Desktop, OpenCode)
 
 Mots du propriétaire, 26 nov. ~23 h : « Cette nuit jusqu'a demain je te donne delegation pour faire en sorte que ca

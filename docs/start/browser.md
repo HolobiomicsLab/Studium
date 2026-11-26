@@ -90,7 +90,11 @@ your current step. Or say "here" to play it in the chat. Studium never opens the
    who wrote the lesson and its answer key, and, after an answer, whether the key or a judge assessed it,
    or nobody. You also have hints, the confidence scale, recall ratings, the concept map, French or
    English (**⋯**, **Settings**), and the end-of-lesson summary.
-4. **⋯**, **Choose another course** opens a list of courses read when it opens, not again when you come
+4. To look back at a step already done, use the numbered buttons under the progress rail: the step comes
+   back as it was, read only, with your answer and the feedback you got, under a banner "Step 3 of 12,
+   already done: review only". Nothing changes there; **Back to where I was** returns to your current step,
+   as you left it.
+5. **⋯**, **Choose another course** opens a list of courses read when it opens, not again when you come
    back to the tab, and without the demo lesson; **Forget me** erases your learning data after a
    confirmation.
 

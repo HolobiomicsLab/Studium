@@ -382,6 +382,29 @@ async function main() {
     pane.dispose();
   }
 
+  // Owner decision 2026-11-26 (« précédent »): the pane's rail button revisits a step already done through panel_action,
+  // read only, and « Reprendre où j'en étais » comes back to the step the learner was on.
+  {
+    await seen.uriHandler.handleUri(uriFor(safePath));
+    const pane = lastPanel();
+    await pane.handler({ type: "respond", input: { kind: "ack" } });
+    await waitFor(() => pane.posted.filter((m: Json) => m.type === "render").length >= 2, "the reproduction scene (revisit)");
+    const renders = () => pane.posted.filter((m: Json) => m.type === "render");
+    const current = renders().at(-1);
+    expect(current?.progress?.done?.[0]?.scene_id === "s-intro" && current?.actions?.includes("revisit"),
+      `the render lists the intro as a step already done and offers revisit (got ${JSON.stringify(current?.progress)})`);
+    await pane.handler({ type: "revisit", scene_id: "s-intro" });
+    const shown = renders().at(-1);
+    expect(shown?.revisit?.scene_id === "s-intro" && shown?.scene?.id === "s-intro" && JSON.stringify(shown?.actions) === JSON.stringify(["resume", "revisit"]),
+      `the pane receives the intro, read only (got ${JSON.stringify(shown?.revisit)})`);
+    await pane.handler({ type: "respond", input: { kind: "ack" } });
+    expect(pane.posted.at(-1)?.type === "action_error", "an answer during the revisit is refused, and the pane told");
+    await pane.handler({ type: "resume" });
+    const back = renders().at(-1);
+    expect(back?.scene?.id === current?.scene?.id && !back?.revisit, "resume shows the step the learner was on again");
+    pane.dispose();
+  }
+
   // VSC-8: the pane's « Lancer la reproduction » button ({type:'run'}) runs the same flow inside the pane's gate
   {
     await seen.uriHandler.handleUri(uriFor(safePath));
