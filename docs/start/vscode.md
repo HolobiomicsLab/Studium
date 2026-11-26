@@ -82,7 +82,8 @@ resumes from your saved progress.
 - **Header.** The step type and its key class, the number of reviews due, and a menu with
   **About this lesson** and **Forget me**.
 - **Status line.** One line above the progress rail, at most 80 characters, says where you are: the lesson,
-  the step out of the total (or which check question of a contest), a detour, the minutes left, the reviews
+  the step out of the total (or which check question of a contest), a detour, the minutes left (the lesson's
+  stated duration times the share of steps left, the length the chat gives when the lesson is ready), the reviews
   due and what is expected of you (to read, your answer, to rate your recall, a run to launch, done). The
   progress rail keeps its segments without repeating the step. While a lesson plays, the VS Code status bar
   shows this same line; what is due for review then moves into its tooltip (see [Reviews](#reviews)).

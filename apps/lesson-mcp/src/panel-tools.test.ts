@@ -265,7 +265,8 @@ it("applies language, attention, replan and ask through panel_action", async () 
     const planned = await act({ type: "replan", minutes: 10 });
     expect(planned.prompts).toHaveLength(1);
     expect(planned.prompts[0]).toMatchObject({ kind: "replan", expires: "scene", actions: [] });
-    expect(planned.prompts[0].reason).toMatch(/10 min.*78/);
+    // Changed 2026-11-26: the lesson's stated duration (60 min at step 1), not its scenes' estimated seconds (78).
+    expect(planned.prompts[0].reason).toMatch(/10 min.*60/);
     const asked = await act({ type: "ask", text: "Why does Z define the element?" });
     expect(asked).toMatchObject({ kind: "notice", scene: { id: panel.scene.id }, progress: { index: 1 }, attention: "quiet" });
     expect(asked.message).toContain("conversation");
