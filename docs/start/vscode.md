@@ -2,7 +2,7 @@ English · [Français](vscode.fr.md)
 
 # VS Code
 
-The Studium extension plays a lesson in a pane beside your editor: each step shows its figures, equations,
+The Studium extension plays a lesson in a pane, as a tab of the editor area: each step shows its figures, equations,
 plots and 3D models, asks one question at a time, gives feedback as a step of its own, and tells you when
 reviews are due. It follows your editor theme and language (English or French), and works with the
 keyboard and a screen reader (target: WCAG 2.2 AA).
@@ -50,7 +50,9 @@ When `studium.bundlesRoot` is empty, the lessons folder is the checkout's `fixtu
 from a Studium checkout, and otherwise your personal library, `~/.studium/library` (or
 `<STUDIUM_HOME>/library`), where the lessons an assistant builds for you are written. The extension creates
 that library at startup if it is missing, and watches it: a lesson an assistant writes there is listed and
-announced with **Open**, **Later** and **Don't show again**. Lessons that land together share one notice,
+opens in the Studium pane by itself, as a tab of the editor area, while the focus stays in the chat; a notice says
+so, and its button turns `studium.openLessonWhenReady` off. With that setting off, the lesson is announced instead,
+with **Open**, **Later** and **Don't show again**. Lessons that land together share one notice,
 whose **Show** opens the Studium view. A lesson you copy there yourself is listed but not announced.
 **Don't show again** turns off the `studium.notifyLessonReady` setting: turn it back on in the Settings
 editor to see the notices again. If `studium.bundlesRoot` names another folder, the library's lessons are
@@ -196,9 +198,10 @@ faulty lesson cannot freeze the editor. **Studium: Run reproduction** starts the
 | `studium.registerMcpServer` | `true` | offer the extension's own server to Copilot's agent mode (VS Code 1.101 or later); none is offered when you already added a Studium server yourself |
 | `studium.notifyLessonReady` | `true` | tell you when a lesson your assistant built is ready; **Don't show again** on that notice turns it off, and turning it back on brings the notices back. A user setting, for every window |
 | `studium.offerVibeConnection` | `true` | when Mistral Vibe is installed, offer once to connect it to Studium; **Studium: Connect Mistral Vibe** works whatever this setting says. A user setting |
+| `studium.openLessonWhenReady` | `true` | open a lesson your assistant built in the Studium pane as soon as it is ready, as a tab of the editor area, leaving the focus in the chat; off, a notice offers **Open** instead. A user setting |
 | `studium.telemetryConsent` | `false` | opt in to recording pseudonymised class telemetry in the extension's data folder (nothing is sent) |
 | `studium.modalityPreference` | `balanced` | `visual` or `textual` reorders each step's material; nothing is removed |
-| `studium.showGraph` | `true` | open a companion pane with the live learning graph |
+| `studium.showGraph` | `true` | open the live learning graph as a tab next to the lesson |
 | `studium.graphView` | `student` | `student` shows the area around you, `teacher` the whole graph |
 | `studium.showMastery` | `false` | show the per-concept mastery bar; for teacher demos only, as it can leak quiz answers |
 

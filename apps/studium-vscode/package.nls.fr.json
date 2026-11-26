@@ -19,7 +19,7 @@
   "configuration.registerMcpServer.description": "Proposer à Copilot Chat en mode agent le serveur Studium intégré à cette extension : un assistant peut alors construire et jouer des leçons sans Node ni commande au terminal. Demande VS Code 1.101 ou plus récent ; sans effet dans un éditeur qui n'a pas cette API. Si vous avez déjà ajouté vous-même un serveur Studium, l'extension n'en ajoute pas un second.",
   "configuration.notifyLessonReady.description": "Afficher une notification quand une leçon construite par votre assistant arrive dans votre bibliothèque, avec Ouvrir, Plus tard et Ne plus afficher. « Ne plus afficher » désactive ce réglage ; réactivez-le pour revoir ces notifications. Vaut pour toutes les fenêtres.",
   "configuration.telemetryConsent.description": "Consentir à la télémétrie de classe pseudonymisée (STUDIUM_TELEMETRY_CONSENT).",
-  "configuration.showGraph.description": "Ouvrir un panneau compagnon du graphe d'apprentissage (Learning Workflow Graph), redessiné à chaque tour (typed-graph-lens).",
+  "configuration.showGraph.description": "Ouvrir le graphe d'apprentissage (Learning Workflow Graph) dans un onglet à côté de la leçon, redessiné à chaque tour (typed-graph-lens).",
   "configuration.graphView.description": "Portée du graphe : « student » (ego-graphe autour de la frontière courante) ou « teacher » (le graphe entier).",
   "configuration.graphView.enum.0": "Ego-graphe autour de la frontière courante.",
   "configuration.graphView.enum.1": "Le graphe entier.",
@@ -54,5 +54,6 @@
   "chat.command.discuss.description": "Prendre un tour de discussion (argumenter une position)",
   "command.connectVibe.title": "Studium : Relier Mistral Vibe",
   "command.disconnectVibe.title": "Studium : Délier Mistral Vibe",
-  "configuration.offerVibeConnection.description": "Proposer une fois de relier Mistral Vibe (sa ligne de commande, son extension VS Code et Vibe Desktop) à Studium quand Vibe est installé. La commande « Studium : Relier Mistral Vibe » fonctionne quel que soit ce réglage."
+  "configuration.offerVibeConnection.description": "Proposer une fois de relier Mistral Vibe (sa ligne de commande, son extension VS Code et Vibe Desktop) à Studium quand Vibe est installé. La commande « Studium : Relier Mistral Vibe » fonctionne quel que soit ce réglage.",
+  "configuration.openLessonWhenReady.description": "Ouvrir dans le panneau Studium une leçon construite par votre assistant dès qu'elle est prête, sans quitter la conversation. Désactivé : une notification avec Ouvrir à la place."
 }

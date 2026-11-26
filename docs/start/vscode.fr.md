@@ -2,7 +2,7 @@
 
 # VS Code
 
-L'extension Studium joue une leçon dans un panneau à côté de votre éditeur : chaque étape affiche ses
+L'extension Studium joue une leçon dans un panneau, en onglet de la zone d'édition : chaque étape affiche ses
 figures, équations, graphiques et modèles 3D, pose une question à la fois, donne son retour dans une étape
 à part et vous signale les révisions dues. Elle suit le thème et la langue de votre éditeur (français ou
 anglais) et s'utilise au clavier comme avec un lecteur d'écran (objectif : WCAG 2.2 AA).
@@ -52,7 +52,9 @@ Quand `studium.bundlesRoot` est vide, le dossier de leçons est le `fixtures/` d
 tourne depuis un clone de Studium, sinon votre bibliothèque personnelle, `~/.studium/library` (ou
 `<STUDIUM_HOME>/library`), où sont écrites les leçons qu'un assistant prépare pour vous. L'extension crée
 cette bibliothèque au démarrage si elle manque, et la surveille : une leçon qu'un assistant y écrit est listée
-et annoncée, avec **Ouvrir**, **Plus tard** et **Ne plus afficher**. Des leçons arrivées ensemble partagent
+et s'ouvre d'elle-même dans le panneau Studium, en onglet de la zone d'édition, sans quitter la conversation ; une
+notification le dit, et son bouton désactive `studium.openLessonWhenReady`. Ce réglage désactivé, la leçon est
+annoncée à la place, avec **Ouvrir**, **Plus tard** et **Ne plus afficher**. Des leçons arrivées ensemble partagent
 une seule notification, dont **Afficher** ouvre la vue Studium. Une leçon que vous y copiez vous-même est
 listée mais pas annoncée. **Ne plus afficher** désactive le réglage `studium.notifyLessonReady` :
 réactivez-le dans l'éditeur de réglages pour revoir les notifications. Si `studium.bundlesRoot` désigne
@@ -205,10 +207,11 @@ contrôle la sortie s'exécute sous une limite de 50 ms : une leçon défectueu
 | `studium.learnerId` | `vscode-learner` | votre identifiant d'apprenant ; il sale votre pseudonyme sur le disque |
 | `studium.registerMcpServer` | `true` | proposer le serveur de l'extension au mode agent de Copilot (VS Code 1.101 ou plus récent) ; aucun n'est proposé si vous avez déjà ajouté vous-même un serveur Studium |
 | `studium.notifyLessonReady` | `true` | vous prévenir quand une leçon construite par votre assistant est prête ; **Ne plus afficher** sur cette notification le désactive, et le réactiver fait revenir les notifications. Un réglage utilisateur, pour toutes les fenêtres |
+| `studium.openLessonWhenReady` | `true` | ouvrir dans le panneau Studium une leçon construite par votre assistant dès qu'elle est prête, en onglet de la zone d'édition, sans quitter la conversation ; désactivé, une notification propose **Ouvrir** à la place. Un réglage utilisateur |
 | `studium.offerVibeConnection` | `true` | quand Mistral Vibe est installé, proposer une fois de le relier à Studium ; **Studium : Relier Mistral Vibe** fonctionne quel que soit ce réglage. Un réglage utilisateur |
 | `studium.telemetryConsent` | `false` | consentir à l'enregistrement d'une télémétrie de classe pseudonymisée dans le dossier de données de l'extension (rien n'est envoyé) |
 | `studium.modalityPreference` | `balanced` | `visual` ou `textual` réordonne le contenu de chaque étape ; rien n'est retiré |
-| `studium.showGraph` | `true` | ouvrir un panneau compagnon avec le graphe d'apprentissage en direct |
+| `studium.showGraph` | `true` | ouvrir le graphe d'apprentissage en direct dans un onglet à côté de la leçon |
 | `studium.graphView` | `student` | `student` montre votre voisinage, `teacher` le graphe entier |
 | `studium.showMastery` | `false` | afficher la barre de maîtrise par notion ; pour les démonstrations enseignantes seulement, car elle peut révéler les réponses d'un quiz |
 

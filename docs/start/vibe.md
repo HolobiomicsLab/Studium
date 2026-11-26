@@ -11,8 +11,10 @@ With the Studium extension for VS Code installed, you need no terminal and no No
 
 1. In VS Code, run **Studium: Connect Mistral Vibe** from the Command Palette (when Vibe is installed, the extension
    also offers it once in a notification, and the empty **Lessons** view has the link).
-2. Start a new Vibe session: open a new chat in the Mistral Vibe extension, or restart Vibe Desktop.
-3. Ask Vibe: "I want to learn … with Studium", naming your sources, for example a file of course notes.
+2. Reload the VS Code window (the notice has a **Reload Window** button): the Vibe extension reads its configuration
+   when it starts, and a new chat is not enough. Quit and restart Vibe Desktop too (Cmd+Q on macOS), if it is open.
+3. Ask Vibe: "I want to learn … with Studium", naming your sources, for example a file of course notes. In VS Code,
+   the lesson opens in the Studium pane by itself when it is ready.
 
 The command writes one entry, `studium`, into Vibe's configuration (`~/.vibe/config.toml`, or `$VIBE_HOME/config.toml`)
 and nothing else; the previous file is kept as `config.toml.studium-backup`. The entry runs the Studium server the
@@ -26,9 +28,10 @@ its uninstall step.
 
 What was checked, on 26 November 2026 with Vibe 3.1.3 (command line, headless) and Mistral Large 4 on macOS: with the
 entry the command writes, Vibe started the server, built a two-step lesson from a notes file in about 3.5 minutes and
-gave the browser address; started from VS Code's executable, it gave the pane link. According to Mistral's
-documentation, the Vibe extension for VS Code and Vibe Desktop read the same configuration; this was not tried in them
-yet. On Windows the server cannot tell whether VS Code started it and always offers the browser. In a remote VS Code
+gave the browser address; started from VS Code's executable, it gave the pane link. The same day, in the Vibe extension
+for VS Code (1.30.0): after a window reload, Vibe saw Studium's 40 tools and built the lesson; its chat showed the
+`vscode://` link as text rather than as a link, which is why the lesson now opens by itself. In a second run with that change, the lesson opened by itself as a tab of the editor area. Vibe Desktop 1.3.0, quit and
+started again after the command, started the server from the same entry. On Windows the server cannot tell whether VS Code started it and always offers the browser. In a remote VS Code
 window (SSH, WSL, containers) the command does not run.
 
 ## Vibe in a terminal, without the extension

@@ -95,7 +95,8 @@ que la connexion, la progression enregistrée est conservée.
 | `studium.assets` | `vendor` | `vendor` (hors ligne, `media/vendor`) ou `cdn` (jsdelivr) |
 | `studium.learnerId` | `vscode-learner` | sel du pseudonyme de l'apprenant |
 | `studium.telemetryConsent` | `false` | accepter l'envoi de télémétrie de classe consentie et pseudonymisée ; progression et révisions restent sur l'appareil dans tous les cas |
-| `studium.showGraph` | `true` | ouvrir le panneau compagnon du graphe de parcours en direct |
+| `studium.openLessonWhenReady` | `true` | ouvrir dans le panneau Studium une leçon construite par votre assistant dès qu'elle est prête, sans quitter la conversation |
+| `studium.showGraph` | `true` | ouvrir le graphe de parcours en direct dans un onglet à côté de la leçon |
 | `studium.graphView` | `student` | portée du graphe : `student` (vue centrée) ou `teacher` (graphe complet) |
 | `studium.showMastery` | `false` | afficher la barre de maîtrise par notion (démo enseignant seulement : elle peut trahir les réponses) |
 | `studium.modalityPreference` | `balanced` | ordre des artefacts `visual`, `textual` ou `balanced` |
@@ -165,7 +166,7 @@ affichent pour l'instant une légende « image non résolue ».
   `textual` ; rien n'est masqué.
 - **Verdict de calibration** : une incitation sans chiffre en cas de sur- ou sous-confiance
   ([`src/calibration.ts`](src/calibration.ts)).
-- **Graphe de parcours en direct** (`studium.showGraph`) : un panneau Cytoscape compagnon, redessiné à
+- **Graphe de parcours en direct** (`studium.showGraph`) : un onglet Cytoscape à côté de la leçon, redessiné à
   chaque tour.
 
 ## D'une conversation au panneau

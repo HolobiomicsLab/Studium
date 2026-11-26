@@ -91,7 +91,8 @@ or notebook only drops the connection, so saved progress survives.
 | `studium.assets` | `vendor` | `vendor` (offline, `media/vendor`) or `cdn` (jsdelivr) |
 | `studium.learnerId` | `vscode-learner` | salts the learner pseudonym |
 | `studium.telemetryConsent` | `false` | opt in to sending consented, pseudonymized class telemetry; progress and reviews stay on the device either way |
-| `studium.showGraph` | `true` | open the companion live workflow-graph pane |
+| `studium.openLessonWhenReady` | `true` | open a lesson your assistant built in the Studium pane as soon as it is ready, leaving the focus in the chat |
+| `studium.showGraph` | `true` | open the live workflow graph as a tab next to the lesson |
 | `studium.graphView` | `student` | graph scope: `student` (ego view) or `teacher` (full graph) |
 | `studium.showMastery` | `false` | show the per-concept mastery bar (teacher demo only: it can leak quiz answers) |
 | `studium.modalityPreference` | `balanced` | `visual`, `textual` or `balanced` artifact ordering |
@@ -156,7 +157,7 @@ unresolved-image caption for now.
 - **Modality preference** reorders and emphasises each scene's artifacts toward `visual` or `textual`;
   nothing is hidden.
 - **Calibration verdict**: a number-free over- or under-confidence nudge ([`src/calibration.ts`](src/calibration.ts)).
-- **Live workflow graph** (`studium.showGraph`): a companion Cytoscape pane that repaints each turn.
+- **Live workflow graph** (`studium.showGraph`): a Cytoscape tab next to the lesson that repaints each turn.
 
 ## From a conversation to the pane
 

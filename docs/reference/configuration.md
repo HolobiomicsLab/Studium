@@ -149,7 +149,7 @@ from `studium.bundlesRoot`, `STUDIUM_DATA_DIR` set to its VS Code storage folder
 | `studium.assets` | `vendor` | `vendor` (offline viewers) or `cdn`. |
 | `studium.learnerId` | `vscode-learner` | Learner id. Blank: the server registered for Copilot plays `anonymous`. |
 | `studium.telemetryConsent` | `false` | Consented, pseudonymised class telemetry. |
-| `studium.showGraph` | `true` | Companion learning workflow graph panel. |
+| `studium.showGraph` | `true` | Companion learning workflow graph, as a tab next to the lesson. |
 | `studium.graphView` | `student` | `student` (around the current concept) or `teacher` (whole graph). |
 | `studium.showMastery` | `false` | Live mastery bar; a teacher signal that can leak answers during a quiz. |
 | `studium.modalityPreference` | `balanced` | `visual`, `textual` or `balanced` ordering of a scene's supports. |

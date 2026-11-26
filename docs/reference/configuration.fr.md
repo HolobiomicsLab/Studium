@@ -152,7 +152,7 @@ son environnement est hérité.
 | `studium.assets` | `vendor` | `vendor` (visionneuses hors ligne) ou `cdn`. |
 | `studium.learnerId` | `vscode-learner` | Identifiant d'apprenant. Vide : le serveur enregistré pour Copilot joue `anonymous`. |
 | `studium.telemetryConsent` | `false` | Télémétrie de classe consentie et pseudonymisée. |
-| `studium.showGraph` | `true` | Panneau compagnon du graphe de parcours d'apprentissage. |
+| `studium.showGraph` | `true` | Graphe de parcours d'apprentissage, dans un onglet à côté de la leçon. |
 | `studium.graphView` | `student` | `student` (autour du concept courant) ou `teacher` (graphe entier). |
 | `studium.showMastery` | `false` | Barre de maîtrise en direct ; un signal pour l'enseignant, qui peut trahir la réponse pendant un quiz. |
 | `studium.modalityPreference` | `balanced` | Ordre des supports d'une scène : `visual`, `textual` ou `balanced`. |
