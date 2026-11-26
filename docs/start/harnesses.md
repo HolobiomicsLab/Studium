@@ -38,7 +38,7 @@ them into your client's file; never overwrite other servers already configured t
 ## Choose your client
 
 With the Studium extension for VS Code, **Studium: Connect an Assistant…** connects Mistral Vibe, Codex, Claude Code,
-Claude Desktop and OpenCode in one click, with no Node and no terminal: it writes one `studium` entry into each
+Claude Desktop, Cursor and OpenCode in one click, with no Node and no terminal: it writes one `studium` entry into each
 assistant's own file, running the server the extension carries. Copilot in VS Code has the server already. Each page
 below starts with that route, then gives the manual one.
 
@@ -48,7 +48,7 @@ below starts with that route, then gives the manual one.
 | Claude Code | **Studium: Connect an Assistant…** in VS Code (no Node), the `studium` plugin, `claude mcp add`, or `.mcp.json` at the project root | [Connect Claude Code](claude-code.md) |
 | Copilot in VS Code | `.vscode/mcp.json` | [Connect Copilot in VS Code](copilot.md) |
 | OpenCode | **Studium: Connect an Assistant…** in VS Code (no Node), or `opencode.jsonc` at the project root | [Connect OpenCode](opencode.md) |
-| Cursor | `.cursor/mcp.json` or `~/.cursor/mcp.json` | [Connect Cursor](cursor.md) |
+| Cursor | **Studium: Connect an Assistant…** in VS Code (no Node), or `.cursor/mcp.json` or `~/.cursor/mcp.json` | [Connect Cursor](cursor.md) |
 | Mistral Vibe | **Studium: Connect an Assistant…** or **Studium: Connect Mistral Vibe** in VS Code (no Node), or `~/.vibe/config.toml`, or `vibe mcp add` | [Connect Mistral Vibe](vibe.md) |
 | Claude Desktop | **Studium: Connect an Assistant…** in VS Code (no Node), or `claude_desktop_config.json` | [below](#claude-desktop) |
 | A script or a custom client | no MCP configuration | [HTTP API](../reference/http-api.md) and [file channel](../reference/agentic-session-protocol.md) |

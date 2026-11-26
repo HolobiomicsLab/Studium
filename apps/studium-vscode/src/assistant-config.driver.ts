@@ -33,6 +33,7 @@ const json = (text: string): any => parseJsonc(text, [], { allowTrailingComma: t
   expect(assistantConfigPath("claude-desktop", { ...base, platform: "linux" }) === null, "no Claude Desktop on Linux");
   expect(assistantConfigPath("claude-desktop", { env: { APPDATA: "C:/Users/ada/AppData/Roaming" }, homedir: "C:/Users/ada", platform: "win32" })!.replace(/\\/g, "/")
     .endsWith("Roaming/Claude/claude_desktop_config.json"), "claude desktop on Windows: %APPDATA%");
+  expect(assistantConfigPath("cursor", base) === "/Users/ada/.cursor/mcp.json", "cursor: ~/.cursor/mcp.json");
   expect(assistantConfigPath("opencode", base) === "/Users/ada/.config/opencode/opencode.json", "opencode: ~/.config/opencode/opencode.json");
   expect(assistantConfigPath("opencode", { ...base, env: { XDG_CONFIG_HOME: "/x" }, exists: (p) => p.endsWith(".jsonc") }) === "/x/opencode/opencode.jsonc",
     "opencode: XDG_CONFIG_HOME, and opencode.jsonc when it alone exists");
@@ -85,14 +86,14 @@ for (const id of ASSISTANT_IDS) {
 }
 
 // Claude Code and Claude Desktop: mcpServers.studium, the rest of a big state file untouched.
-for (const id of ["claude-code", "claude-desktop"] as AssistantId[]) {
+for (const id of ["claude-code", "claude-desktop", "cursor"] as AssistantId[]) {
   const user = '{\n  "numStartups": 12,\n  "projects": {"/a": {"allowedTools": []}},\n  "mcpServers": {\n    "perspicacite": {"type": "http", "url": "http://localhost:8000/mcp"}\n  }\n}\n';
   const added = textOf(connectAssistant(id, user, entry("0.6.6"), { replaceHandWritten: false }));
   const doc = json(added);
   expect(doc.numStartups === 12 && doc.projects["/a"] && doc.mcpServers.perspicacite.url, `${id}: the rest kept`);
   const server = doc.mcpServers.studium;
   expect(server.command === HELPER && server.env[VIBE_MARKER_KEY] === VIBE_MARKER && !("STUDIUM_TELEMETRY_CONSENT" in server.env), `${id}: our entry`);
-  expect(id === "claude-code" ? server.type === "stdio" : !("type" in server), `${id}: type as \`claude mcp add\` writes it`);
+  expect(id !== "claude-desktop" ? server.type === "stdio" : !("type" in server), `${id}: type as \`claude mcp add\` writes it`);
   const hand = '{"mcpServers": {"studium": {"command": "npx", "args": ["-y", "studium-mcp"]}}}';
   const asked = connectAssistant(id, hand, entry("0.6.6"), { replaceHandWritten: false });
   expect("refused" in asked && asked.refused === "hand-written" && asked.command === "npx -y studium-mcp", `${id}: asks before replacing`);
