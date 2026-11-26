@@ -39,7 +39,8 @@ export function shippedLessonsRoot(opts: {
  * (persistence.ts). STUDIUM_OPEN_LINK says the VS Code extension serves it (D1, D2). `browserLink`: the address of
  * the server's browser player (served-player.ts), which main gives when STUDIUM_OPEN_LINK is unset (owner decision 4).
  * `servesOnePerson`: main's stdio server is one person's process, its default learner one person (D4 review, finding 1);
- * `studium-mcp play`, which serves the lesson HTTP API, does not say so. */
+ * `studium-mcp play`, which serves the lesson HTTP API, does not say so. Learner ids (owner's decision, 26 Nov 2026): such
+ * a server plays its default learner only, whatever learner_id a call passes, unless STUDIUM_LEARNERS=several. */
 export function hostFromEnvironment(
   env: Readonly<Record<string, string | undefined>> = process.env, home: string = homedir(),
   opts: {
@@ -61,8 +62,15 @@ export function hostFromEnvironment(
     ...(editorNamesLearner ? { editorNamesLearner } : {}),
     ...(opts.browserLink && !openLink ? { browserLink: opts.browserLink } : {}),
     ...(opts.servesOnePerson ? { servesOnePerson: true } : {}),
+    ...(opts.servesOnePerson && !playsSeveralLearners(env) ? { oneLearner: true } : {}),
   });
   return { host, config, live };
+}
+
+/** STUDIUM_LEARNERS=several: the stdio server plays every learner_id a call passes (a computer several people share
+ * through one assistant, an evaluation); otherwise it plays one learner. */
+export function playsSeveralLearners(env: Readonly<Record<string, string | undefined>>): boolean {
+  return env["STUDIUM_LEARNERS"]?.trim().toLowerCase() === "several";
 }
 
 const HELP = `studium-mcp ${SERVER_VERSION}
@@ -90,7 +98,10 @@ Environment
   BUNDLES_ROOT        a folder of lessons looked up first, for example a teacher's course
   STUDIUM_DATA_DIR    where progress and reviews are kept (default <STUDIUM_HOME>/data)
   STUDIUM_EPHEMERAL   1 keeps everything in memory: nothing is written
-  STUDIUM_LEARNER_ID  the learner id used when a call names none (default anonymous)
+  STUDIUM_LEARNER_ID  the learner this server plays (default anonymous): a learner_id a call
+                      passes is ignored, so that a model cannot split your progress among ids
+  STUDIUM_LEARNERS    several: play the learner_id each call passes (a computer several people
+                      share through one assistant); STUDIUM_LEARNER_ID is then the default
   STUDIUM_OPEN_LINK   set by the Studium VS Code extension: the start of a link that opens a lesson
                       in its pane; lessons are then offered there first, and with STUDIUM_LEARNER_ID
                       that learner is the only one (a learner_id passed is ignored)

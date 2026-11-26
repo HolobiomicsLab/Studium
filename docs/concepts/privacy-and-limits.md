@@ -16,7 +16,8 @@ The MCP server (`apps/lesson-mcp`) uses these defaults. Each can be changed with
 | A draft Studium refused, kept so the assistant resends only the faulty scenes (see *A kept draft* below) | `<STUDIUM_HOME>/library/_drafts/` | `STUDIUM_HOME` |
 | Your progress | `<STUDIUM_HOME>/data` | `STUDIUM_DATA_DIR` |
 | Nothing on disk, memory only | off | `STUDIUM_EPHEMERAL=1` |
-| Learner id when the assistant gives none | `anonymous` | `STUDIUM_LEARNER_ID` |
+| The one learner the server plays (an id an assistant passes is ignored) | `anonymous` | `STUDIUM_LEARNER_ID` |
+| Play the `learner_id` of each call (shared computer, evaluations) | off | `STUDIUM_LEARNERS=several` |
 
 Inside the data folder, each learner has a folder named by a pseudonym, never by their id:
 
@@ -38,7 +39,7 @@ When you tell your assistant what you already know, what interests you, how many
 
 When Studium refuses a lesson draft for what it says, it keeps the draft in `<STUDIUM_HOME>/library/_drafts/` so that the assistant sends back only the faulty scenes. The kept draft holds the lesson as the assistant wrote it, answer keys included, the errors found in it, the sources it rests on (by their SHA-256) and the pseudonym of the learner it was written for. Of your learner profile it keeps only the minutes a day and the target date: what you already know and what interests you stay out, even under a misspelled field name, and so do the errors about them.
 
-The study plan offers to finish it only to the learner it was refused for, after a lesson they have in progress. When the assistant gave no `learner_id` and `STUDIUM_LEARNER_ID` is not set, no learner is known: the draft serves only the resend in the same conversation and is offered to no one, so a computer several learners share never shows one learner's goal or file to another.
+The study plan offers to finish it only to the learner it was refused for, after a lesson they have in progress. The server plays one learner, so the draft is kept for them even when that learner is `anonymous`. With `STUDIUM_LEARNERS=several`, when a call gives no `learner_id` and `STUDIUM_LEARNER_ID` is not set, no learner is known: the draft serves only the resend in the same conversation and is offered to no one, so a computer several learners share never shows one learner's goal or file to another.
 
 It is erased when a lesson is written for that learner (or from the same sources with no learner named), when the learner says they no longer want it, when they erase their data with `forget_session {learner_id}`, which also erases the drafts kept for no learner, and in any case after 14 days.
 

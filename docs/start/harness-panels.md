@@ -31,7 +31,7 @@ The same renderer draws the panel in VS Code and in MCP Apps. The Claude Code mo
 
 When a lesson is ready to play (one the assistant has just built, or the one the study plan says to start or continue), Studium offers it on the surfaces your assistant and its server give, in this order:
 
-1. The surface your assistant draws itself: the Claude Code mod's pane, once the mod has opened a lesson in this session, for the learner the server plays by default (the one `/studium` opens lessons for); Studium's panel, when the client announces `io.modelcontextprotocol/ui` (the assistant then opens it with `open_lesson_panel`); the VS Code pane, on the Studium extension's server.
+1. The surface your assistant draws itself: the Claude Code mod's pane, once the mod has opened a lesson in this session, for the learner the server plays (the one `/studium` opens lessons for); Studium's panel, when the client announces `io.modelcontextprotocol/ui` (the assistant then opens it with `open_lesson_panel`); the VS Code pane, on the Studium extension's server.
 2. The [browser player](browser.md#from-your-assistant), when no VS Code extension serves Studium.
 3. The conversation: say "here".
 

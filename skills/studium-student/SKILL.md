@@ -59,9 +59,8 @@ unless the learner last answered in the chat (`offer_first: "chat"`).
 ## Begin the activity
 
 Read [studium-harness](../studium-harness/SKILL.md) for the loop and use
-[Your first lesson](../../docs/tutorials/first-lesson.md). Ask for one stable
-`learner_id` and pass it on every call, unless `persistence.learner_id_from_editor` is
-true: then omit it, the editor names the learner. Relay the lesson's `authoring.notice` when
+[Your first lesson](../../docs/tutorials/first-lesson.md). Omit `learner_id` on every call and never make one up:
+the server plays one learner, the person using you, and ignores an id you pass. Relay the lesson's `authoring.notice` when
 present, show each `display_markdown`, then wait for the student.
 
 - Keep answers fast: play the lesson in a short session of its own, on the harness's fast model
@@ -97,7 +96,7 @@ local files). `end_session` closes and keeps progress; on a later day,
 due reviews back ([Review over time](../../docs/learn/review-over-time.md)). Use
 `forget_session` only on an explicit erasure request and explain its scope: with
 `session_id`, this lesson's progress, the cross-lesson profile and the review schedule;
-with `learner_id`, every lesson's progress too. Show its `display_markdown`, which
+with neither, every lesson's progress too. Show its `display_markdown`, which
 names what stays on disk: the lessons of the student's library, their prepared sources and
 the exported map pages. The lesson's experiment journal is erased with its progress; files
 the student saved elsewhere and the assistant's own history are outside Studium. The VS Code

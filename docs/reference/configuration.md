@@ -18,7 +18,8 @@ An empty value (`VAR=`) counts as unset for the variables of the MCP server.
 | `BUNDLES_ROOT` | lesson-mcp: `<STUDIUM_HOME>/library`; see the other components below | lesson-mcp and every server | Folder a `bundle_ref` is looked up in first. lesson-mcp also searches the library. `prepare_sources` and `create_lesson` never write here: they always write to `<STUDIUM_HOME>/library`. |
 | `STUDIUM_DATA_DIR` | `<STUDIUM_HOME>/data` | lesson-mcp, lesson-server, HTTP API | Durable learner state. Set it to choose another folder; it is kept even with `STUDIUM_EPHEMERAL=1`. lesson-server and the HTTP API keep state in memory unless it is set. |
 | `STUDIUM_EPHEMERAL` | unset | lesson-mcp | `1` (or `true`, `yes`, `on`) keeps learner state in memory, lost at restart. Use it for tests, demos and CI. |
-| `STUDIUM_LEARNER_ID` | `anonymous` | lesson-mcp | Learner id used when a call names none. With `STUDIUM_OPEN_LINK`, it is the learner of every call, and a `learner_id` a model passes is ignored. |
+| `STUDIUM_LEARNER_ID` | `anonymous` | lesson-mcp | The one learner the stdio server plays; a `learner_id` a call passes is ignored. |
+| `STUDIUM_LEARNERS` | unset | lesson-mcp | `several` plays the `learner_id` of each call, `STUDIUM_LEARNER_ID` being the default: for a computer several people share through one assistant, or evaluations. The VS Code extension sets it for its own pane, `@studium` chat and notebook. Not used with `STUDIUM_OPEN_LINK`. |
 | `STUDIUM_OPEN_LINK` | unset | lesson-mcp | Set by the Studium VS Code extension for Copilot: the start of a link that opens a lesson in its pane (`vscode://holobiomicslab.studium-vscode/open?bundle=`). A lesson `create_lesson` writes and the study plan's lesson to start or continue are then offered in the pane first. |
 | `STUDIUM_BROWSER_PLAYER` | on | lesson-mcp | Without `STUDIUM_OPEN_LINK`, the server offers its own [browser player](../start/browser.md#from-your-assistant): the first time it offers a lesson (`create_lesson`, or the study plan's lesson to start or continue), it starts the player on 127.0.0.1, on a free port, and the result carries its address in `open_link`. That address plays the learner id of the call and lives as long as the server, that is the assistant's session. `off` (or `0`, `false`, `no`, `none`) never starts it: lessons are played in the chat only. With `STUDIUM_OPEN_LINK` it never starts. |
 | `STUDIUM_SHIPPED_LESSONS` | `shipped-lessons/` beside the server | lesson-mcp | The lessons shipped with Studium (the « Discover Studium » demo), searched after `BUNDLES_ROOT` and the library, never written to; a lesson of yours with the same ref wins. `off` for none. A lone `lesson-mcp.cjs` copied elsewhere has none. |
@@ -145,7 +146,7 @@ from `studium.bundlesRoot`, `STUDIUM_DATA_DIR` set to its VS Code storage folder
 | `studium.bundleRef` | `atomistique-l1/lesson.json` | Lesson opened by default. |
 | `studium.communityBundlesRoot` | empty: `studium.bundlesRoot` | Root of approved learner contributions. |
 | `studium.assets` | `vendor` | `vendor` (offline viewers) or `cdn`. |
-| `studium.learnerId` | `vscode-learner` | Learner id. |
+| `studium.learnerId` | `vscode-learner` | Learner id. Blank: the server registered for Copilot plays `anonymous`. |
 | `studium.telemetryConsent` | `false` | Consented, pseudonymised class telemetry. |
 | `studium.showGraph` | `true` | Companion learning workflow graph panel. |
 | `studium.graphView` | `student` | `student` (around the current concept) or `teacher` (whole graph). |

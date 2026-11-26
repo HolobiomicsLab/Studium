@@ -91,7 +91,7 @@ These steps are written for you.
    the person asks for a judge model: a non-empty value is a paid route.
 3. After the restart, prove the connection by calling `get_server_info`: it returns the version and the
    tool list. A configuration file is not proof.
-4. Call `get_study_plan` with one stable `learner_id` and the person's language. Its `next_step` names the
+4. Call `get_study_plan` with the person's language and no `learner_id`: the server plays one learner, the person using you. Its `next_step` names the
    next call; with no lesson yet it sends you to `get_authoring_guide`, then `prepare_sources` and
    `create_lesson`.
 5. The learner answers and you relay: never answer, choose or rate for them, and do not read a lesson's

@@ -106,7 +106,7 @@ What the server guarantees:
 - No answer key before an answer: scenes are redacted before they leave the server, and cited source
   passages of graded scenes are released only after the learner has answered.
 - `end_session` closes a lesson and keeps progress. `forget_session {session_id}` erases this lesson's
-  progress and the learner's cross-lesson profile and review schedule; `forget_session {learner_id}`
+  progress and the learner's cross-lesson profile and review schedule; `forget_session {}`
   erases every lesson's progress too; `language` (fr|en) sets the language of its answer. Its answer lists what was erased and what stays on disk: the
   lessons of the learner's library and their sources, which the learner deletes themselves.
 - `create_lesson` writes `<course_id>/lesson.json` into the learner's library
@@ -125,7 +125,8 @@ What the server guarantees:
 | `BUNDLES_ROOT` | `<STUDIUM_HOME>/library` | where lessons are looked up first; the library is always searched too |
 | `STUDIUM_DATA_DIR` | `<STUDIUM_HOME>/data` | durable learner state |
 | `STUDIUM_EPHEMERAL` | unset | `1` keeps state in memory unless `STUDIUM_DATA_DIR` is set (tests, demos, CI) |
-| `STUDIUM_LEARNER_ID` | `anonymous` | learner id used when a call names none |
+| `STUDIUM_LEARNER_ID` | `anonymous` | the one learner this server plays; a `learner_id` a call passes is ignored |
+| `STUDIUM_LEARNERS` | unset | `several` plays the `learner_id` of each call, `STUDIUM_LEARNER_ID` being the default (shared computer, evaluations) |
 | `STUDIUM_PSEUDO_SECRET` | per-install file `<data dir>/.studium-secret` | secret of the on-disk learner pseudonyms |
 | `LITELLM_BASE_URL` | empty | judge model endpoint; empty means no judge |
 | `LITELLM_API_KEY`, `LITELLM_MODEL` | unset | credentials and model name for that endpoint |

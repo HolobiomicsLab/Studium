@@ -107,7 +107,9 @@ function player(origin: string, key?: string) {
 
 describe("the stdio server without the VS Code extension offers its browser player (D4)", () => {
   it("starts it on create_lesson, for the learner of the call, and the progress made there is that learner's", async () => {
-    const server = await startServer();
+    // Changed 2026-11-26 (learner ids): the server plays the learner of the call only with STUDIUM_LEARNERS=several;
+    // without it, it plays one learner whatever id a call passes (the next test but one).
+    const server = await startServer({ STUDIUM_LEARNERS: "several" });
     const before = listening(server.pid);
     if (before !== null) expect(before).toEqual([]);
     expect(server.stderr()).not.toMatch(/browser player/);
@@ -208,6 +210,37 @@ describe("the stdio server without the VS Code extension offers its browser play
     expect(again["presentation"]["scene"]["id"]).toBe(panel.scene.id);
     const plan = (await server.call("get_study_plan", { language: "fr" })).body;
     expect(plan["in_progress"]).toEqual([expect.objectContaining({ bundle_ref: LESSON, scenes_completed: 2 })]);
+    expect(await server.close()).toBe(0);
+  }, TIMEOUT);
+
+  // Learner ids (owner's decision, 26 Nov 2026): models made ids up (« apprenant-photosynthese », a user name from a path,
+  // « lfx » from a skill) and split one person's progress among them. The stdio server an assistant starts plays one
+  // learner: every id a call passes is ignored, and forget_session refuses one that is not that learner.
+  it("plays one learner whatever learner_id the calls make up", async () => {
+    const server = await startServer();
+    const info = (await server.call("get_server_info")).body;
+    expect(info["persistence"]).toMatchObject({ learner_id_default: "anonymous", learner_id_fixed: true });
+    const created = await server.createLesson(LEARNER);
+    const link = String(created.body["open_link"]);
+    const [, port, key] = link.match(/^http:\/\/127\.0\.0\.1:(\d+)\/play#k=([0-9a-f]{64})&/) ?? [];
+    expect(port, link).toBeDefined();
+    const asLearner = player(`http://127.0.0.1:${port}`, key);
+    const opened = (await asLearner("open_lesson_panel", { bundle_ref: LESSON, learner_id: "someone-else", locale: "fr" })).json["structuredContent"]["panel"];
+    expect(opened.learner_id).toBe("anonymous");
+    const answered = await asLearner("panel_action", { session_id: opened.session_id, action: { type: "respond", input: { kind: "ack" }, expected_scene_id: opened.scene.id } });
+    expect(answered.status).toBe(200);
+
+    const plan = (await server.call("get_study_plan", { learner_id: "nothiasl", language: "fr" })).body;
+    expect(plan["in_progress"]).toEqual([expect.objectContaining({ bundle_ref: LESSON, scenes_completed: 1 })]);
+    expect(plan["next_step"]).toMatchObject({ action: "continue", open_link: link });
+    expect(plan["next_step"]["arguments"]).not.toHaveProperty("learner_id");
+    const resumed = (await server.call("start_lesson_session", { bundle_ref: LESSON, learner_id: "lfx" })).body;
+    expect(resumed["session_id"]).toBe(opened.session_id);
+
+    const forget = await server.call("forget_session", { learner_id: "lfx" });
+    expect(forget.isError).toBe(true);
+    expect(String(forget.body["error"])).toMatch(/nothing was erased: this server plays one learner, "anonymous"/);
+    expect((await server.call("get_study_plan", { language: "fr" })).body["in_progress"]).toHaveLength(1);
     expect(await server.close()).toBe(0);
   }, TIMEOUT);
 

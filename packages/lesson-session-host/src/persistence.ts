@@ -6,7 +6,8 @@
 //   STUDIUM_HOME        default ~/.studium
 //   <home>/library      lessons written for the learner; always searched after BUNDLES_ROOT
 //   <home>/data         durable learner state (STUDIUM_DATA_DIR wins)
-//   STUDIUM_LEARNER_ID  the learner_id used when a call names none (default "anonymous")
+//   STUDIUM_LEARNER_ID  the learner_id used when a call names none (default "anonymous"); the stdio server an
+//                       assistant starts plays that learner only, unless STUDIUM_LEARNERS=several (index.ts)
 //   STUDIUM_EPHEMERAL=1 the old behaviour: durable only when STUDIUM_DATA_DIR is set
 //
 // Pure on purpose: the environment and the home directory are arguments, so only an entry point
@@ -34,6 +35,10 @@ export interface PersistenceInfo {
   /** D1: present (true) only when the editor names the learner (the server the Studium VS Code extension offers):
    * every call then plays learner_id_default, and a learner_id passed is ignored. */
   learner_id_from_editor?: true;
+  /** Present (true) only when every call plays learner_id_default and a learner_id passed is ignored: the editor names
+   * the learner, or the server plays one learner (the stdio server an assistant started; STUDIUM_LEARNERS=several
+   * lets it play several). */
+  learner_id_fixed?: true;
   /** Present only when nothing is durable; meant for the harness to relay. */
   warning?: string;
 }
@@ -75,6 +80,7 @@ export function persistenceInfo(p: {
   libraryRoot: string | null;
   learnerIdDefault: string;
   learnerIdFromEditor?: boolean;
+  learnerIdFixed?: boolean;
 }): PersistenceInfo {
   const info: PersistenceInfo = {
     durable: p.dataDir !== null,
@@ -82,6 +88,7 @@ export function persistenceInfo(p: {
     library_root: p.libraryRoot,
     learner_id_default: p.learnerIdDefault,
     ...(p.learnerIdFromEditor ? { learner_id_from_editor: true as const } : {}),
+    ...(p.learnerIdFixed ? { learner_id_fixed: true as const } : {}),
   };
   if (p.dataDir === null) info.warning = NOT_DURABLE_WARNING;
   return info;

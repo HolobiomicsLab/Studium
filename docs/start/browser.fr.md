@@ -61,12 +61,10 @@ n'ouvre jamais le navigateur de lui-même.
   navigateur. Pour la changer, utilisez le réglage de langue dans les paramètres de la page. Une leçon dans
   une autre langue laisse la page dans la langue de votre navigateur, comme `studium-mcp play`.
 
-- **Un apprenant par adresse.** L'adresse joue l'apprenant que l'assistant a nommé dans cet appel (son
-  `learner_id`, sinon `STUDIUM_LEARNER_ID`, sinon `anonymous`) : une étape faite dans le navigateur est la
+- **Un apprenant par adresse.** L'adresse joue l'apprenant que joue le serveur (`STUDIUM_LEARNER_ID`,
+  sinon `anonymous` ; avec `STUDIUM_LEARNERS=several`, le `learner_id` de cet appel) : une étape faite dans le navigateur est la
   progression de cet apprenant dans la conversation, et inversement. La page ne peut pas jouer un autre
-  apprenant. Un assistant qui vous nomme autrement d'un appel à l'autre fait deux apprenants : demandez-lui
-  de garder un seul nom.
-- **Ce qui vient d'abord.** Un assistant qui dessine le panneau Studium (Codex Desktop) propose le panneau
+  apprenant.- **Ce qui vient d'abord.** Un assistant qui dessine le panneau Studium (Codex Desktop) propose le panneau
   d'abord et cette adresse ensuite. Après une réponse dans la conversation, la conversation vient d'abord et
   l'adresse est donnée une fois ; après une réponse dans le navigateur, l'adresse revient en premier
   ([Où une leçon est proposée d'abord](harness-panels.fr.md#où-une-leçon-est-proposée-dabord)). Une leçon

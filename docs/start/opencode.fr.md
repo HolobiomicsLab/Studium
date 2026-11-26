@@ -78,7 +78,7 @@ Une leçon prête à jouer est proposée d'abord dans votre navigateur : l'assis
 [lecteur dans le navigateur](browser.fr.md#depuis-votre-assistant) de Studium, sur votre ordinateur, où
 vous répondez à chaque étape sans passer par la conversation ; dites « ici » pour la suivre plutôt dans la
 conversation. L'adresse vit le
-temps de la session d'OpenCode et joue l'identifiant d'apprenant qu'OpenCode a passé. Vos réponses y sont
+temps de la session d'OpenCode et joue l'apprenant que joue le serveur (`STUDIUM_LEARNER_ID`, sinon `anonymous`). Vos réponses y sont
 vérifiées par Studium sur votre ordinateur et ne vont pas au modèle, tant qu'aucun modèle juge n'est
 configuré. `STUDIUM_BROWSER_PLAYER=off` dans `environment` désactive cela. Essayé une fois dans `opencode web`
 (voir Limites).

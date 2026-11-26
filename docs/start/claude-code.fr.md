@@ -170,8 +170,8 @@ ajouté avec `claude mcp add`. Pour prouver la connexion, faites la vérificatio
 
 Une leçon prête à jouer est proposée d'abord dans votre navigateur. Avec le mod Claude Code
 (`apps/claude-code-mod`), une fois que le mod a ouvert une leçon dans cette session, la leçon suivante est
-proposée d'abord dans son volet (`/studium <leçon>`), à l'apprenant que le serveur joue par défaut
-(`STUDIUM_LEARNER_ID`) : `/studium` n'ouvre de leçon que pour lui. Claude Code ne donne au serveur aucun
+proposée d'abord dans son volet (`/studium <leçon>`), à l'apprenant que joue le serveur
+(`STUDIUM_LEARNER_ID`, sinon `anonymous`) : `/studium` n'ouvre de leçon que pour lui. Claude Code ne donne au serveur aucun
 signe du mod avant cela ([Où une leçon est proposée d'abord](harness-panels.fr.md#où-une-leçon-est-proposée-dabord)).
 
 ## Limites

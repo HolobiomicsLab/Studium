@@ -80,10 +80,10 @@ limit the lesson to the turns you can copy.
      and say that an earlier answer was withdrawn.
    - **Open questions stay open.** What the conversation left undecided becomes a reflection
      prompt, never a key.
-4. `create_lesson {source_set_id, draft, learner_id}`. Fix only what a refusal names; when it returns `draft_id`,
+4. `create_lesson {source_set_id, draft}`. Fix only what a refusal names; when it returns `draft_id`,
    send only the scenes in `fix_scenes`: `create_lesson {source_set_id, draft_id, scenes: [{at, ...scene}]}`.
    Show only what differs from your sketch, never a key, and relay the `notice`.
-5. `start_lesson_session {bundle_ref: course_ref, learner_id}`. The first screen carries the notice
+5. `start_lesson_session {bundle_ref: course_ref}`. The first screen carries the notice
    and the concept map of the lesson.
 
 ## 4. When to stop and ask

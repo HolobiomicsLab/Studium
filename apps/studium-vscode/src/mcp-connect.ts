@@ -88,6 +88,9 @@ export function lessonMcpEnv(opts: {
   delete env["STUDIUM_TELEMETRY_CONSENT"];
   if (opts.storageDir) env["STUDIUM_DATA_DIR"] = opts.storageDir;
   if (opts.telemetryConsent) env["STUDIUM_TELEMETRY_CONSENT"] = "granted";
+  // Learner ids (26 Nov 2026): the stdio server plays one learner unless told otherwise; the pane, the @studium chat and
+  // the notebook name theirs on every call (studium.learnerId), and a change of that setting takes effect at once.
+  env["STUDIUM_LEARNERS"] = "several";
   return Object.fromEntries(Object.entries(env).filter((e): e is [string, string] => e[1] !== undefined));
 }
 

@@ -110,7 +110,7 @@ Ce que le serveur garantit :
   passages cités des scènes notées ne sont transmis qu'après la réponse de l'apprenant.
 - `end_session` ferme une leçon et conserve la progression. `forget_session {session_id}` efface la
   progression dans cette leçon ainsi que le profil commun à toutes les leçons et le calendrier de
-  révisions de l'apprenant ; `forget_session {learner_id}` efface en plus la progression de toutes ses
+  révisions de l'apprenant ; `forget_session {}` efface en plus la progression de toutes ses
   leçons ; `language` (fr|en) choisit la langue de sa réponse. Sa réponse dit ce qui a été effacé et ce qui reste sur le disque : les leçons de la
   bibliothèque de l'apprenant et leurs sources, qu'il supprime lui-même.
 - `create_lesson` écrit `<course_id>/lesson.json` dans la bibliothèque de l'apprenant
@@ -130,7 +130,8 @@ Ce que le serveur garantit :
 | `BUNDLES_ROOT` | `<STUDIUM_HOME>/library` | où les leçons sont cherchées d'abord ; la bibliothèque est toujours consultée aussi |
 | `STUDIUM_DATA_DIR` | `<STUDIUM_HOME>/data` | état durable de l'apprenant |
 | `STUDIUM_EPHEMERAL` | non défini | `1` garde l'état en mémoire, sauf si `STUDIUM_DATA_DIR` est défini (tests, démos, CI) |
-| `STUDIUM_LEARNER_ID` | `anonymous` | identifiant utilisé quand un appel n'en donne pas |
+| `STUDIUM_LEARNER_ID` | `anonymous` | l'unique apprenant que joue ce serveur ; un `learner_id` passé par un appel est ignoré |
+| `STUDIUM_LEARNERS` | non défini | `several` joue le `learner_id` de chaque appel, `STUDIUM_LEARNER_ID` étant le défaut (ordinateur partagé, évaluations) |
 | `STUDIUM_PSEUDO_SECRET` | fichier propre à l'installation `<dossier de données>/.studium-secret` | secret des pseudonymes enregistrés sur disque |
 | `LITELLM_BASE_URL` | vide | adresse du modèle juge ; vide signifie pas de juge |
 | `LITELLM_API_KEY`, `LITELLM_MODEL` | non définis | identifiants et nom du modèle pour cette adresse |

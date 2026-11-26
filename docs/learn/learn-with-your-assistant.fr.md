@@ -144,7 +144,7 @@ L'assistant appelle `get_study_plan` dans votre langue, qui liste les révisions
 nomme la seule étape à faire maintenant. `start_review_session` joue ensuite toutes les révisions dues, toutes
 leçons confondues. Voir [réviser dans la durée](review-over-time.fr.md). Si Studium a refusé un brouillon de
 votre leçon et qu'aucune leçon n'a été écrite pour vous depuis, le plan propose de la terminer, après une leçon
-en cours, pendant 14 jours, et à vous seulement (l'assistant passe votre identifiant d'apprenant) ; dites que
+en cours, pendant 14 jours, et à vous seulement (le serveur ne joue que vous) ; dites que
 vous n'en voulez plus et elle ne vous est plus proposée.
 
 Si vous reprenez simplement une leçon, son premier écran le dit et, quand des révisions sont dues, les propose au début
@@ -159,8 +159,8 @@ jouer en formulaires quand votre client sait les afficher, la carte des notions 
 n'est faite qu'une fois.
 
 Votre progression survit par défaut aux redémarrages, dans `~/.studium`. Pour la retrouver depuis un autre
-assistant, gardez le même dossier de données et le même identifiant : demandez à l'assistant de transmettre un
-`learner_id` stable (votre prénom, par exemple) à chaque appel.
+assistant, gardez le même dossier de données et fixez le même `STUDIUM_LEARNER_ID` dans les réglages du serveur de chaque
+assistant. L'assistant ne vous nomme pas : le serveur joue un seul apprenant.
 
 ## 7. Fermer ou oublier
 
