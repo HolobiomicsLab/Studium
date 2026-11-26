@@ -39,21 +39,29 @@ Fusionnez-les dans le fichier de votre client, sans écraser les autres serveurs
 
 ## Choisir votre client
 
+Avec l'extension Studium pour VS Code, **Studium : Relier un assistant…** relie Mistral Vibe, Codex, Claude Code,
+Claude Desktop et OpenCode en un clic, sans Node ni terminal : elle écrit une entrée `studium` dans le fichier de chaque
+assistant, qui lance le serveur que l'extension contient. Copilot dans VS Code a déjà le serveur. Chaque page
+ci-dessous commence par cette voie, puis donne la voie manuelle.
+
 | Client | Où vit sa configuration | Page |
 |---|---|---|
-| Codex | `~/.codex/config.toml`, ou `codex mcp add` | [Connecter Codex](codex.fr.md) |
-| Claude Code | le plugin `studium`, `claude mcp add`, ou `.mcp.json` à la racine du projet | [Connecter Claude Code](claude-code.fr.md) |
+| Codex | **Studium : Relier un assistant…** dans VS Code (sans Node), ou `~/.codex/config.toml`, ou `codex mcp add` | [Connecter Codex](codex.fr.md) |
+| Claude Code | **Studium : Relier un assistant…** dans VS Code (sans Node), le plugin `studium`, `claude mcp add`, ou `.mcp.json` à la racine du projet | [Connecter Claude Code](claude-code.fr.md) |
 | Copilot dans VS Code | `.vscode/mcp.json` | [Connecter Copilot dans VS Code](copilot.fr.md) |
-| OpenCode | `opencode.jsonc` à la racine du projet | [Connecter OpenCode](opencode.fr.md) |
+| OpenCode | **Studium : Relier un assistant…** dans VS Code (sans Node), ou `opencode.jsonc` à la racine du projet | [Connecter OpenCode](opencode.fr.md) |
 | Cursor | `.cursor/mcp.json` ou `~/.cursor/mcp.json` | [Connecter Cursor](cursor.fr.md) |
-| Mistral Vibe | **Studium : Relier Mistral Vibe** dans VS Code (sans Node), ou `~/.vibe/config.toml`, ou `vibe mcp add` | [Connecter Mistral Vibe](vibe.fr.md) |
-| Claude Desktop | `claude_desktop_config.json` | [ci-dessous](#claude-desktop) |
+| Mistral Vibe | **Studium : Relier un assistant…** ou **Studium : Relier Mistral Vibe** dans VS Code (sans Node), ou `~/.vibe/config.toml`, ou `vibe mcp add` | [Connecter Mistral Vibe](vibe.fr.md) |
+| Claude Desktop | **Studium : Relier un assistant…** dans VS Code (sans Node), ou `claude_desktop_config.json` | [ci-dessous](#claude-desktop) |
 | Un script ou un client sur mesure | aucune configuration MCP | [API HTTP](../reference/http-api.fr.md) et [canal fichiers](../reference/agentic-session-protocol.fr.md) |
 
 ## Claude Desktop
 
 Claude Desktop lit `claude_desktop_config.json`, dans `~/Library/Application Support/Claude/` sous macOS et
-dans `%APPDATA%\Claude\` sous Windows. Fusionnez-y ceci, puis redémarrez l'application :
+dans `%APPDATA%\Claude\` sous Windows. Avec l'extension Studium pour VS Code, **Studium : Relier un assistant…** avec
+**Claude Desktop** coché écrit l'entrée pour vous, sans Node ; quittez puis rouvrez Claude Desktop. Vérifié le
+26 novembre 2026 sous macOS : l'entrée écrite a lancé le serveur avec ses 40 outils ; Claude Desktop lui-même n'a
+pas encore été essayé. À la main, fusionnez ceci dans le fichier, puis redémarrez l'application :
 
 ```json
 {

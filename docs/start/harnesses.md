@@ -37,21 +37,29 @@ them into your client's file; never overwrite other servers already configured t
 
 ## Choose your client
 
+With the Studium extension for VS Code, **Studium: Connect an Assistant…** connects Mistral Vibe, Codex, Claude Code,
+Claude Desktop and OpenCode in one click, with no Node and no terminal: it writes one `studium` entry into each
+assistant's own file, running the server the extension carries. Copilot in VS Code has the server already. Each page
+below starts with that route, then gives the manual one.
+
 | Client | Where its configuration lives | Page |
 |---|---|---|
-| Codex | `~/.codex/config.toml`, or `codex mcp add` | [Connect Codex](codex.md) |
-| Claude Code | the `studium` plugin, `claude mcp add`, or `.mcp.json` at the project root | [Connect Claude Code](claude-code.md) |
+| Codex | **Studium: Connect an Assistant…** in VS Code (no Node), or `~/.codex/config.toml`, or `codex mcp add` | [Connect Codex](codex.md) |
+| Claude Code | **Studium: Connect an Assistant…** in VS Code (no Node), the `studium` plugin, `claude mcp add`, or `.mcp.json` at the project root | [Connect Claude Code](claude-code.md) |
 | Copilot in VS Code | `.vscode/mcp.json` | [Connect Copilot in VS Code](copilot.md) |
-| OpenCode | `opencode.jsonc` at the project root | [Connect OpenCode](opencode.md) |
+| OpenCode | **Studium: Connect an Assistant…** in VS Code (no Node), or `opencode.jsonc` at the project root | [Connect OpenCode](opencode.md) |
 | Cursor | `.cursor/mcp.json` or `~/.cursor/mcp.json` | [Connect Cursor](cursor.md) |
-| Mistral Vibe | **Studium: Connect Mistral Vibe** in VS Code (no Node), or `~/.vibe/config.toml`, or `vibe mcp add` | [Connect Mistral Vibe](vibe.md) |
-| Claude Desktop | `claude_desktop_config.json` | [below](#claude-desktop) |
+| Mistral Vibe | **Studium: Connect an Assistant…** or **Studium: Connect Mistral Vibe** in VS Code (no Node), or `~/.vibe/config.toml`, or `vibe mcp add` | [Connect Mistral Vibe](vibe.md) |
+| Claude Desktop | **Studium: Connect an Assistant…** in VS Code (no Node), or `claude_desktop_config.json` | [below](#claude-desktop) |
 | A script or a custom client | no MCP configuration | [HTTP API](../reference/http-api.md) and [file channel](../reference/agentic-session-protocol.md) |
 
 ## Claude Desktop
 
 Claude Desktop reads `claude_desktop_config.json`, in `~/Library/Application Support/Claude/` on macOS and
-in `%APPDATA%\Claude\` on Windows. Merge this into it, then restart the app:
+in `%APPDATA%\Claude\` on Windows. With the Studium extension for VS Code, **Studium: Connect an Assistant…** with
+**Claude Desktop** ticked writes the entry for you, with no Node; then quit and reopen Claude Desktop. Checked on
+26 November 2026 on macOS: the entry it writes started the server with its 40 tools; Claude Desktop itself was not
+tried yet. By hand, merge this into the file, then restart the app:
 
 ```json
 {

@@ -220,6 +220,8 @@ faulty lesson cannot freeze the editor. **Studium: Run reproduction** starts the
 | Studium: Forget my data | erase what this extension keeps (below) |
 | Studium: Connect Mistral Vibe | let Mistral Vibe (its VS Code extension, Vibe Desktop, its CLI) use this extension's Studium server, with no Node; see [Connect Mistral Vibe](vibe.md) |
 | Studium: Disconnect Mistral Vibe | remove the entry that command wrote |
+| Studium: Connect an Assistant… | let Mistral Vibe, Codex, Claude Code, Claude Desktop or OpenCode use this extension's Studium server, with no Node: tick the assistants in the list; see [Connect your assistant](harnesses.md#choose-your-client) |
+| Studium: Disconnect an Assistant… | remove the entries that command wrote |
 
 ## Your data
 

@@ -5,6 +5,28 @@
 Ajoutez Studium à Claude Code avec le plugin ou comme simple serveur, jouez des leçons avec l'agent de
 leçon et affichez où en est la leçon dans la ligne d'état.
 
+## Avec l'extension VS Code : un clic, sans Node
+
+Avec l'extension Studium pour VS Code installée, il ne faut ni terminal ni Node :
+
+1. Dans VS Code, lancez **Studium : Relier un assistant…** depuis la palette de commandes et cochez **Claude Code** (la
+   vue **Leçons** vide en donne aussi le lien).
+2. Rechargez la fenêtre de VS Code pour Claude Code dans VS Code (la notification a un bouton **Recharger la fenêtre**), ou lancez une nouvelle session `claude`.
+3. Demandez à Claude Code : « je veux apprendre … avec Studium », en indiquant vos sources.
+
+La commande écrit une entrée `studium` dans `~/.claude.json` (ou `$CLAUDE_CONFIG_DIR/.claude.json`), au niveau utilisateur, comme l'écrit `claude mcp add -s user`, et rien d'autre ; le fichier précédent est gardé à côté sous
+`<fichier>.studium-backup`. L'entrée lance le serveur Studium que l'extension contient, avec l'exécutable de VS Code
+lui-même, et utilise le même dossier de leçons, la même progression et le même apprenant que le panneau Studium. Quand
+Claude Code tourne dans VS Code, la leçon est proposée dans le panneau Studium et s'y ouvre d'elle-même quand elle est
+prête ; ailleurs, dans votre [navigateur](browser.fr.md#depuis-votre-assistant). Une entrée `studium` écrite par vous
+n'est remplacée que si vous dites oui. Chaque mise à jour de Studium réécrit l'entrée ; **Studium : Délier un
+assistant…** la retire, et la désinstallation de l'extension aussi, pour autant que VS Code exécute son étape de
+désinstallation. Le plugin ci-dessous apporte en plus les skills et les agents de leçon de Studium ; avec les deux, Claude Code lance deux serveurs Studium : n'en gardez qu'un.
+
+Vérifié le 26 novembre 2026 sous macOS : `claude mcp list` (Claude Code 2.1.332) a indiqué le serveur connecté. Une conversation dans Claude Code avec cette entrée n'a pas encore été essayée.
+
+Les sections ci-dessous installent le serveur à la main.
+
 ## Avant de commencer
 
 - Lisez [Connecter votre assistant](harnesses.fr.md) : il explique les deux façons de lancer le serveur,

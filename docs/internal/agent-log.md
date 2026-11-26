@@ -6,6 +6,22 @@ Journal des unités TDD par milestone. Mis à jour à chaque commit significatif
 
 ---
 
+## 2026-11-27 — relier les autres assistants en un clic (Codex, Claude Code, Claude Desktop, OpenCode)
+
+Mots du propriétaire, 26 nov. ~23 h : « Cette nuit jusqu'a demain je te donne delegation pour faire en sorte que ca
+soit compatible avec les autres harnais cible facilement. Je te donne delegation pour fusionner et faire le
+necessaire. Jusqu'a demain 8 am. » Branche `feat/2026-11-27-connect-assistants`.
+
+- `assistant-config.ts` (pur) : chemins (CODEX_HOME, CLAUDE_CONFIG_DIR, APPDATA, XDG_CONFIG_HOME), formes mesurées
+  avec `codex mcp add` (0.170.0), `claude mcp add -s user` (2.1.332), `opencode mcp add --global` (2.3.0, qui lit
+  `mcp.<nom>` comme `mcp.servers.<nom>`) ; JSON édité par jsonc-parser (commentaires gardés), TOML de Codex par
+  épissure d'une suite de tables ; marqueur `STUDIUM_WRITTEN_BY` comme pour Vibe. Pilote : 91 assertions.
+- `assistant-connection.ts` : « Relier / Délier un assistant… » (liste à cocher, Vibe compris), mise à jour silencieuse
+  à l'activation, réécriture si Claude Code a perdu l'entrée en réécrivant `~/.claude.json` ; désinstallation étendue.
+- Essais réels en configurations temporaires : `claude mcp list` « ✔ Connected », `opencode mcp list` « ✓ studium
+  connected » (le service d'OpenCode charge la configuration au second appel), poignée de main MCP pour les entrées
+  Codex et Claude Desktop (40 outils). Pas essayé : une conversation dans chacun, Claude Desktop, OpenCode Desktop.
+
 ## 2026-11-26 — la leçon s'ouvre d'elle-même, en onglet
 
 Essai en direct du propriétaire avec l'extension Vibe pour VS Code 1.30.0 : Vibe n'a vu Studium qu'après un

@@ -12,7 +12,7 @@
 // edited with jsonc-parser, which keeps their comments and layout. No `vscode` import: the drivers test this outside
 // the extension host; assistant-connection.ts wires it to the editor.
 import { join, resolve } from "node:path";
-import { applyEdits, findNodeAtLocation, getNodeValue, modify, parseTree, type ParseError } from "jsonc-parser";
+import { applyEdits, getNodeValue, modify, parseTree, type ParseError } from "jsonc-parser";
 import { parse } from "smol-toml";
 import { VIBE_MARKER, VIBE_MARKER_KEY, VIBE_SERVER_NAME } from "./vibe-config.js";
 
