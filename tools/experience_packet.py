@@ -2769,6 +2769,7 @@ PACK_TEXT = {
         "symlink": "assets/{member} is a symbolic link: replace it with the real file before packing",
         "exists": "{path} already exists; use --force to replace it",
         "not_a_lesson": "{path} is not a lesson bundle (no metadata.title)",
+        "same_name": "assets/{member} and assets/{other} are one file on a student's computer (same name but for case or accents): rename one, then pack again",
         "bad_name": "assets/{member} has a name that some students' systems refuse: rename or remove it, then pack again",
         "too_many": "{count} members in the archive, over the limit of {limit}: remove files from assets/",
         "asset_big": "assets/{member} is {size}, over the limit of {limit} for one asset: shrink or remove it",
@@ -2798,6 +2799,7 @@ PACK_TEXT = {
         "symlink": "assets/{member} est un lien symbolique : remplacez-le par le vrai fichier avant d'empaqueter",
         "exists": "{path} existe déjà ; utilisez --force pour le remplacer",
         "not_a_lesson": "{path} n'est pas une leçon (pas de metadata.title)",
+        "same_name": "assets/{member} et assets/{other} sont un seul fichier sur l'ordinateur d'un étudiant (même nom à la casse ou aux accents près) : renommez-en un, puis relancez pack",
         "bad_name": "assets/{member} a un nom que certains systèmes d'étudiants refusent : renommez ou retirez ce fichier, puis relancez pack",
         "too_many": "{count} membres dans l'archive, au-delà de la limite de {limit} : retirez des fichiers de assets/",
         "asset_big": "assets/{member} pèse {size}, au-delà de la limite de {limit} par fichier : réduisez-le ou retirez-le",
@@ -2858,6 +2860,22 @@ def _pack_bundle_id_problem(bundle_id: Any) -> bool:
     )
 
 
+def _pack_folded(member: str) -> str:
+    """A name as a case-insensitive, normalising file system compares it (the importer folds the same way)."""
+    return unicodedata.normalize("NFC", unicodedata.normalize("NFC", member).upper().lower())
+
+
+def _pack_duplicate(members: list[str]) -> tuple[str, str] | None:
+    """The first two asset paths that a student's file system would take for one file, or None."""
+    seen: dict[str, str] = {}
+    for member in members:
+        key = _pack_folded(member)
+        if key in seen:
+            return seen[key], member
+        seen[key] = member
+    return None
+
+
 def _pack_is_skipped(name: str) -> bool:
     return name.startswith(".") or name.lower() in PACK_OS_JUNK
 
@@ -2894,7 +2912,11 @@ def _pack_assets(lesson_dir: Path, language: str) -> list[tuple[str, Path, int]]
                     language, "asset_big", member=member, size=_pack_size(size), limit=_pack_size(PACK_MAX_ASSET_BYTES)
                 )
             found.append((member, path, size))
-    return sorted(found)
+    found.sort()
+    duplicate = _pack_duplicate([member for member, _, _ in found])
+    if duplicate:
+        raise _pack_refusal(language, "same_name", member=duplicate[1], other=duplicate[0])
+    return found
 
 
 def _pack_skipped_directory(name: str) -> bool:

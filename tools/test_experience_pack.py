@@ -340,3 +340,17 @@ def test_title_and_reviewer_cannot_add_lines_to_the_instruction(approved, tmp_pa
     instruction = json.loads(capsys.readouterr().out)["instruction"]
     assert instruction.splitlines()[0] == "Lesson: Two lines here"
     assert instruction.splitlines()[1].startswith("Validated by Prof X y on ")
+
+
+def test_two_assets_one_name_on_a_student_computer_are_found():
+    """The importer refuses two members that differ only by case or Unicode form; a case-sensitive
+    file system can hold both, so the packer must find them (a macOS disk cannot build this on disk)."""
+    from experience_packet import _pack_duplicate
+
+    sharp_s = "stra" + chr(0xDF) + "e.png"
+    decomposed = "e" + chr(0x301) + ".png"
+    composed = chr(0xE9) + ".png"
+    assert _pack_duplicate(["fig/a.png", "fig/b.png"]) is None
+    assert _pack_duplicate(["fig/a.png", "FIG/A.PNG"]) == ("fig/a.png", "FIG/A.PNG")
+    assert _pack_duplicate([sharp_s, "STRASSE.png"]) == (sharp_s, "STRASSE.png")
+    assert _pack_duplicate([decomposed, composed]) == (decomposed, composed)
