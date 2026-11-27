@@ -2,16 +2,19 @@ English · [Français](installation.fr.md)
 
 # Installation
 
-Pick the shortest route for your case. To learn with an AI assistant you need only Node: the assistant
-starts the Studium server with `npx`, and no checkout is needed. Teachers who prepare and approve courses,
-and contributors, install from a checkout. The first session needs no model API key.
+Pick the shortest route for your case. Most people need no terminal: VS Code and the Studium extension
+connect your assistant in one click, with no Node ([Start without a terminal](easy-start.md)). From a
+terminal, the assistant starts the Studium server with `npx`, which needs Node and no checkout. Teachers who
+prepare and approve courses, and contributors, install from a checkout. The first session needs no model API
+key.
 
 ## Choose how you install
 
 | You want to | Route | You need |
 |---|---|---|
-| Learn with Copilot in VS Code, without Node or a terminal | [Install the VS Code extension](#install-the-vs-code-extension); it offers its own server to Copilot ([Connect Copilot](copilot.md)) | VS Code 1.101 or later, a Copilot plan |
-| Learn with an AI assistant (Codex, Claude Code, Copilot, Cursor, OpenCode, Claude Desktop) | [Add the server to your assistant](#add-the-server-to-your-assistant) | Node |
+| Learn with your AI assistant, without Node or a terminal: Copilot, Claude Code, Codex, Mistral Vibe, Claude Desktop, Cursor or OpenCode | [Start without a terminal](easy-start.md): [install the VS Code extension](#install-the-vs-code-extension), then **Studium: Connect an Assistant…**; Copilot needs nothing more | VS Code 1.95 or later (1.101 or later for Copilot) |
+| Learn in Claude Desktop, without VS Code | the `.mcpb` bundle attached to a release ([Claude Desktop](harnesses.md#claude-desktop)) | Claude Desktop |
+| Learn with an AI assistant, from a terminal | [Add the server to your assistant](#add-the-server-to-your-assistant) | Node |
 | Learn in Claude Code, with the lesson agents and the skills | [Install the Claude Code plugin](#install-the-claude-code-plugin) | Node, Claude Code 2.1.275 or later |
 | Play lessons in a visual pane | [Install the VS Code extension](#install-the-vs-code-extension) | VS Code |
 | Prepare and approve courses, or contribute | [Install from a checkout](#install-from-a-checkout) | Git, Node, pnpm; Python for the teacher tools |
@@ -28,7 +31,7 @@ Only a checkout gives you:
 
 | Tool | Version | Route | Check with |
 |---|---|---|---|
-| Node | 22 LTS (20 and later accepted) | server, plugin, checkout | `node --version` |
+| Node | 22 LTS (20 and later accepted) | terminal route, plugin, browser player, checkout | `node --version` |
 | Claude Code | 2.1.275 or later | plugin | `claude --version` |
 | VS Code | 1.95 or later | extension | Help, About |
 | Git | any recent | checkout | `git --version` |

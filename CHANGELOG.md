@@ -4,6 +4,12 @@ All notable changes to Studium are recorded here. The format follows [Keep a Cha
 
 ## Unreleased
 
+### Documentation
+
+- **The lightest way in comes first.** A new page, [Start without a terminal](docs/start/easy-start.md) / [Démarrer sans terminal](docs/start/easy-start.fr.md), takes someone who does not use a terminal from installing the VS Code extension to « Discover Studium », then to their assistant connected with **Studium: Connect an Assistant…** (no Node), then to a first lesson; Claude Desktop users get the `.mcpb` bundle. The README, the portal, Installation, the quickstart, the student guide, Learn with your assistant, VS Code, the Marketplace page and the npm README now lead with that route and keep Node for the terminal route, the Claude Code plugin, the browser player and a checkout. Troubleshooting names the 0.6.6 fault (« command 'studium.…' not found ») and its fix.
+- **Skills follow.** `studium-student` and `studium-harness` steer a non-expert to the no-Node routes first and play « Discover Studium » when no lesson was given; `studium-teacher`, `studium-contribute` and the skills README are brought up to date.
+- The server's instructions give the demo lesson its current length, about twelve minutes.
+
 ## 0.6.8 — 2026-11-27
 
 This release publishes what 0.6.7 held, whose release build stopped before reaching any registry: the VS Code extension starts again (0.6.6 did not), the Claude Desktop bundle, and « Discover Studium » offered first. See 0.6.7 below.

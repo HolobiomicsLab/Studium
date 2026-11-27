@@ -17,6 +17,11 @@ Studium is a research prototype. Documentation, in English and French:
 
 You need Node 20 or later. Nothing else to install: `npx` fetches the server the first time.
 
+No Node? The Studium extension for VS Code connects Claude Code, Codex, Mistral Vibe, Claude Desktop, Cursor
+and OpenCode in one click without it (**Studium: Connect an Assistant…**), and Claude Desktop installs the
+`.mcpb` bundle attached to each release with a double-click. See
+[Start without a terminal](https://github.com/HolobiomicsLab/studium/blob/main/docs/start/easy-start.md).
+
 | Assistant | Command or file |
 |---|---|
 | Claude Code | `claude mcp add --scope user studium -- npx -y studium-mcp` |

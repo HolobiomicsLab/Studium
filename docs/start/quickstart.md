@@ -5,27 +5,22 @@ English · [Français](quickstart.fr.md)
 In about fifteen minutes you can ask an AI assistant to teach you a topic from sources you choose, answer
 the first question of a lesson built for you, and come back days later to review what you are about to
 forget. This page works from a checkout of the repository, which also gives you the demo lessons. To
-connect an assistant with Node only and no checkout, see
+connect an assistant with no terminal, see [Start without a terminal](easy-start.md); with Node only and no
+checkout, see
 [Add the server to your assistant](installation.md#add-the-server-to-your-assistant). Each step links to
 the page with the details.
 
 ## Without a terminal
 
-To see how Studium works, install the Studium extension from the Extensions view and run **Studium: Try
-the demo lesson** (or **Try the demo lesson** in its empty **Lessons** view): « Discover Studium », about ten
-minutes, ships with the extension; an AI agent drafted it from Studium's documentation and the project's
-owner approved it, under the name beta-testeur, without reading it. To play a lesson a teacher gave you, or the demo lessons of the repository, you need only VS
-Code too: run **Studium: Pick a course**, choose **Choose another course
-folder…** and select the folder of lessons; the demo lessons are the `fixtures` folder of the
-[repository archive](https://github.com/HolobiomicsLab/studium/archive/refs/heads/main.zip). No Node, terminal or AI account is involved. Details:
-[VS Code](vscode.md#get-your-first-lesson); for a teaching room, [Classroom workstations](classroom-workstations.md).
-Without VS Code, [Play in your browser](browser.md) (experimental) opens a lesson in a web browser; it needs
-Node and one command.
-To build a lesson from your own sources without a terminal, use Copilot in VS Code 1.101 or later: the
-extension offers its own Studium server to Copilot's agent mode, so you install neither Node nor anything
-else, and you ask Copilot Chat "I want to learn … with Studium". You need a Copilot plan. This route has not
-been tried in a real Copilot session; see [Connect Copilot](copilot.md). The rest of this page builds a
-lesson with any assistant, from a checkout, which needs a terminal.
+You need no terminal to learn with Studium: VS Code, the Studium extension and **Studium: Connect an
+Assistant…** connect Copilot, Claude Code, Codex, Mistral Vibe, Claude Desktop, Cursor or OpenCode in one click,
+with no Node. The extension also ships « Discover Studium », a twelve-minute demo lesson that needs no AI account.
+Follow [Start without a terminal](easy-start.md). A lesson a teacher gave you, or the demo lessons of the
+repository (the `fixtures` folder of the
+[repository archive](https://github.com/HolobiomicsLab/studium/archive/refs/heads/main.zip)), plays in VS Code
+alone with **Studium: Pick a course** ([VS Code](vscode.md#get-your-first-lesson)); for a teaching room, see
+[Classroom workstations](classroom-workstations.md). The rest of this page builds a lesson with any assistant,
+from a checkout, which needs a terminal.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="../assets/diagrams/self-learner-journey-dark.svg">

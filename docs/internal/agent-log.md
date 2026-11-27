@@ -6,6 +6,16 @@ Journal des unités TDD par milestone. Mis à jour à chaque commit significatif
 
 ---
 
+## 2026-11-27 (soir) — la voie légère d'abord, docs et skills
+
+Demande du propriétaire : mettre à jour toute la documentation et le site pour mettre en avant une installation
+légère pour les non-experts, et les skills avec les nouvelles fonctions et les harnais. Nouvelle page
+`docs/start/easy-start(.fr).md` ; README, portail, installation, démarrage rapide, guide étudiant, apprendre avec
+son assistant, VS Code, page Marketplace, README npm et dépannage mènent par l'extension + « Relier un assistant »
+(sans Node), puis le `.mcpb` Claude Desktop, puis la voie terminal. Skills mis à jour par un sous-agent (Sonnet),
+relus : student, harness, teacher, contribute, README. Instructions du serveur : démo « environ douze minutes »
+(référence MCP régénérée). Vérifié : docs check (0 problème), lesson-mcp 319 tests, construction du site.
+
 ## 2026-11-27 — l'extension 0.6.6 ne démarrait pas
 
 Signalé par le propriétaire (Mac sans Node, extension Claude pour VS Code) : « command 'studium.connectAssistant' not

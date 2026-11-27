@@ -24,30 +24,43 @@ Studium has two parts. Knowing which does what saves the first ten minutes:
 
 So a new lesson always starts in an assistant. A lesson someone already made plays in VS Code alone.
 
-### Play a lesson without a terminal
+### The simplest way: VS Code, no terminal
 
-A lesson a teacher gave you, or one of the demo lessons, plays in VS Code with nothing else: no Node, no
-terminal and no AI account.
+VS Code, the Studium extension and the assistant you already use: no command line and no Node.
 
 1. In VS Code, open the Extensions view, search for **Studium** and install the extension published by
    HolobiomicsLab.
-2. To see how Studium works first, select the **Studium** icon in the activity bar, then **Try the demo
-   lesson**: « Discover Studium » (about twelve minutes, English or French) ships with the extension. An AI agent
-   drafted it from Studium's documentation; the project's owner approved it, under the name beta-testeur,
-   without reading it.
-3. For other lessons, have a folder of lessons: the one your teacher gave you, or the demo lessons, which are the `fixtures`
-   folder of the [repository archive](https://github.com/HolobiomicsLab/studium/archive/refs/heads/main.zip) (about 30 MB; unzip it first).
-4. Select the **Studium** icon in the activity bar, then **Pick a course**, **Choose another course
-   folder…**, and select that folder.
-5. Choose a course. It opens in a pane, at its first step.
+2. Select the **Studium** icon in the activity bar, then **Discover Studium**: this lesson (about twelve
+   minutes, English or French) ships with the extension and needs no AI account. An AI agent drafted it from
+   Studium's documentation; the project's owner approved it, under the name beta-testeur, without reading it.
+3. Connect your assistant. Copilot in VS Code has the Studium server already (VS Code 1.101 or later). For
+   Claude Code, Codex, Mistral Vibe, Claude Desktop, Cursor or OpenCode, select **Connect an assistant** in
+   the same view, tick yours, then restart it (**Developer: Reload Window** for one that runs inside VS Code).
+4. In a new conversation with your assistant, in your own words:
 
-Building a new lesson from your own sources needs an assistant, connected as below: that part needs Node
-and one command in a terminal. For a teaching room where an IT team installs Studium for a class, see
+   > I want to learn how the water cycle works with Studium. Use these two pages: (two links you trust).
+
+   The assistant builds a lesson from your sources, shows you its outline, then asks the first question. You
+   answer; it passes your words on. A few minutes later the lesson is also in the **Lessons** view. It is
+   saved in `~/.studium/library` and your progress in `~/.studium/data`.
+
+Each step, with how to check it: [Start without a terminal](docs/start/easy-start.md). Then
+[Learn with your assistant](docs/learn/learn-with-your-assistant.md).
+
+A lesson your teacher gave you, or one of the demo lessons of the repository, plays in VS Code alone:
+**Pick a course**, then **Choose another course folder…** ([VS Code](docs/start/vscode.md#open-a-lesson)).
+For a teaching room where an IT team installs Studium for a class, see
 [Classroom workstations](docs/start/classroom-workstations.md).
 
-### 1. Connect your assistant
+### Without VS Code: Claude Desktop
 
-You need Node 20 or later (`node --version`). Run the line for your assistant once, then restart it:
+Download `studium-vX.Y.Z.mcpb` from the [latest release](https://github.com/HolobiomicsLab/Studium/releases/latest),
+double-click it and choose **Install** in Claude Desktop, which runs it with the Node it ships. Then ask Claude
+« I want to learn X with Studium ». Installing the bundle in Claude Desktop itself has not been tried yet.
+
+### From a terminal
+
+With Node 20 or later (`node --version`), run the line for your assistant once, then restart it:
 
 | Assistant | Command |
 |---|---|
@@ -58,42 +71,24 @@ You need Node 20 or later (`node --version`). Run the line for your assistant on
 Cursor, OpenCode and Claude Desktop, and the Claude Code plugin that also brings the skills, are on the
 [Installation](docs/start/installation.md) page. `LITELLM_BASE_URL=` (empty) keeps Studium from calling
 any paid model. Which model to use, with a Copilot plan or a model on your machine, is in
-[Choose your model](docs/start/models.md).
-
-### 2. Ask for a lesson
-
-In a new conversation, in your own words:
-
-> I want to learn how the water cycle works with Studium. Use these two pages: (two links you trust).
-
-The assistant builds a lesson from your sources, shows you its outline, then asks the first question. You
-answer; it passes your words on. The lesson is saved in `~/.studium/library` and your progress in
-`~/.studium/data`. Each step is described in
-[Learn with your assistant](docs/learn/learn-with-your-assistant.md).
-
-### 3. Play it in VS Code (optional)
-
-```bash
-code --install-extension holobiomicslab.studium-vscode
-```
-
-Open the **Studium** icon in the activity bar: the lesson your assistant built is in the **Lessons** view
-(use its refresh button if VS Code was already open), unless you picked another lessons folder. You can
-also ask the assistant to open the lesson in VS Code for you. The pane keeps its own progress, separate
-from the conversation. See [VS Code](docs/start/vscode.md#get-your-first-lesson).
+[Choose your model](docs/start/models.md). Then ask for a lesson as in step 4 above; to play it in a pane,
+install the extension (`code --install-extension holobiomicslab.studium-vscode`) and open its **Lessons**
+view ([VS Code](docs/start/vscode.md#get-your-first-lesson)).
 
 ### If you are an AI assistant helping someone with Studium
 
 These steps are written for you.
 
-1. Check Node: `node --version` must print 20 or later.
-2. Register the server with the line of step 1 for your own harness. Keep `LITELLM_BASE_URL` empty unless
-   the person asks for a judge model: a non-empty value is a paid route.
+1. Prefer the route that installs nothing. If the person uses VS Code, have them install the Studium extension
+   and run **Studium: Connect an Assistant…**, ticking you; Copilot in VS Code needs nothing. Otherwise check
+   Node (`node --version`, 20 or later) and register the server with the line of
+   [From a terminal](#from-a-terminal) for your own harness.
+2. Keep `LITELLM_BASE_URL` empty unless the person asks for a judge model: a non-empty value is a paid route.
 3. After the restart, prove the connection by calling `get_server_info`: it returns the version and the
    tool list. A configuration file is not proof.
 4. Call `get_study_plan` with the person's language and no `learner_id`: the server plays one learner, the person using you. Its `next_step` names the
-   next call; with no lesson yet it sends you to `get_authoring_guide`, then `prepare_sources` and
-   `create_lesson`.
+   next call; with no lesson yet it proposes the demo lesson « Discover Studium », then sends you to
+   `get_authoring_guide`, `prepare_sources` and `create_lesson`.
 5. The learner answers and you relay: never answer, choose or rate for them, and do not read a lesson's
    answer key. Show each `display_markdown` as it is.
 6. A lesson you draft is not approved by a teacher: relay the notice of its first screen.
@@ -107,6 +102,7 @@ change Studium's code instead, read [`AGENTS.md`](AGENTS.md).
 
 | I want to… | Start here | What you get |
 |---|---|---|
+| Try Studium without a terminal | [Start without a terminal](docs/start/easy-start.md) | VS Code, the demo lesson, then your assistant connected in one click |
 | Learn a topic on my own with an AI assistant | [Learn with your assistant](docs/learn/learn-with-your-assistant.md) | A lesson built from the sources you chose, then reviews spaced over the following days |
 | Study in a class | [Student guide](docs/learn/student-guide.md) | A teacher-approved lesson in VS Code or in your assistant, with feedback after each answer |
 | Teach | [Teacher guide](docs/teach/teacher-guide.md) | A sourced lesson, an approval record bound to its exact content, and an aggregated class report |

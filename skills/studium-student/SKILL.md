@@ -24,13 +24,35 @@ missing next.
 - A teacher's lesson: a course folder holding `lesson.json` (or a `.zip` bundle).
 - No lesson, but a topic and sources of their own: use
   [studium-self-learner](../studium-self-learner/SKILL.md).
-- Neither: use the labelled demo `atomistique-l1/lesson.json` from `fixtures/`.
+- Neither: use « Discover Studium » (refs `discover-studium-en` and `discover-studium-fr`, 14 steps,
+  about twelve minutes, on how Studium works and where to plug it in). It ships with the extension,
+  the npm server and the `.mcpb`; no checkout and no `BUNDLES_ROOT` are needed. `get_study_plan`
+  proposes it to a learner with no lesson; `list_lessons` returns it in `shipped_lessons`. In the VS
+  Code Lessons view, the « Discover Studium » button opens it. The `fixtures/` demos
+  (`atomistique-l1`...) are for checkout users only.
 
 A PDF, a packet or a checked author draft is not a playable lesson.
 
 ## Connect with the least setup
 
-Follow [Installation](../../docs/start/installation.md). The VS Code pane needs no
+Steer a non-expert to the lightest route, no terminal and no Node, and only fall back to the
+next one when it does not fit ([Start without a terminal](../../docs/start/easy-start.md)):
+
+1. VS Code with the Studium extension (`holobiomicslab.studium-vscode`), which carries its own
+   server. Run **Studium: Connect an Assistant…** (or the link in the Lessons view), tick the
+   assistants in use (Mistral Vibe, Codex, Claude Code, Claude Desktop, Cursor, OpenCode); it writes
+   one `studium` entry into each one's own file. Then reload the VS Code window for assistants
+   that run inside it (Vibe, Codex, Claude Code extensions), or quit and reopen Claude Desktop,
+   Cursor or OpenCode. It warns when another server already runs Studium and never removes an
+   entry it did not write.
+2. Copilot in VS Code 1.101 or later: the extension's server is registered automatically.
+3. Claude Desktop without VS Code: the release's `studium-vX.Y.Z.mcpb`, double-click and choose
+   Install (Claude Desktop runs it with its own Node). Installing it in Claude Desktop itself has
+   not been tried yet: say so.
+4. Only then the terminal route, which needs Node 20 or later (`npx -y studium-mcp`, `claude mcp
+   add`, `codex mcp add`), the Claude Code plugin, the browser player, or a checkout.
+
+For the rest, follow [Installation](../../docs/start/installation.md). The VS Code pane needs no
 model account ([VS Code](../../docs/start/vscode.md)); a chat assistant connected over
 MCP is the other route ([Connect your assistant](../../docs/start/harnesses.md)).
 Python authoring services are not needed for an ordinary lesson; add a scientific
@@ -43,7 +65,7 @@ Keep school proofs and account credentials out of the chat and the repository; t
 student uses the provider's own flow. If it is unavailable, offer the pane demo or an
 assistant they already have rather than assuming payment.
 
-Merge the matching example from `docs/examples/` without overwriting other servers,
+On the terminal route, merge the matching example from `docs/examples/` without overwriting other servers,
 with `LITELLM_BASE_URL=""` unless a live route was requested. Then verify with real
 calls: `get_server_info` (the tool list and `persistence.durable`), then
 `start_lesson_session`. A config file, or a model saying "connected", is not
@@ -53,7 +75,7 @@ Choose one owner for the session: the pane and a chat assistant run separate ser
 with separate progress. Never mix their session ids or promise synchronisation. The one
 exception is Copilot with the server the Studium VS Code extension registers: it plays the
 pane's learner (`persistence.learner_id_from_editor` is true), so a lesson opened in one
-goes on where the other left it, and a result that carries `open_link` offers the pane first,
+goes on where the other left it (in the pane, a step already done can be revisited from the progress bar, then resumed), and a result that carries `open_link` offers the pane first,
 unless the learner last answered in the chat (`offer_first: "chat"`).
 
 ## Begin the activity

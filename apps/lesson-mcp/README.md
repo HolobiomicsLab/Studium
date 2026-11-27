@@ -27,7 +27,8 @@ npx -y studium-mcp --version
 npx -y studium-mcp --help
 ```
 
-`--version` and `--help` answer without starting the server. [`README.npm.md`](README.npm.md) is the README
+`--version` and `--help` answer without starting the server. Without Node, the VS Code extension and the
+Claude Desktop bundle start this same server: see [Start without a terminal](../../docs/start/easy-start.md). [`README.npm.md`](README.npm.md) is the README
 published on npm with the package, [`studium-mcp`](https://www.npmjs.com/package/studium-mcp), available since version 0.6.0. The other
 registries are listed in [Installation](../../docs/start/installation.md#where-the-packages-are).
 

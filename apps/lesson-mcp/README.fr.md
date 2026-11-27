@@ -28,7 +28,8 @@ npx -y studium-mcp --version
 npx -y studium-mcp --help
 ```
 
-`--version` et `--help` répondent sans démarrer le serveur. [`README.npm.md`](README.npm.md) est le README
+`--version` et `--help` répondent sans démarrer le serveur. Sans Node, l'extension VS Code et le paquet
+Claude Desktop lancent ce même serveur : voir [Démarrer sans terminal](../../docs/start/easy-start.fr.md). [`README.npm.md`](README.npm.md) est le README
 publié sur npm avec le paquet, [`studium-mcp`](https://www.npmjs.com/package/studium-mcp), disponible depuis la version 0.6.0. Les autres
 registres sont dans [Installation](../../docs/start/installation.fr.md#où-sont-les-paquets).
 

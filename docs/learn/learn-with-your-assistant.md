@@ -7,8 +7,9 @@ sources, plays it with you one question at a time, and brings the key ideas back
 You need no teacher and no shell: the assistant talks to Studium through MCP (the Model Context Protocol, the
 way assistants call outside tools).
 
-This works in Codex, Claude Code and any assistant that can use an MCP server. To connect Studium first, see
-[harnesses](../start/harnesses.md).
+This works in Copilot, Claude Code, Codex, Mistral Vibe, Claude Desktop, Cursor, OpenCode and any assistant
+that can use an MCP server. To connect Studium first without a terminal, see
+[Start without a terminal](../start/easy-start.md); every route is in [Connect your assistant](../start/harnesses.md).
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="../assets/diagrams/self-learner-journey-dark.svg">
