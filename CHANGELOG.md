@@ -6,7 +6,11 @@ All notable changes to Studium are recorded here. The format follows [Keep a Cha
 
 ## 0.6.7 — 2026-11-27
 
-This release is about the first minutes with Studium: Claude Desktop users install it with a double click on the `.mcpb` file attached to the release, with no Node and no VS Code; the shipped lesson « Discover Studium » is offered first, in VS Code and in the browser player, and now ends with where to play Studium and what it offers learners and teachers; and connecting an assistant says when another Studium server would show each tool twice. Tried: a Claude Code conversation through the entry the extension writes, and the bundle's server started as Claude Desktop starts it. Not tried yet: installing the bundle in Claude Desktop itself, Codex conversations, and Windows.
+This release is about the first minutes with Studium: Claude Desktop users install it with a double click on the `.mcpb` file attached to the release, with no Node and no VS Code; the shipped lesson « Discover Studium » is offered first, in VS Code and in the browser player, and now ends with where to play Studium and what it offers learners and teachers; and connecting an assistant says when another Studium server would show each tool twice. Tried: a Claude Code conversation through the entry the extension writes, and the bundle's server started as Claude Desktop starts it. It also fixes 0.6.6, whose VS Code extension did not start at all. Not tried yet: installing the bundle in Claude Desktop itself, Codex conversations, and Windows.
+
+### Fixed
+
+- The VS Code extension 0.6.6 did not start: its build had bundled the UMD form of `jsonc-parser`, whose `require("./impl/format")` resolves nowhere once bundled, so every Studium command answered « command not found » (reported by the owner from a Mac without Node). The build now takes its ES module form, and a new driver (`dist-load`) loads the built extension and runs the uninstall hook, which the drivers running the sources could not see.
 
 ### Added
 

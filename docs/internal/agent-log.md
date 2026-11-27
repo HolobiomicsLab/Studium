@@ -6,6 +6,15 @@ Journal des unités TDD par milestone. Mis à jour à chaque commit significatif
 
 ---
 
+## 2026-11-27 — l'extension 0.6.6 ne démarrait pas
+
+Signalé par le propriétaire (Mac sans Node, extension Claude pour VS Code) : « command 'studium.connectAssistant' not
+found ». Cause : esbuild avait pris la forme UMD de `jsonc-parser` (ajouté par la PR 101), dont `require("./impl/format")`
+ne se résout plus une fois empaqueté ; `dist/extension.js` échouait au chargement, aucune commande n'était enregistrée.
+Les pilotes lancent les sources par tsx, où ce require se résout : rien ne l'a vu. Correctif : `--alias:jsonc-parser=
+jsonc-parser/lib/esm/main.js` pour `extension.js` et `vibe-uninstall.cjs` ; nouveau pilote `dist-load` (charge le
+fichier construit, lance le crochet de désinstallation sur un home temporaire), rouge sur l'ancien build, vert après.
+
 ## 2026-11-27 — paquet Claude Desktop (.mcpb)
 
 Propriétaire, 27 nov. : « Autorisation donner. Tu travailles sur le paquaet mcpb claude desktop stp, fais le necessaire »
