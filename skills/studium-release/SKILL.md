@@ -100,6 +100,7 @@ Do not report a release as done before each line below has been checked.
 | Open VSX page | `curl -fsSL https://open-vsx.org/api/holobiomicslab/studium-vscode/X.Y.Z` | `files.readme` serves the new `MARKETPLACE.md` |
 | npm | `curl -fsSL https://registry.npmjs.org/studium-mcp` | `dist-tags.latest` is X.Y.Z; `readme` is `README.npm.md` |
 | The VSIX itself | `gh release download vX.Y.Z --pattern '*.vsix'`, then `unzip -p <file> extension/readme.md` | the page the registries show |
+| The change itself | `unzip -p <file> extension/dist/extension.js \| grep -o '<a string the change added>'` (for the server, `lesson-mcp.cjs` of the release) | found. Search a short, loose string: the bundle keeps template literals and may change the quotes |
 | Documentation site | `gh run list --workflow docs-site.yml --branch main --limit 1`, then each changed page | the run succeeded; `https://holobiomicslab.github.io/Studium/<path>.html` answers 200 (French under `/fr/`) |
 | Claude Code plugin | nothing to send | Claude Code reads it from `main` |
 
