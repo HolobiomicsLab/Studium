@@ -101,14 +101,32 @@ test("the list shows each lesson with its steps, approval and progress, and open
   p.dom.window.close();
 });
 
-test("a lesson shipped with Studium is listed after the learner's own and labelled; alone, it replaces the empty notice", async () => {
+// Changed: 2026-11-27, was « listed after the learner's own »: a shipped lesson not finished yet comes first, marked « start
+// here » (owner: offer the discovery lesson prominently at the start); once finished, it goes after the learner's own.
+test("a lesson shipped with Studium comes first while not finished, after the learner's own once finished; alone, it replaces the empty notice", async () => {
   const demo = { bundle_ref: "discover-studium-fr/lesson.json", title: "Découvrir Studium", scene_count: 12, validated: false, source: "shipped", status: { state: "not_started" } };
   const withBoth = page({ reply: async (name) => name === "list_lessons"
     ? [200, { content: [{ type: "text", text: JSON.stringify({ ...LESSONS, shipped_lessons: [demo] }) }] }] : defaultReply(name) });
   await withBoth.start();
   const rows = [...withBoth.doc.querySelectorAll(".course-choice")].map(choice => [text(choice.querySelector(".course-choice-title")), text(choice.querySelector(".course-choice-facts"))]);
-  assert.deepEqual(rows[2], ["Découvrir Studium", "12 étapes · " + flat(fr.player_shipped)]);
+  assert.deepEqual(rows[0], ["Découvrir Studium", flat(fr.player_start_here) + " · 12 étapes · " + flat(fr.player_shipped)]);
+  assert.ok(withBoth.doc.querySelector(".course-choice").classList.contains("is-start"));
   withBoth.dom.window.close();
+  // A shipped lesson claims nothing about a teacher, even approved: its own record says who approved it.
+  const approvedDemo = { ...demo, validated: true };
+  const withApproved = page({ reply: async (name) => name === "list_lessons"
+    ? [200, { content: [{ type: "text", text: JSON.stringify({ lessons: [], shipped_lessons: [approvedDemo] }) }] }] : defaultReply(name) });
+  await withApproved.start();
+  assert.ok(!text(withApproved.doc.querySelector(".course-choice-facts")).includes(flat(fr.pane_course_validated)));
+  withApproved.dom.window.close();
+  const done = { ...demo, status: { state: "completed" } };
+  const withDone = page({ reply: async (name) => name === "list_lessons"
+    ? [200, { content: [{ type: "text", text: JSON.stringify({ ...LESSONS, shipped_lessons: [done] }) }] }] : defaultReply(name) });
+  await withDone.start();
+  const doneRows = [...withDone.doc.querySelectorAll(".course-choice")].map(choice => text(choice.querySelector(".course-choice-title")));
+  assert.equal(doneRows.at(-1), "Découvrir Studium");
+  assert.equal(withDone.doc.querySelector(".course-choice.is-start"), null);
+  withDone.dom.window.close();
   const alone = page({ reply: async (name) => name === "list_lessons"
     ? [200, { content: [{ type: "text", text: JSON.stringify({ lessons: [], shipped_lessons: [demo] }) }] }] : defaultReply(name) });
   await alone.start();

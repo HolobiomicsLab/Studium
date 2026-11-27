@@ -157,10 +157,14 @@ export async function startBrowserPlayer({ window: win, document: doc, connectMc
   let drawn = null;
   /** Draw the lessons of a catalog, unless the same ones are on screen; the lesson in focus keeps it. */
   const draw = (catalog) => {
-    // The learner's own lessons first; those shipped with Studium (the demo) after them, labelled as such.
+    // A lesson shipped with Studium (the demo) that the learner has not finished comes first, marked « start here »
+    // (owner, 26-27 Nov 2026: offer the discovery lesson prominently at the start); once finished, it goes after the
+    // learner's own lessons. Each is labelled as shipped with Studium.
     const shipped = Array.isArray(catalog.shipped_lessons) ? catalog.shipped_lessons.map(lesson => ({ ...lesson, shipped: true })) : [];
-    const lessons = [...(Array.isArray(catalog.lessons) ? catalog.lessons : []), ...shipped];
-    const shown = JSON.stringify(lessons.map(lesson => [lesson.bundle_ref, lesson.title, lesson.scene_count, lesson.validated, lesson.shipped, lesson.status]));
+    const finished = (lesson) => lesson.status?.state === "completed";
+    const own = Array.isArray(catalog.lessons) ? catalog.lessons : [];
+    const lessons = [...shipped.filter(l => !finished(l)).map(l => ({ ...l, start: true })), ...own, ...shipped.filter(finished)];
+    const shown = JSON.stringify(lessons.map(lesson => [lesson.bundle_ref, lesson.title, lesson.scene_count, lesson.validated, lesson.shipped, lesson.start, lesson.status]));
     if (shown === drawn) return;
     drawn = shown;
     const focused = list.contains(doc.activeElement) ? doc.activeElement.dataset.bundleRef : undefined;
@@ -172,15 +176,17 @@ export async function startBrowserPlayer({ window: win, document: doc, connectMc
     }
     list.replaceChildren(...lessons.map(lesson => {
       const facts = [
+        lesson.start === true ? words.player_start_here : null,
         Number.isInteger(lesson.scene_count) && lesson.scene_count > 0 ? words.pane_course_steps.replace("{count}", String(lesson.scene_count)) : null,
-        lesson.validated === true ? words.pane_course_validated : null,
+        // A lesson shipped with Studium says so and claims nothing about a teacher: its approval record says who approved it.
+        lesson.validated === true && lesson.shipped !== true ? words.pane_course_validated : null,
         lesson.shipped === true ? words.player_shipped : null,
         lesson.status?.state === "in_progress"
           ? words.player_status_in_progress.replace("{done}", String(lesson.status.scenes_completed)).replace("{total}", String(lesson.status.total_scenes)) : null,
         lesson.status?.state === "completed" ? words.player_status_completed : null,
       ].filter(Boolean);
       const button = doc.createElement("button");
-      button.type = "button"; button.className = "st-button course-choice";
+      button.type = "button"; button.className = lesson.start === true ? "st-button course-choice is-start" : "st-button course-choice";
       button.dataset.bundleRef = String(lesson.bundle_ref ?? "");
       const title = doc.createElement("span");
       title.className = "course-choice-title"; title.textContent = String(lesson.title ?? lesson.bundle_ref ?? "");

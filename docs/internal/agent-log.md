@@ -6,6 +6,14 @@ Journal des unités TDD par milestone. Mis à jour à chaque commit significatif
 
 ---
 
+## 2026-11-27 — « pour commencer » dans le lecteur navigateur
+
+Délégation du propriétaire jusqu'à 18 h le 27 nov. (« faire le necessaire (y compris merge) pour avancer sur le projet »).
+La démo livrée non terminée passe en tête du lecteur navigateur, marquée « pour commencer » ; terminée, en dernier. Une
+leçon livrée n'affiche plus « validée par un enseignant » (approuvée par beta-testeur sans lecture complète). Vérifié avec
+Chromium sans tête sur un dossier vide. Conversation Claude Code (`claude -p`, Sonnet) avec l'entrée de « Relier un
+assistant » : étape 1 de la démo montrée telle quelle.
+
 ## 2026-11-27 — « Découvrir Studium » : où jouer Studium, apprendre et enseigner
 
 Propriétaire, 27 nov. : « on travaille vite fait sur la lecon de demarrage. Incluons brievement dedans les moyens
