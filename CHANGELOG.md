@@ -10,6 +10,7 @@ All notable changes to Studium are recorded here. The format follows [Keep a Cha
 
 ### Documentation
 
+- A skill for maintainers, [`studium-release`](skills/studium-release/SKILL.md), gives the order of a release and the check of each place people get Studium from: the GitHub release, npm, Open VSX, the Visual Studio Marketplace and its page, the MCP Registry and the documentation site. [Release](docs/develop/release.md) points to it.
 - Connect Codex, Troubleshooting, the example `codex.toml` and the `studium-harness` skill give the approval line for a server added by hand, and say that each `codex exec` starts the server again (the lesson resumes where it stopped).
 
 ## 0.6.9 — 2026-11-27

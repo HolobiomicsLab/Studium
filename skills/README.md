@@ -29,6 +29,7 @@ self-study lesson from your own sources. Each skill is a folder with a `SKILL.md
 | [`studium-visual-support`](studium-visual-support/SKILL.md) | learners | inspect source photographs or request an adapted image, Mermaid map, audio explanation or short video |
 | [`studium-learner-report`](studium-learner-report/SKILL.md) | learners and teachers | export or inspect a learner-selected activity trace or experiment journal as an ASTRA/MySTRA report |
 | [`studium-observatory`](studium-observatory/SKILL.md) | operators and reviewers | run and read the [Observatory](../services/observatory/README.md) |
+| [`studium-release`](studium-release/SKILL.md) | maintainers | publish a release from start to finish: version, changelog, merges, tag, the GitHub release, the four registries and the documentation site, then check each of them |
 | [`studium-contribute`](studium-contribute/SKILL.md) | any assistant | when Studium itself fails or lacks a feature, say so, help the person on, then offer once to report it or propose the change; the person posts it |
 
 Role skills (`studium-student`, `studium-teacher`, `studium-self-learner`, `studium-from-conversation`) point to `studium-harness` for

@@ -118,6 +118,9 @@ Pushing a tag is the owner's decision; agents and contributors prepare the relea
    **draft** GitHub release with the three files, then sends to each registry that is switched on. A
    registry that already has the version is skipped, so a failed run can be started again.
 4. Read the draft, replace the generated notes with the changelog section if needed, and publish it.
+5. Check that the four registries, the pages they show and the documentation site have the new version.
+   The [`studium-release`](../../skills/studium-release/SKILL.md) skill lists each check, with the order of the
+   whole run; an assistant can follow it from the version to the last check.
 
 When the workflow cannot run, steps 3 and 4 are done from a laptop (next section). A run that fails after
 the build leaves the draft release and whatever was already sent; fix the cause and run it again (it keeps

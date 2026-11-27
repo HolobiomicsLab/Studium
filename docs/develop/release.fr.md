@@ -121,6 +121,9 @@ l'étiqueter.
    release GitHub en **brouillon** avec les trois fichiers, puis envoie à chaque registre activé. Un
    registre qui a déjà la version est sauté : une exécution en échec peut donc être relancée.
 4. Relisez le brouillon, remplacez au besoin les notes générées par la section du changelog, et publiez.
+5. Vérifiez que les quatre registres, les pages qu'ils affichent et le site de documentation ont la nouvelle
+   version. Le skill [`studium-release`](../../skills/studium-release/SKILL.md) donne chaque vérification, dans
+   l'ordre de tout le déroulé ; un assistant peut le suivre du numéro de version à la dernière vérification.
 
 Quand le workflow ne peut pas tourner, les étapes 3 et 4 se font depuis un portable (section suivante). Une
 exécution qui échoue après la construction laisse la release en brouillon et ce qui a déjà été envoyé ;
