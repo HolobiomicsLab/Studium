@@ -82,7 +82,8 @@ project's owner approved it, under the name beta-testeur, without reading it. It
 | Progress and reviews | `~/.studium/data` | `STUDIUM_DATA_DIR` |
 | A folder of lessons looked up first | none | `BUNDLES_ROOT` |
 | Keep everything in memory, write nothing | off | `STUDIUM_EPHEMERAL=1` |
-| The learner id when a call names none | `anonymous` | `STUDIUM_LEARNER_ID` |
+| The one learner the server plays | `anonymous` | `STUDIUM_LEARNER_ID` |
+| Play the `learner_id` of each call (shared computer) | off | `STUDIUM_LEARNERS=several` |
 | A judge model for written answers | none | `LITELLM_BASE_URL` |
 
 Nothing leaves your machine unless you set `LITELLM_BASE_URL`: that route calls a model you pay for.

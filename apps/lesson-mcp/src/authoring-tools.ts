@@ -143,9 +143,9 @@ export function registerAuthoringTools(server: McpServer, ctx: AuthoringToolsCon
       "lesson here; otherwise a link comes first (open_link: the Studium pane, with lesson_path, from the VS Code extension, " +
       "or the browser, an address that lives as long as this server) or the command of the assistant's own pane: start " +
       "the lesson in the chat only if the learner says “here” (open_lesson_panel with open_panel if they say “panel”). An existing lesson is replaced only with overwrite: true, and only a self-study lesson no teacher " +
-      "validated or approved. Pass learner_id as on every call: a draft refused for a learner is offered to them alone " +
-      "by get_study_plan (with no learner_id and no STUDIUM_LEARNER_ID, it serves the resend only). {source_set_id, " +
-      "learner_id, discard: true} drops the unfinished build get_study_plan offers, when the learner does not want it " +
+      "validated or approved. A draft refused for a learner is offered to them alone by get_study_plan (pass learner_id " +
+      "only when the server plays several learners, persistence.learner_id_fixed absent; there, with no learner_id and no " +
+      "STUDIUM_LEARNER_ID, it serves the resend only). {source_set_id, discard: true} drops the unfinished build get_study_plan offers, when the learner does not want it " +
       "finished: it is not offered again.",
     inputSchema: {
       source_set_id: z.string(),
@@ -156,7 +156,7 @@ export function registerAuthoringTools(server: McpServer, ctx: AuthoringToolsCon
       overwrite: z.boolean().optional(),
       discard: z.boolean().optional(),
       learner_id: z.string().min(1).max(200).optional()
-        .describe("one stable id per learner; defaults to persistence.learner_id_default"),
+        .describe("only when the server plays several learners (persistence.learner_id_fixed absent): one stable id per learner; ignored otherwise"),
     },
   }, async ({ source_set_id, draft, draft_id, scenes, course_id, overwrite, discard, learner_id }) => {
     try {

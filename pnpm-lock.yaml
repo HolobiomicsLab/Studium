@@ -331,6 +331,12 @@ importers:
       '@studium/typed-graph-lens':
         specifier: workspace:*
         version: link:../../packages/typed-graph-lens
+      jsonc-parser:
+        specifier: ^3.3.1
+        version: 3.3.1
+      smol-toml:
+        specifier: ^1
+        version: 1.9.1
     devDependencies:
       3dmol:
         specifier: ^2.5.5
@@ -4998,6 +5004,10 @@ packages:
 
   smiles-drawer@2.4.1:
     resolution: {integrity: sha512-kJeD91Bp8EwLTQouq4az7hn5zUYdIaLQoyFt8XlsqriugPiZOdBFADJMUnfqDYpyu3XK9SFpBgTuDtczpbSUbA==}
+
+  smol-toml@1.9.1:
+    resolution: {integrity: sha512-j7WyPdf0CJoutMzMoPLF/bVXHtKZIT9Rb4eGeEbWw8X2t5oirjPgpL+OpaENZrILYaXqYwnVH+qgUwVbl+pUJQ==}
+    engines: {node: '>= 18'}
 
   socks-proxy-agent@8.0.5:
     resolution: {integrity: sha512-HehCEsotFqbPW9sJ8WVYB6UbmIMv7kUUORIF2Nncq4VQvBfNBLibW9YZR5dlYCSUhwcD628pRllm7n+E+YTzJw==}
@@ -10449,6 +10459,8 @@ snapshots:
   smiles-drawer@2.4.1:
     dependencies:
       chroma-js: 2.6.0
+
+  smol-toml@1.9.1: {}
 
   socks-proxy-agent@8.0.5:
     dependencies:

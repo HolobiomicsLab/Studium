@@ -2,7 +2,7 @@
 
 # VS Code
 
-L'extension Studium joue une leçon dans un panneau à côté de votre éditeur : chaque étape affiche ses
+L'extension Studium joue une leçon dans un panneau, en onglet de la zone d'édition : chaque étape affiche ses
 figures, équations, graphiques et modèles 3D, pose une question à la fois, donne son retour dans une étape
 à part et vous signale les révisions dues. Elle suit le thème et la langue de votre éditeur (français ou
 anglais) et s'utilise au clavier comme avec un lecteur d'écran (objectif : WCAG 2.2 AA).
@@ -52,7 +52,9 @@ Quand `studium.bundlesRoot` est vide, le dossier de leçons est le `fixtures/` d
 tourne depuis un clone de Studium, sinon votre bibliothèque personnelle, `~/.studium/library` (ou
 `<STUDIUM_HOME>/library`), où sont écrites les leçons qu'un assistant prépare pour vous. L'extension crée
 cette bibliothèque au démarrage si elle manque, et la surveille : une leçon qu'un assistant y écrit est listée
-et annoncée, avec **Ouvrir**, **Plus tard** et **Ne plus afficher**. Des leçons arrivées ensemble partagent
+et s'ouvre d'elle-même dans le panneau Studium, en onglet de la zone d'édition, sans quitter la conversation ; une
+notification le dit, et son bouton désactive `studium.openLessonWhenReady`. Ce réglage désactivé, la leçon est
+annoncée à la place, avec **Ouvrir**, **Plus tard** et **Ne plus afficher**. Des leçons arrivées ensemble partagent
 une seule notification, dont **Afficher** ouvre la vue Studium. Une leçon que vous y copiez vous-même est
 listée mais pas annoncée. **Ne plus afficher** désactive le réglage `studium.notifyLessonReady` :
 réactivez-le dans l'éditeur de réglages pour revoir les notifications. Si `studium.bundlesRoot` désigne
@@ -97,6 +99,14 @@ reprend à partir de votre progression enregistrée.
   nomme une clé rédigée par l'IA ou une clé que vous avez écrite.
 - **Progression.** « Étape 3 sur 8 », sans jamais reculer ; un détour vers un prérequis est signalé comme
   tel.
+- **Étapes déjà faites.** Sous la barre de progression, chaque étape du parcours principal de la leçon que
+  vous avez déjà faite est un bouton numéroté (un lecteur d'écran lit « Revoir l'étape 3 : <titre> »). Il
+  remontre cette étape telle qu'elle était, en lecture seule, sous un bandeau « Étape 3 sur 12, déjà faite :
+  en relecture » : son texte et ses figures, votre réponse et le retour reçu (pour les réponses données depuis
+  le démarrage du serveur ; après un redémarrage, seulement si la réponse était juste, fausse ou non évaluée).
+  On ne peut rien y répondre et rien ne change : ni votre progression, ni votre maîtrise, ni vos révisions, ni
+  l'étape où vous êtes. **Reprendre où j'en étais** ramène à l'étape en cours telle que vous l'avez laissée,
+  réponse commencée comprise. Les étapes pas encore atteintes et celles d'un détour ne sont pas proposées.
 - **Réponse.** Quand le focus est dans la liste des choix, `A`–`D` ou `1`–`4` choisissent et `Entrée`
   valide ; la ligne sous les choix l'indique (« Dans la liste des choix : … »). La confiance (de 0 à 4) est
   facultative.
@@ -205,9 +215,11 @@ contrôle la sortie s'exécute sous une limite de 50 ms : une leçon défectueu
 | `studium.learnerId` | `vscode-learner` | votre identifiant d'apprenant ; il sale votre pseudonyme sur le disque |
 | `studium.registerMcpServer` | `true` | proposer le serveur de l'extension au mode agent de Copilot (VS Code 1.101 ou plus récent) ; aucun n'est proposé si vous avez déjà ajouté vous-même un serveur Studium |
 | `studium.notifyLessonReady` | `true` | vous prévenir quand une leçon construite par votre assistant est prête ; **Ne plus afficher** sur cette notification le désactive, et le réactiver fait revenir les notifications. Un réglage utilisateur, pour toutes les fenêtres |
+| `studium.openLessonWhenReady` | `true` | ouvrir dans le panneau Studium une leçon construite par votre assistant dès qu'elle est prête, en onglet de la zone d'édition, sans quitter la conversation ; désactivé, une notification propose **Ouvrir** à la place. Un réglage utilisateur |
+| `studium.offerVibeConnection` | `true` | quand Mistral Vibe est installé, proposer une fois de le relier à Studium ; **Studium : Relier Mistral Vibe** fonctionne quel que soit ce réglage. Un réglage utilisateur |
 | `studium.telemetryConsent` | `false` | consentir à l'enregistrement d'une télémétrie de classe pseudonymisée dans le dossier de données de l'extension (rien n'est envoyé) |
 | `studium.modalityPreference` | `balanced` | `visual` ou `textual` réordonne le contenu de chaque étape ; rien n'est retiré |
-| `studium.showGraph` | `true` | ouvrir un panneau compagnon avec le graphe d'apprentissage en direct |
+| `studium.showGraph` | `true` | ouvrir le graphe d'apprentissage en direct dans un onglet à côté de la leçon |
 | `studium.graphView` | `student` | `student` montre votre voisinage, `teacher` le graphe entier |
 | `studium.showMastery` | `false` | afficher la barre de maîtrise par notion ; pour les démonstrations enseignantes seulement, car elle peut révéler les réponses d'un quiz |
 
@@ -224,6 +236,10 @@ contrôle la sortie s'exécute sous une limite de 50 ms : une leçon défectueu
 | Studium : Exécuter la reproduction (capsule de la scène courante) | lancer la capsule de l'étape courante, après confirmation |
 | Studium : Prise en main | ouvrir le parcours de prise en main |
 | Studium : Oublier mes données | effacer ce que l'extension garde (ci-dessous) |
+| Studium : Relier Mistral Vibe | permettre à Mistral Vibe (son extension VS Code, Vibe Desktop, sa ligne de commande) d'utiliser le serveur Studium de cette extension, sans Node ; voir [Connecter Mistral Vibe](vibe.fr.md) |
+| Studium : Délier Mistral Vibe | retirer l'entrée écrite par cette commande |
+| Studium : Relier un assistant… | permettre à Mistral Vibe, Codex, Claude Code, Claude Desktop, Cursor ou OpenCode d'utiliser le serveur Studium de cette extension, sans Node : cochez les assistants dans la liste ; voir [Connecter votre assistant](harnesses.fr.md#choisir-votre-client) |
+| Studium : Délier un assistant… | retirer les entrées écrites par cette commande |
 
 ## Vos données
 

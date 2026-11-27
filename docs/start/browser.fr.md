@@ -61,12 +61,10 @@ n'ouvre jamais le navigateur de lui-même.
   navigateur. Pour la changer, utilisez le réglage de langue dans les paramètres de la page. Une leçon dans
   une autre langue laisse la page dans la langue de votre navigateur, comme `studium-mcp play`.
 
-- **Un apprenant par adresse.** L'adresse joue l'apprenant que l'assistant a nommé dans cet appel (son
-  `learner_id`, sinon `STUDIUM_LEARNER_ID`, sinon `anonymous`) : une étape faite dans le navigateur est la
+- **Un apprenant par adresse.** L'adresse joue l'apprenant que joue le serveur (`STUDIUM_LEARNER_ID`,
+  sinon `anonymous` ; avec `STUDIUM_LEARNERS=several`, le `learner_id` de cet appel) : une étape faite dans le navigateur est la
   progression de cet apprenant dans la conversation, et inversement. La page ne peut pas jouer un autre
-  apprenant. Un assistant qui vous nomme autrement d'un appel à l'autre fait deux apprenants : demandez-lui
-  de garder un seul nom.
-- **Ce qui vient d'abord.** Un assistant qui dessine le panneau Studium (Codex Desktop) propose le panneau
+  apprenant.- **Ce qui vient d'abord.** Un assistant qui dessine le panneau Studium (Codex Desktop) propose le panneau
   d'abord et cette adresse ensuite. Après une réponse dans la conversation, la conversation vient d'abord et
   l'adresse est donnée une fois ; après une réponse dans le navigateur, l'adresse revient en premier
   ([Où une leçon est proposée d'abord](harness-panels.fr.md#où-une-leçon-est-proposée-dabord)). Une leçon
@@ -98,7 +96,11 @@ n'ouvre jamais le navigateur de lui-même.
    avec les mêmes avis : qui a écrit la leçon et sa clé de correction, et, après une réponse, si la clé ou un
    juge l'a évaluée, ou personne. Vous avez aussi les indices, l'échelle de confiance, la note de rappel, la
    carte des notions, le français ou l'anglais (**⋯**, **Réglages**) et le bilan de fin de leçon.
-4. **⋯**, **Choisir un autre cours** ouvre une liste de cours lue à son ouverture, pas relue quand vous
+4. Pour revoir une étape déjà faite, utilisez les boutons numérotés sous la barre de progression : l'étape
+   revient telle qu'elle était, en lecture seule, avec votre réponse et le retour reçu, sous un bandeau
+   « Étape 3 sur 12, déjà faite : en relecture ». Rien n'y change ; **Reprendre où j'en étais** ramène à
+   l'étape en cours, telle que vous l'avez laissée.
+5. **⋯**, **Choisir un autre cours** ouvre une liste de cours lue à son ouverture, pas relue quand vous
    revenez à l'onglet, et sans la leçon de démonstration ; **M'oublier** efface vos données d'apprentissage
    après une confirmation.
 

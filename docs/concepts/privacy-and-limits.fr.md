@@ -16,7 +16,8 @@ Le serveur MCP (`apps/lesson-mcp`) applique ces valeurs par défaut. Chacune se 
 | Un brouillon refusé par Studium, gardé pour que l'assistant ne renvoie que les scènes fautives (voir *Un brouillon gardé* plus bas) | `<STUDIUM_HOME>/library/_drafts/` | `STUDIUM_HOME` |
 | Votre progression | `<STUDIUM_HOME>/data` | `STUDIUM_DATA_DIR` |
 | Rien sur disque, mémoire seulement | désactivé | `STUDIUM_EPHEMERAL=1` |
-| Identifiant d'apprenant quand l'assistant n'en donne pas | `anonymous` | `STUDIUM_LEARNER_ID` |
+| L'unique apprenant que joue le serveur (un identifiant passé par l'assistant est ignoré) | `anonymous` | `STUDIUM_LEARNER_ID` |
+| Jouer le `learner_id` de chaque appel (ordinateur partagé, évaluations) | désactivé | `STUDIUM_LEARNERS=several` |
 
 Dans le dossier de données, chaque apprenant a un dossier nommé par un pseudonyme, jamais par son identifiant :
 
@@ -38,7 +39,7 @@ Quand vous dites à votre assistant ce que vous savez déjà, ce qui vous intér
 
 Quand Studium refuse un brouillon de leçon pour ce qu'il dit, il le garde dans `<STUDIUM_HOME>/library/_drafts/` pour que l'assistant ne renvoie que les scènes fautives. Le brouillon gardé contient la leçon telle que l'assistant l'a écrite, clés de réponse comprises, les erreurs qui y ont été trouvées, les sources sur lesquelles elle repose (par leur SHA-256) et le pseudonyme de l'apprenant pour qui elle a été écrite. De votre profil d'apprenant, il ne garde que les minutes par jour et la date visée : ce que vous savez déjà et ce qui vous intéresse restent dehors, même sous un nom de champ mal orthographié, de même que les erreurs qui les concernent.
 
-Le plan d'étude propose de le terminer seulement à l'apprenant pour qui il a été refusé, après une leçon qu'il a en cours. Quand l'assistant n'a pas donné de `learner_id` et que `STUDIUM_LEARNER_ID` n'est pas défini, aucun apprenant n'est connu : le brouillon sert seulement au renvoi dans la même conversation et n'est proposé à personne, si bien qu'un ordinateur partagé par plusieurs apprenants ne montre jamais l'objectif ou le fichier de l'un à un autre.
+Le plan d'étude propose de le terminer seulement à l'apprenant pour qui il a été refusé, après une leçon qu'il a en cours. Le serveur joue un seul apprenant : le brouillon est donc gardé pour lui, même s'il s'appelle `anonymous`. Avec `STUDIUM_LEARNERS=several`, quand un appel ne donne pas de `learner_id` et que `STUDIUM_LEARNER_ID` n'est pas défini, aucun apprenant n'est connu : le brouillon sert seulement au renvoi dans la même conversation et n'est proposé à personne, si bien qu'un ordinateur partagé par plusieurs apprenants ne montre jamais l'objectif ou le fichier de l'un à un autre.
 
 Il est effacé quand une leçon est écrite pour cet apprenant (ou à partir des mêmes sources sans apprenant nommé), quand l'apprenant dit qu'il n'en veut plus, quand il efface ses données avec `forget_session {learner_id}`, qui efface aussi les brouillons gardés sans apprenant, et dans tous les cas au bout de 14 jours.
 

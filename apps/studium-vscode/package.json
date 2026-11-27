@@ -2,7 +2,7 @@
   "name": "studium-vscode",
   "displayName": "Studium",
   "description": "%extension.description%",
-  "version": "0.6.5",
+  "version": "0.6.6",
   "license": "Apache-2.0",
   "private": true,
   "publisher": "holobiomicslab",
@@ -37,7 +37,11 @@
     "onWebviewPanel:studiumLesson",
     "onCommand:studium.openThisLesson",
     "onCommand:studium.forgetMyData",
-    "onCommand:studium.openDemoLesson"
+    "onCommand:studium.openDemoLesson",
+    "onCommand:studium.connectVibe",
+    "onCommand:studium.disconnectVibe",
+    "onCommand:studium.connectAssistant",
+    "onCommand:studium.disconnectAssistant"
   ],
   "main": "./dist/extension.js",
   "contributes": {
@@ -82,6 +86,22 @@
       {
         "command": "studium.openDemoLesson",
         "title": "%command.openDemoLesson.title%"
+      },
+      {
+        "command": "studium.connectVibe",
+        "title": "%command.connectVibe.title%"
+      },
+      {
+        "command": "studium.disconnectVibe",
+        "title": "%command.disconnectVibe.title%"
+      },
+      {
+        "command": "studium.connectAssistant",
+        "title": "%command.connectAssistant.title%"
+      },
+      {
+        "command": "studium.disconnectAssistant",
+        "title": "%command.disconnectAssistant.title%"
       }
     ],
     "viewsContainers": {
@@ -353,6 +373,18 @@
           "default": true,
           "scope": "application",
           "description": "%configuration.notifyLessonReady.description%"
+        },
+        "studium.openLessonWhenReady": {
+          "type": "boolean",
+          "default": true,
+          "scope": "application",
+          "description": "%configuration.openLessonWhenReady.description%"
+        },
+        "studium.offerVibeConnection": {
+          "type": "boolean",
+          "default": true,
+          "scope": "application",
+          "description": "%configuration.offerVibeConnection.description%"
         }
       }
     },
@@ -370,18 +402,21 @@
     ]
   },
   "scripts": {
-    "build": "pnpm vendor && esbuild src/extension.ts --loader:.css=text --loader:.html=text --bundle --platform=node --format=cjs --external:vscode --outfile=dist/extension.js && esbuild src/lesson-mcp-entry.ts --loader:.html=text --bundle --platform=node --format=cjs --outfile=dist/lesson-mcp.cjs --define:__STUDIUM_BUILD__='{\"origin\":\"bundled\",\"built_at\":\"'\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"'\",\"git_sha\":\"'\"$(git describe --always --dirty --abbrev=7)\"'\"}'",
+    "build": "pnpm vendor && esbuild src/extension.ts --loader:.css=text --loader:.html=text --bundle --platform=node --format=cjs --external:vscode --outfile=dist/extension.js && esbuild src/vibe-uninstall.ts --bundle --platform=node --format=cjs --outfile=dist/vibe-uninstall.cjs && esbuild src/lesson-mcp-entry.ts --loader:.html=text --bundle --platform=node --format=cjs --outfile=dist/lesson-mcp.cjs --define:__STUDIUM_BUILD__='{\"origin\":\"bundled\",\"built_at\":\"'\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"'\",\"git_sha\":\"'\"$(git describe --always --dirty --abbrev=7)\"'\"}'",
     "watch": "pnpm build --watch",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "pnpm typecheck && for d in context-help scene-io asset-path webview-pane community modality review-fsrs run-task run-trust host-phrases data-paths lesson-uri pane-messages study-status library-watch lesson-tree lesson-picker completion chat-format mcp-connect panel-lifecycle contributes lesson-walk extension-host; do echo \"--- $d ---\" && tsx \"src/$d.driver.ts\" || exit 1; done",
+    "test": "pnpm typecheck && for d in context-help scene-io asset-path webview-pane community modality review-fsrs run-task run-trust host-phrases data-paths lesson-uri pane-messages study-status vibe-config assistant-config library-watch lesson-tree lesson-picker completion chat-format mcp-connect panel-lifecycle contributes lesson-walk extension-host; do echo \"--- $d ---\" && tsx \"src/$d.driver.ts\" || exit 1; done",
     "package": "pnpm vendor && pnpm build && vsce package --no-dependencies --readme-path MARKETPLACE.md -o studium.vsix",
-    "vendor": "pnpm --filter @studium/lesson-panel-ui build && mkdir -p dist/panel && cp -R ../lesson-panel-ui/dist/vscode/. dist/panel/ && rm -rf dist/shipped-lessons && cp -R ../lesson-mcp/shipped-lessons dist/shipped-lessons"
+    "vendor": "pnpm --filter @studium/lesson-panel-ui build && mkdir -p dist/panel && cp -R ../lesson-panel-ui/dist/vscode/. dist/panel/ && rm -rf dist/shipped-lessons && cp -R ../lesson-mcp/shipped-lessons dist/shipped-lessons",
+    "vscode:uninstall": "node ./dist/vibe-uninstall.cjs"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.32.2",
-    "@studium/typed-graph-lens": "workspace:*",
     "@studium/lesson-panel": "workspace:*",
-    "@studium/lesson-panel-ui": "workspace:*"
+    "@studium/lesson-panel-ui": "workspace:*",
+    "@studium/typed-graph-lens": "workspace:*",
+    "jsonc-parser": "^3.3.1",
+    "smol-toml": "^1"
   },
   "devDependencies": {
     "3dmol": "^2.5.5",

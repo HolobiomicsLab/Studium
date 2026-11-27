@@ -5,7 +5,7 @@ export {
   type ServedPresentation, type ServedTransition, type ServedVerdict, type ReviewPlan, type RecallRating,
   type ListedLesson, type LessonListing, type ReviewItem, type ReviewStartResult,
   type ReinforcementStatus, type RoutedReinforcementTarget, type ForgetReport, type ForgetItem, type ConceptMapExport, type ContestStart,
-  type PromptSurface, type ServeOptions, type RespondOptions,
+  type PromptSurface, type ServeOptions, type RespondOptions, type RevisitStep, type RevisitedScene,
 } from "./host.js";
 // The 2026-10-30 verification fixes: a session's clock and now_ms (L-1), one time zone for every date
 // (RFR-13), the review scene choice (L-8).

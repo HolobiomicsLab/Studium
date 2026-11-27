@@ -43,12 +43,17 @@ export const PanelActionSchema = z.discriminatedUnion("type", [
    * keeps the outcome; accepting then does what the proposal said. */
   // Audit 2026-11-10, difficulty 5: the conversation's spelling (accepted | dismissed) is taken too.
   z.object({ type: z.literal("prompt"), id: z.string().min(1), outcome: z.enum(["accept", "dismiss", "accepted", "dismissed"]) }).strict(),
+  /** Owner decision 2026-11-26 (« précédent »): show a main-path step already done (one of progress.done),
+   * as it was, read only. Nothing is answered, graded, scheduled or moved; resume comes back. */
+  z.object({ type: z.literal("revisit"), scene_id: z.string().min(1) }).strict(),
+  /** Leave a revisit: the current screen comes back exactly as it was. Outside a revisit it changes nothing. */
+  z.object({ type: z.literal("resume") }).strict(),
 ]);
 export type PanelAction = z.infer<typeof PanelActionSchema>;
 export type PanelActionName = PanelAction["type"];
 export const PANEL_ACTION_NAMES = [
   "respond", "turn", "hint", "rateRecall", "reviewNow", "restartLesson", "end", "pickCourse", "ask", "setAttention", "setLanguage", "replan",
-  "openMap", "closeMap", "contest", "prompt",
+  "openMap", "closeMap", "contest", "prompt", "revisit", "resume",
 ] as const satisfies readonly PanelActionName[];
 export const PanelActionNameSchema = z.enum(PANEL_ACTION_NAMES);
 export const NamedConceptSchema = z.object({ id: z.string(), label: z.string() });
@@ -187,8 +192,25 @@ export const PANEL_VIEW_V2_FIELDS = ["orientation", "status_line", "voices", "he
 export const ProgressSchema = z.object({
   index: z.number(), total: z.number(),
   detour: z.object({ returns_to_scene_id: z.string(), returns_to_title: z.string(), returns_to_index: z.number() }).optional(),
+  /** The main-path steps already done, in lesson order (1-based index): the ones the rail lets the learner
+   * revisit. Absent when there is none, or when the backend cannot show a past step. */
+  done: z.array(z.object({ index: z.number().int().min(1), scene_id: z.string(), title: z.string() })).optional(),
 });
 export type Progress = z.infer<typeof ProgressSchema>;
+export type DoneStep = NonNullable<Progress["done"]>[number];
+
+/** A step already done, shown read only (action revisit): which one, out of how many, whether it asked
+ * for an answer and what the session recorded of it — the outcome (`right`, `wrong`, `unassessed`:
+ * nobody assessed it) and who assessed it — and, when the panel kept them, the learner's own answer and
+ * the feedback they got. `scene` on the view is that step's public content; `progress` stays where the
+ * learner is. */
+export const RevisitSchema = z.object({
+  scene_id: z.string(), index: z.number().int().min(1), total: z.number().int().min(1), title: z.string(),
+  answered: z.boolean(), result: z.enum(["right", "wrong", "unassessed"]).optional(),
+  assessed_by: z.enum(["key", "judge", "none"]).optional(),
+  your_answer: z.string().optional(), feedback: z.string().optional(),
+});
+export type Revisit = z.infer<typeof RevisitSchema>;
 
 export const PanelViewSchema = z.object({
   schema: z.enum(PANEL_VIEW_SCHEMAS), kind: z.enum(["scene", "done", "notice", "error"]),
@@ -210,6 +232,8 @@ export const PanelViewSchema = z.object({
   help: HelpSchema.optional(), prompts: z.array(PromptSchema).optional(), attention: AttentionSchema.optional(), surface: SurfaceSchema.optional(),
   /** The concept map, present after the action openMap and until closeMap. */
   map: MapViewSchema.optional(),
+  /** A step already done is on screen, read only (action revisit), until resume. */
+  revisit: RevisitSchema.optional(),
 }).strict().superRefine((view, ctx) => {
   if (view.schema !== PANEL_VIEW_SCHEMA) return;
   for (const field of PANEL_VIEW_V2_FIELDS) {

@@ -21,7 +21,9 @@ const OFF = ['off', 'none', '0', 'false', 'no'];
 /** Whether this stdio server offers its browser player: not when the VS Code extension serves Studium
  * (STUDIUM_OPEN_LINK: its pane is offered), not when STUDIUM_BROWSER_PLAYER is off. */
 export function browserPlayerWanted(env: Readonly<Record<string, string | undefined>>): boolean {
-  if (env['STUDIUM_OPEN_LINK']?.trim()) return false;
+  // With STUDIUM_OPEN_LINK_UNDER (the Vibe entry the VS Code extension writes) the pane link may be dropped at start
+  // (index.ts): the player is then wanted; it starts only when a lesson is offered without the pane link.
+  if (env['STUDIUM_OPEN_LINK']?.trim() && !env['STUDIUM_OPEN_LINK_UNDER']?.trim()) return false;
   return !OFF.includes((env['STUDIUM_BROWSER_PLAYER'] ?? '').trim().toLowerCase());
 }
 

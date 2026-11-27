@@ -6,6 +6,110 @@ Journal des unités TDD par milestone. Mis à jour à chaque commit significatif
 
 ---
 
+## 2026-11-27 — Cursor dans « Relier un assistant… »
+
+Même délégation. `cursor` : `~/.cursor/mcp.json`, `mcpServers.studium` avec `type: "stdio"` (forme de
+`docs/start/cursor.md`). Cursor n'est pas installé sur ce Mac : vérifié par le pilote (112 assertions), pas dans Cursor.
+
+## 2026-11-27 — revoir une étape déjà faite, en lecture seule (« précédent »)
+
+Décision du propriétaire : revenir en arrière est une relecture, jamais un retour en arrière de la séance (« Je valide
+pour le point 2 précédent »). Branche `feat/2026-11-27-review-past-steps`, sur `origin/dev`.
+
+- `lesson-panel` : actions `revisit {scene_id}` et `resume` ; `progress.done` (étapes du parcours principal déjà
+  faites) et `revisit` sur la vue ; pendant une relecture, tout sauf `resume`, `revisit`, `end` et `pickCourse` est
+  refusé en une ligne, aucune proposition n'est demandée au serveur, la carte est fermée ; `resume` rend l'écran courant
+  à l'identique (effets compris). Le panneau garde en mémoire le texte de la réponse et le retour (`noteAnswer`), pour
+  les réponses vues par `respond` ou `submit_response`.
+- `lesson-session-host` : `revisitableSteps` et `revisitScene`, en lecture seule ; les étapes avant celle où l'on est
+  (en détour ou en contrôle : celle où l'on revient), servies ou terminées, ni l'écran courant ni une étape de détour.
+  La séance ne garde ni le texte des réponses ni celui des retours : seulement juste, faux, non évalué, et par qui.
+- Contrat d'interaction (TS et Python) et `InteractionAct` : `revisit`, `resume`. Mod Claude Code : lit ces vues.
+- Rendu partagé (`artifact-pane.js`) : boutons numérotés sous le rail (`aria-label` « Revoir l'étape N : titre »),
+  bandeau qui prend le focus, contenu, réponse et retour, un bouton « Reprendre où j'en étais » ; la réponse commencée
+  revient au retour, le focus sur la scène. Sous une barre segmentée (30 étapes ou moins), chaque bouton est aligné
+  sous son segment (on revient « par la barre de progression »), vérifié dans le lecteur navigateur avec Chromium
+  sans tête sur « Découvrir Studium » : relecture d'une intro et d'un quiz juste, puis reprise.
+- Tests : lesson-panel (10), hôte (4), MCP (1), rendu (4), lecteur navigateur (1), pilotes webview-pane et
+  extension-host (blocs nouveaux), mod (1). Docs VS Code, navigateur, guide de l'étudiant (EN, FR), outils MCP
+  régénérés, CHANGELOG.
+
+## 2026-11-27 — relier les autres assistants en un clic (Codex, Claude Code, Claude Desktop, OpenCode)
+
+Mots du propriétaire, 26 nov. ~23 h : « Cette nuit jusqu'a demain je te donne delegation pour faire en sorte que ca
+soit compatible avec les autres harnais cible facilement. Je te donne delegation pour fusionner et faire le
+necessaire. Jusqu'a demain 8 am. » Branche `feat/2026-11-27-connect-assistants`.
+
+- `assistant-config.ts` (pur) : chemins (CODEX_HOME, CLAUDE_CONFIG_DIR, APPDATA, XDG_CONFIG_HOME), formes mesurées
+  avec `codex mcp add` (0.170.0), `claude mcp add -s user` (2.1.332), `opencode mcp add --global` (2.3.0, qui lit
+  `mcp.<nom>` comme `mcp.servers.<nom>`) ; JSON édité par jsonc-parser (commentaires gardés), TOML de Codex par
+  épissure d'une suite de tables ; marqueur `STUDIUM_WRITTEN_BY` comme pour Vibe. Pilote : 91 assertions.
+- `assistant-connection.ts` : « Relier / Délier un assistant… » (liste à cocher, Vibe compris), mise à jour silencieuse
+  à l'activation, réécriture si Claude Code a perdu l'entrée en réécrivant `~/.claude.json` ; désinstallation étendue.
+- Essais réels en configurations temporaires : `claude mcp list` « ✔ Connected », `opencode mcp list` « ✓ studium
+  connected » (le service d'OpenCode charge la configuration au second appel), poignée de main MCP pour les entrées
+  Codex et Claude Desktop (40 outils). Pas essayé : une conversation dans chacun, Claude Desktop, OpenCode Desktop.
+
+## 2026-11-26 — la leçon s'ouvre d'elle-même, en onglet
+
+Essai en direct du propriétaire avec l'extension Vibe pour VS Code 1.30.0 : Vibe n'a vu Studium qu'après un
+rechargement de la fenêtre (son moteur avait démarré 5 s avant l'écriture de l'entrée), puis a construit la leçon ;
+le lien `vscode://` s'affichait comme du texte, et leçon, graphe et chat découpaient la fenêtre en colonnes étroites.
+Mots : « Fais selon ta recommendation. Vas y ». Branche `feat/2026-11-26-lesson-layout`.
+
+- `announceLesson` : une leçon seule s'ouvre dans le panneau (`preserveFocus`), réglage `studium.openLessonWhenReady`
+  (vrai par défaut), notification avec un seul bouton qui le désactive ; désactivé, l'ancienne notification.
+- `openLesson` : `ViewColumn.Active` au lieu de `Beside` ; graphe en onglet dans le même groupe, la leçon remise
+  devant ; une leçon déjà ouverte est montrée au lieu d'être rouverte (`openLessonPanes`).
+- Relier Mistral Vibe : bouton « Recharger la fenêtre ».
+- Pilote extension-host : l'ancien bloc de notification tourne avec le réglage désactivé (ajout d'une ligne) ; nouveau
+  bloc pour l'ouverture automatique, le bouton et l'ouverture en double.
+- Docs (`40dc8e1` et suivant) : VS Code, Copilot, README, configuration. Second essai du propriétaire : la leçon
+  s'ouvre seule en onglet. Vibe Desktop 1.3.0, quitté puis relancé : `vibe-app-server` a lancé le serveur de
+  l'entrée (vérifié par `ps`) ; « Ça a l'air de marcher ».
+
+## 2026-11-26 — relier Mistral Vibe en un clic, sans Node (INT-STUDIUM-064, A et B)
+
+Mots du propriétaire : « Okay pour A et B. C dans un deuxieme temps », puis « Je te donne delegation pour faire le
+necessaire jusqu'a realisation de cela ». Christophe Garelli : Copilot marche, mais l'extension Vibe pour VS Code
+cherchait un `node` qu'il n'a pas. Spec hub `2026-11-26-vibe-connect-design.md`, plan `2026-11-26-vibe-connect.md`.
+Branche `feat/2026-11-26-vibe-connect`.
+
+- `vibe-config.ts` (pur, smol-toml) : chemin `VIBE_HOME`/`~/.vibe/config.toml`, entrée `[[mcp_servers]]` marquée
+  `STUDIUM_WRITTEN_BY = "studium-vscode"`, ajout ou remplacement par découpage du texte (le reste du fichier octet pour
+  octet), refus d'un fichier illisible, une entrée écrite à la main remplacée seulement sur un oui. `command` est une
+  liste : Vibe découpe une chaîne aux espaces (shlex) et « Visual Studio Code.app » en contient, mesuré
+  (`mcp_transport_failed`, puis Vibe a contourné en pilotant le dépôt par bash et écrit sous ~/.studium, nettoyé).
+- `vibe-connection.ts` : commandes Relier/Délier, proposition unique (`studium.offerVibeConnection`), mise à jour
+  silencieuse à l'activation, copie `config.toml.studium-backup`, refus en fenêtre distante. `vibe-uninstall.ts` →
+  `dist/vibe-uninstall.cjs` (`vscode:uninstall`).
+- lesson-mcp : `STUDIUM_OPEN_LINK_UNDER` garde le lien du panneau seulement si un processus parent vient du dossier de
+  l'éditeur (`ps`, 12 niveaux ; Windows : jamais), car Vibe ne transmet aucune variable VSCODE_* ;
+  `browserPlayerWanted` reste vrai dans ce cas pour que le navigateur prenne le relais.
+- Essais réels, Vibe 3.1.3 sans interface, Mistral Large 4 (abonnement), `VIBE_HOME` de travail : leçon de 2 étapes
+  construite en ~3 min 30, adresse du navigateur donnée ; Vibe lancé depuis l'exécutable de VS Code : lien du panneau.
+  Non essayé dans l'extension Vibe pour VS Code ni Vibe Desktop.
+
+## 2026-11-26 — le serveur lancé par un assistant joue un seul apprenant
+
+Mots du propriétaire : « Ok pour travailler sur identifiants apres », puis « Ok pour la recommendation ». Les modèles
+inventaient des `learner_id` (Vibe : « lfx » 21 fois, « louis-felix » 15 fois ; OpenCode : « apprenant-photosynthese »,
+un nom d'utilisateur tiré du chemin) parce que les instructions demandaient « one stable learner_id per person » et que
+le skill self-learner proposait le prénom. Branche `fix/2026-11-26-one-learner`.
+
+- `SessionHostOptions.oneLearner` ; `learnerFixed` = `editorNamesLearner` ou `oneLearner` remplace
+  `editorNamesLearner` partout où il voulait dire « l'apprenant est fixé » (`learnerFor`, `onePerson`, `listLessons`,
+  `forgetLearner`, `lessonOffer`, outils `forget_session` et `get_next_reinforcement`). Le texte propre à l'éditeur
+  reste (`learner_id_from_editor`, ligne d'instructions, refus de `forget_session`).
+- `hostFromEnvironment` : `oneLearner` quand `servesOnePerson` (le `main` stdio) et pas `STUDIUM_LEARNERS=several`.
+  `persistence.learner_id_fixed`, ligne d'instructions et description de `learner_id` pour ce cas ; `next_step.arguments`
+  ne nomme plus l'apprenant fixé ; un brouillon refusé est gardé pour l'apprenant fixé même « anonymous » (`namesNoOne`).
+- L'extension VS Code lance le serveur de son panneau, du chat @studium et du notebook avec `STUDIUM_LEARNERS=several`
+  (`lessonMcpEnv`) : ils nomment `studium.learnerId` à chaque appel ; le pilote extension-host l'a montré (6 échecs
+  avant ce réglage).
+- Tests : `editor-learner.test.ts` (6 nouveaux), `served-player.e2e.test.ts` (1 nouveau ; le test « learner of the
+  call » passe à `STUDIUM_LEARNERS=several`, commentaire « Changed 2026-11-26 »). Docs, skills et CHANGELOG mis à jour.
+
 ## 2026-11-26 — langue du lecteur navigateur et durée unique d'une leçon
 
 Deux défauts relevés lors d'un essai : un apprenant francophone, leçon française, et l'interface du lecteur navigateur

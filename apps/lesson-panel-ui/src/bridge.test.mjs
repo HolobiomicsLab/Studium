@@ -341,6 +341,7 @@ const SAMPLE_ACTIONS = {
   respond: { input: { kind: "ack" } }, turn: { text: "t" }, hint: {}, rateRecall: { sceneId: "intro", grade: "good" }, reviewNow: {},
   restartLesson: {}, end: {}, pickCourse: {}, ask: { text: "q" }, setAttention: { level: "quiet" }, setLanguage: { presentation_language: "fr" },
   replan: { minutes: 10 }, openMap: {}, closeMap: {}, contest: { concept_id: "c", claim: "known" }, prompt: { id: "p", outcome: "dismiss" },
+  revisit: { scene_id: "intro" }, resume: {},
 };
 const tick = () => new Promise(resolve => setTimeout(resolve, 0));
 test("every action type an adapter must transport leaves the MCP App bridge", async () => {

@@ -98,7 +98,7 @@ fois que vous voulez. Avec l'extension Studium installée, VS Code montre où en
 | Quand | Ce que VS Code affiche |
 |---|---|
 | L'assistant a préparé ses sources | la barre d'état indique **Studium · leçon en préparation…** ; son info-bulle nomme la source et dit de répondre à l'assistant dans le chat s'il demande d'autoriser une étape |
-| La leçon est écrite dans votre bibliothèque | **Studium : ta leçon « … » est prête (n étapes).** avec **Ouvrir**, **Plus tard** et **Ne plus afficher** (qui désactive le réglage `studium.notifyLessonReady`) ; la leçon apparaît dans la vue **Leçons**. Si vous étiez dans une autre fenêtre, l'avis attend votre retour dans VS Code |
+| La leçon est écrite dans votre bibliothèque | la leçon s'ouvre d'elle-même dans le panneau Studium, en onglet de la zone d'édition, et vous restez dans la conversation ; une notification dit **Studium : ta leçon « … » est prête (n étapes). Elle est ouverte dans le panneau Studium.** avec **Ne plus ouvrir toute seule** (qui désactive le réglage `studium.openLessonWhenReady`). Ce réglage désactivé, la notification propose à la place **Ouvrir**, **Plus tard** et **Ne plus afficher** (qui désactive `studium.notifyLessonReady`). Dans les deux cas, la leçon apparaît dans la vue **Leçons**. Si vous étiez dans une autre fenêtre, cela attend votre retour dans VS Code |
 
 En attendant, vous pouvez essayer la leçon de démonstration (**Studium : Essayer la leçon de
 démonstration**). L'extension surveille votre bibliothèque, `~/.studium/library` (ou

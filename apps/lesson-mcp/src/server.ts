@@ -66,6 +66,10 @@ export const SERVER_INSTRUCTIONS = [
  * learner (the server the Studium VS Code extension offers to Copilot). */
 const EDITOR_LEARNER_LINE = "- The editor names the learner: omit learner_id (an id you pass is ignored; " +
   "persistence.learner_id_default is the learner).";
+/** Learner ids (owner's decision, 26 Nov 2026): the line that replaces the stable-learner_id one when this server plays
+ * one learner (the stdio server an assistant started): models made ids up and split one person's progress. */
+const ONE_LEARNER_LINE = "- This server plays one learner, the person using you: omit learner_id and never make one up " +
+  "(an id you pass is ignored; persistence.learner_id_default is the learner).";
 
 /** D2, D4: what open_link leads to. Any server may offer a link (D4, owner decision 4: the server's browser player when
  * no VS Code extension serves Studium), so the rule is in SERVER_INSTRUCTIONS; the extension's server (STUDIUM_OPEN_LINK)
@@ -76,9 +80,11 @@ const PANE_FIRST = "(the Studium pane first)";
 /** The instructions of a server over `host`: SERVER_INSTRUCTIONS, with the learner line rewritten when the editor
  * names the learner (D1) and the link named as the pane when the VS Code extension serves Studium (D2). Same number
  * of lines (at most 13). */
-export function serverInstructions(host: Pick<SessionHost, "editorNamesLearner" | "openLink">): string {
+export function serverInstructions(host: Pick<SessionHost, "editorNamesLearner" | "learnerFixed" | "openLink">): string {
   const lines = SERVER_INSTRUCTIONS.split("\n");
-  if (host.editorNamesLearner) lines[lines.findIndex((line) => line.startsWith("- Pass one stable learner_id"))] = EDITOR_LEARNER_LINE;
+  if (host.learnerFixed) {
+    lines[lines.findIndex((line) => line.startsWith("- Pass one stable learner_id"))] = host.editorNamesLearner ? EDITOR_LEARNER_LINE : ONE_LEARNER_LINE;
+  }
   if (host.openLink) {
     const at = lines.findIndex((line) => line.includes(LINK_FIRST));
     lines[at] = lines[at]!.replace(LINK_FIRST, PANE_FIRST);
@@ -133,6 +139,9 @@ const defaultLearnerIdArg = z.string().min(1).max(200).optional()
 /** D1: the same argument when the editor names the learner. */
 const editorLearnerIdArg = z.string().min(1).max(200).optional()
   .describe("omit it: the editor names the learner (persistence.learner_id_default), and an id passed here is ignored");
+/** Learner ids (26 Nov 2026): the same argument when this server plays one learner. */
+const oneLearnerIdArg = z.string().min(1).max(200).optional()
+  .describe("omit it: this server plays one learner (persistence.learner_id_default), and an id passed here is ignored");
 /** L-1: an integer epoch a Date can hold, refused otherwise in one line (session-clock.ts). */
 const nowMsArg = NowMsSchema.optional();
 /** L-4: the language the study tools speak. */
@@ -150,7 +159,7 @@ export function studyOperations(
 ): Operation[] {
   // INT-STUDIUM-058 § 2.6: the screens these tools serve are read in the conversation (rank 1).
   const promptSurface = (): PromptSurface => ({ rank: 1, formsAvailable: opts.formsAvailable?.() ?? false });
-  const learnerIdArg = host.editorNamesLearner ? editorLearnerIdArg : defaultLearnerIdArg;
+  const learnerIdArg = host.editorNamesLearner ? editorLearnerIdArg : host.learnerFixed ? oneLearnerIdArg : defaultLearnerIdArg;
   // The conversation tools log the rank the session is played on, not always the conversation's own.
   const rankOf = (sessionId: string): SurfaceRank => opts.surfaceRankOf?.(sessionId) ?? 1;
   return [
@@ -178,9 +187,9 @@ export function studyOperations(
       "a draft of this learner's, and no lesson was written since (it comes after a lesson in progress); " +
       "unfinished_build gives its sources, prepare_sources (the arguments that prepare them again, or null for a source " +
       "given as text), resend, draft_id and fix_scenes when only those scenes must be sent again, and a keyless " +
-      "outline. If the learner wants it, read the guide, prepare the sources again and call create_lesson with " +
-      "learner_id (draft_id and only the scenes in fix_scenes when there is a draft_id, else the whole draft); if not, " +
-      "create_lesson {source_set_id, learner_id, discard: true}. With the minutes a day the " +
+      "outline. If the learner wants it, read the guide, prepare the sources again and call create_lesson " +
+      "(draft_id and only the scenes in fix_scenes when there is a draft_id, else the whole draft); if not, " +
+      "create_lesson {source_set_id, discard: true}. With the minutes a day the " +
       "learner gave, minutes_per_day and next_step.estimated_minutes size the step. display_markdown is the plan in " +
       "`language`, ready to show. A learner with no lesson of their own gets the demo lesson shipped with Studium as the " +
       "step to start (before authoring). Dates (due_date, next_review_date) are days in get_server_info.time_zone.",

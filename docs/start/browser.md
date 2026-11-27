@@ -58,11 +58,9 @@ your current step. Or say "here" to play it in the chat. Studium never opens the
   language setting in the page's settings. A lesson in another language leaves the page in your browser's
   language, as does `studium-mcp play`.
 
-- **One learner per address.** The address plays the learner the assistant named in that call (its
-  `learner_id`, else `STUDIUM_LEARNER_ID`, else `anonymous`): a step answered in the browser is that
-  learner's progress in the chat, and the reverse. The page cannot play another learner. An assistant that
-  names you differently from one call to the next makes two learners: ask it to keep one name.
-- **What comes first.** An assistant that draws Studium's panel (Codex Desktop) offers the panel first and
+- **One learner per address.** The address plays the learner the server plays (`STUDIUM_LEARNER_ID`,
+  else `anonymous`; with `STUDIUM_LEARNERS=several`, the `learner_id` of that call): a step answered in the browser is that
+  learner's progress in the chat, and the reverse. The page cannot play another learner.- **What comes first.** An assistant that draws Studium's panel (Codex Desktop) offers the panel first and
   this address second. After you answered in the chat, the chat comes first and the address is given once;
   after you answered in the browser, the address comes first again
   ([Where a lesson is offered first](harness-panels.md#where-a-lesson-is-offered-first)). A lesson the
@@ -92,7 +90,11 @@ your current step. Or say "here" to play it in the chat. Studium never opens the
    who wrote the lesson and its answer key, and, after an answer, whether the key or a judge assessed it,
    or nobody. You also have hints, the confidence scale, recall ratings, the concept map, French or
    English (**⋯**, **Settings**), and the end-of-lesson summary.
-4. **⋯**, **Choose another course** opens a list of courses read when it opens, not again when you come
+4. To look back at a step already done, use the numbered buttons under the progress rail: the step comes
+   back as it was, read only, with your answer and the feedback you got, under a banner "Step 3 of 12,
+   already done: review only". Nothing changes there; **Back to where I was** returns to your current step,
+   as you left it.
+5. **⋯**, **Choose another course** opens a list of courses read when it opens, not again when you come
    back to the tab, and without the demo lesson; **Forget me** erases your learning data after a
    confirmation.
 

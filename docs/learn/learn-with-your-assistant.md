@@ -136,7 +136,7 @@ Open a new conversation and ask "What should I study with Studium today?". The a
 step to take now. `start_review_session` then plays every review due, across all your lessons. See
 [review over time](review-over-time.md). If Studium refused a draft of your lesson and no lesson was written for
 you since, the plan offers to finish it, after a lesson you have in progress, for 14 days, and only to you (the
-assistant passes your learner id); say you no longer want it and it is not offered again.
+server plays only you); say you no longer want it and it is not offered again.
 
 If you simply take a lesson up again, its first screen says so, and when reviews are due it proposes them at the start
 of the session, or at the first pause after it when the session started on a question, once per session:
@@ -149,8 +149,8 @@ lesson goes on. The same kind of proposal comes at a pause, never over a questio
 your client can show them, the concept map at the end of the lesson. Each one is made once.
 
 Your progress survives restarts by default, under `~/.studium`. To find it again from another assistant, use
-the same data folder and the same learner id: ask the assistant to pass one stable `learner_id` (for example
-your first name) on every call.
+the same data folder and set the same `STUDIUM_LEARNER_ID` in each assistant's server settings. The assistant
+does not name you: the server plays one learner.
 
 ## 7. Close or forget
 

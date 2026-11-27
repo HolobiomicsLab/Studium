@@ -18,6 +18,8 @@ import {
 import { LessonPanelLifecycle, type ActionResult } from "./panel-lifecycle.js";
 import { registerStudiumChat } from "./chat.js";
 import { registerStudiumMcpServer } from "./mcp-registration.js";
+import { setUpVibeConnection } from "./vibe-connection.js";
+import { setUpAssistantConnections } from "./assistant-connection.js";
 import { toCytoscape, buildStylesheet, egoFilter, type GraphView } from "@studium/typed-graph-lens";
 import { registerStudiumNotebook } from "./notebook.js";
 import { ClientMsSchema, PanelActionSchema, type PanelView, type PanelBackend } from "@studium/lesson-panel";
@@ -235,6 +237,19 @@ export function activate(context: vscode.ExtensionContext) {
   } catch (e: any) {
     mcpOutput.appendLine(`[studium] the built-in Studium server was not offered to Copilot: ${e?.message ?? e}`);
   }
+  // Spec 2026-11-26-vibe-connect: Mistral Vibe (CLI, VS Code extension, Desktop) gets the same server on the user's click.
+  try {
+    const connectionDeps = {
+      locations: () => lessonServerLocations(context, resolveLessonBundlesRoot(context)),
+      learnerId: () => cfg<string>("learnerId", "vscode-learner"),
+      studiumHome: studiumHomeDir,
+      log: (line: string) => mcpOutput.appendLine(line),
+    };
+    setUpVibeConnection(context, connectionDeps);
+    setUpAssistantConnections(context, connectionDeps);
+  } catch (e: any) {
+    mcpOutput.appendLine(`[studium] the Mistral Vibe connection was not set up: ${e?.message ?? e}`);
+  }
   setUpStudyStatus(context);
   setUpLibraryWatch(context, libraryRoot);
 }
@@ -359,8 +374,10 @@ function watchLessonsFolder(context: vscode.ExtensionContext, library: string) {
 
 /** BN-1: « Your lesson … is ready »: Open plays it from the library (no setting is written), Later does nothing, Don't
  * show again turns off the user setting studium.notifyLessonReady, which the learner can turn back on. Lessons that
- * landed together share one notice, whose Show opens the Studium view, where they are listed. The pane is never opened
- * unasked: it would take the focus from the chat. */
+ * landed together share one notice, whose Show opens the Studium view, where they are listed.
+ * Changed 2026-11-26 (owner, after a live trial with Mistral Vibe, whose chat shows the vscode:// link as text): one
+ * lesson is opened in the pane by itself (studium.openLessonWhenReady, on by default), without taking the focus from
+ * the chat, and the notice says so, with one button that turns the setting off. */
 async function announceLesson(
   context: vscode.ExtensionContext, library: string, notice: Extract<LibraryWatchAction, { kind: "notify" }>, setting: LessonReadySetting,
 ) {
@@ -368,6 +385,14 @@ async function announceLesson(
   const [first] = notice.lessons;
   if (!first) return;
   const several = notice.lessons.length > 1;
+  if (!several && cfg<boolean>("openLessonWhenReady", true) !== false) {
+    void openLesson(context, first.ref, "lesson", { bundlesRoot: library, preserveFocus: true });
+    const stop = hostPhrase("lesson_ready_stop_opening", {}, locale);
+    const answer = await vscode.window.showInformationMessage(
+      `${lessonReadyMessage(notice.lessons, locale)} ${hostPhrase("lesson_ready_opened", {}, locale)}`, stop);
+    if (answer === stop) await vscode.workspace.getConfiguration("studium").update("openLessonWhenReady", false, vscode.ConfigurationTarget.Global);
+    return;
+  }
   const open = hostPhrase(several ? "lessons_ready_show" : "lesson_ready_open", {}, locale);
   const later = hostPhrase("lesson_ready_later", {}, locale);
   const never = hostPhrase("lesson_ready_never", {}, locale);
@@ -930,8 +955,12 @@ async function saveAndOpenLesson(context: vscode.ExtensionContext, bundlesRoot: 
 }
 
 /** Where an open comes from when it is not the settings: an explicit bundles root (a link, "Open this lesson",
- * a restored pane) and, for a restored pane, the panel VS Code already created. */
-interface OpenLessonOptions { bundlesRoot?: string; panel?: vscode.WebviewPanel; }
+ * a restored pane) and, for a restored pane, the panel VS Code already created. preserveFocus: the lesson opened by
+ * itself (studium.openLessonWhenReady) leaves the focus where it was, in the assistant's chat. */
+interface OpenLessonOptions { bundlesRoot?: string; panel?: vscode.WebviewPanel; preserveFocus?: boolean; }
+
+/** The panes open now, by lesson file: opening a lesson already open shows its pane instead of a second one. */
+const openLessonPanes = new Map<string, vscode.WebviewPanel>();
 
 async function openLesson(
   context: vscode.ExtensionContext,
@@ -968,14 +997,22 @@ async function openLesson(
   const bundleRef = bundleRefOverride ?? configuredRef!;
   // BN-1: a lesson the learner opens here is not announced as ready a moment later.
   libraryWatch?.markOwn(join(bundlesRoot, bundleRef));
+  const paneKey = join(bundlesRoot, bundleRef);
+  const already = options.panel ? undefined : openLessonPanes.get(paneKey);
+  if (already) { already.reveal(undefined, options.preserveFocus ?? false); return; }
   const learnerId = cfg<string>("learnerId", "vscode-learner");
   const assets = cfg<"vendor" | "cdn">("assets", "vendor");
   const paneOptions = { enableScripts: true, localResourceRoots: [vscode.Uri.file(join(context.extensionPath, "media")), vscode.Uri.file(join(context.extensionPath, "dist", "panel"))] };
   // A restored pane arrives already created, without its options or content: give it both.
+  // Layout (owner, 26 Nov 2026: « les fenêtres sont un peu chaotiques »): the lesson opens as a tab of the editor area
+  // the learner was in, at full width, not beside it; the chat stays in its side bar.
   const panel = options.panel ?? vscode.window.createWebviewPanel(
-    LESSON_VIEW_TYPE, phrase("extension_lesson_panel", {}, extensionLocale), vscode.ViewColumn.Beside,
+    LESSON_VIEW_TYPE, phrase("extension_lesson_panel", {}, extensionLocale),
+    { viewColumn: vscode.ViewColumn.Active, preserveFocus: options.preserveFocus ?? false },
     { ...paneOptions, retainContextWhenHidden: true },
   );
+  openLessonPanes.set(paneKey, panel);
+  panel.onDidDispose(() => { if (openLessonPanes.get(paneKey) === panel) openLessonPanes.delete(paneKey); });
   if (options.panel) { panel.webview.options = paneOptions; panel.title = phrase("extension_lesson_panel", {}, extensionLocale); }
   panel.webview.html = paneHtml(panel.webview, context.extensionPath, assets, extensionLocale);
 
@@ -1035,13 +1072,16 @@ async function openLesson(
   const modalityPref = cfg<ModalityPreference>("modalityPreference", "balanced");
   let graphPanel: vscode.WebviewPanel | undefined;
   if (showGraph) {
+    // The graph is a tab behind the lesson, in the same editor area: one click away, never a third column.
     const gp = vscode.window.createWebviewPanel(
-      "studiumGraph", phrase("extension_graph_panel", {}, extensionLocale), vscode.ViewColumn.Beside,
+      "studiumGraph", phrase("extension_graph_panel", {}, extensionLocale),
+      { viewColumn: panel.viewColumn ?? vscode.ViewColumn.Active, preserveFocus: true },
       { enableScripts: true, localResourceRoots: [vscode.Uri.file(join(context.extensionPath, "media")), vscode.Uri.file(join(context.extensionPath, "dist", "panel"))], retainContextWhenHidden: true },
     );
     gp.webview.html = graphHtml(gp.webview, context.extensionPath, assets, extensionLocale);
     gp.onDidDispose(() => { if (graphPanel === gp) graphPanel = undefined; });
     graphPanel = gp;
+    panel.reveal(panel.viewColumn, options.preserveFocus ?? true);
   }
   panel.onDidDispose(() => { try { graphPanel?.dispose(); } catch { /* already gone */ } });
   const pushGraph = async () => {

@@ -5,6 +5,27 @@ English · [Français](claude-code.fr.md)
 Add Studium to Claude Code with the plugin or as a server alone, play lessons with the lesson agent, and
 show where the lesson stands in the status line.
 
+## With the VS Code extension: one click, no Node
+
+With the Studium extension for VS Code installed, you need no terminal and no Node:
+
+1. In VS Code, run **Studium: Connect an Assistant…** from the Command Palette and tick **Claude Code** (the empty
+   **Lessons** view has the link too).
+2. Reload the VS Code window for Claude Code in VS Code (the notice has a **Reload Window** button), or start a new `claude` session.
+3. Ask Claude Code: "I want to learn … with Studium", naming your sources.
+
+The command writes one `studium` entry into `~/.claude.json` (or `$CLAUDE_CONFIG_DIR/.claude.json`), at user scope, as `claude mcp add -s user` writes it, and nothing else; the previous file is kept beside it as
+`<file>.studium-backup`. The entry runs the Studium server the extension carries, with VS Code's own executable, and
+uses the same lessons folder, progress and learner as the Studium pane. When Claude Code runs inside VS Code, a lesson is
+offered in the Studium pane and opens there by itself when it is ready; elsewhere, in your
+[browser](browser.md#from-your-assistant). A `studium` entry you wrote yourself is replaced only if you say yes. Each
+Studium update rewrites the entry; **Studium: Disconnect an Assistant…** removes it, and so does uninstalling the
+extension, as far as VS Code runs its uninstall step. The plugin below brings Studium's skills and lesson agents as well; with both, Claude Code runs two Studium servers, so keep one.
+
+Checked on 26 November 2026 on macOS: `claude mcp list` (Claude Code 2.1.332) reported the server connected. A conversation in Claude Code with this entry was not tried yet.
+
+The sections below set the server up by hand.
+
 ## Before you start
 
 - Read [Connect your assistant](harnesses.md): it explains the two ways to start the server,
@@ -167,7 +188,7 @@ Inside a session, `/mcp` shows the Studium server; `claude mcp list` shows `stud
 
 A lesson ready to play is offered in your web browser first. With the Claude Code mod
 (`apps/claude-code-mod`), once the mod has opened a lesson in this session, the next lesson is offered in
-its pane first (`/studium <lesson>`), to the learner the server plays by default (`STUDIUM_LEARNER_ID`):
+its pane first (`/studium <lesson>`), to the learner the server plays (`STUDIUM_LEARNER_ID`, else `anonymous`):
 `/studium` opens lessons for that learner only. Claude Code gives the server no sign of the mod before
 that ([Where a lesson is offered first](harness-panels.md#where-a-lesson-is-offered-first)).
 

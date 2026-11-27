@@ -4,6 +4,28 @@
 
 Ajoutez le serveur Studium à OpenCode, pour qu'OpenCode joue vos leçons avec les outils de Studium.
 
+## Avec l'extension VS Code : un clic, sans Node
+
+Avec l'extension Studium pour VS Code installée, il ne faut ni terminal ni Node :
+
+1. Dans VS Code, lancez **Studium : Relier un assistant…** depuis la palette de commandes et cochez **OpenCode** (la
+   vue **Leçons** vide en donne aussi le lien).
+2. Quittez et relancez OpenCode : son application de bureau, `opencode` ou `opencode web`.
+3. Demandez à OpenCode : « je veux apprendre … avec Studium », en indiquant vos sources.
+
+La commande écrit une entrée `studium` dans `~/.config/opencode/opencode.json` (ou `opencode.jsonc`, sous `$XDG_CONFIG_HOME` quand il est défini), sous `mcp`, ou `mcp.servers` quand le fichier range déjà ses serveurs ainsi, et rien d'autre ; le fichier précédent est gardé à côté sous
+`<fichier>.studium-backup`. L'entrée lance le serveur Studium que l'extension contient, avec l'exécutable de VS Code
+lui-même, et utilise le même dossier de leçons, la même progression et le même apprenant que le panneau Studium. Quand
+OpenCode tourne dans VS Code, la leçon est proposée dans le panneau Studium et s'y ouvre d'elle-même quand elle est
+prête ; ailleurs, dans votre [navigateur](browser.fr.md#depuis-votre-assistant). Une entrée `studium` écrite par vous
+n'est remplacée que si vous dites oui. Chaque mise à jour de Studium réécrit l'entrée ; **Studium : Délier un
+assistant…** la retire, et la désinstallation de l'extension aussi, pour autant que VS Code exécute son étape de
+désinstallation.
+
+Vérifié le 26 novembre 2026 sous macOS : `opencode mcp list` (OpenCode 2.3.0) a indiqué le serveur connecté ; le fichier garde ses commentaires. L'application de bureau et une conversation avec cette entrée n'ont pas encore été essayées.
+
+Les sections ci-dessous installent le serveur à la main.
+
 ## Avant de commencer
 
 - Lisez [Connecter votre assistant](harnesses.fr.md) : il explique les deux façons de lancer le serveur
@@ -78,7 +100,7 @@ Une leçon prête à jouer est proposée d'abord dans votre navigateur : l'assis
 [lecteur dans le navigateur](browser.fr.md#depuis-votre-assistant) de Studium, sur votre ordinateur, où
 vous répondez à chaque étape sans passer par la conversation ; dites « ici » pour la suivre plutôt dans la
 conversation. L'adresse vit le
-temps de la session d'OpenCode et joue l'identifiant d'apprenant qu'OpenCode a passé. Vos réponses y sont
+temps de la session d'OpenCode et joue l'apprenant que joue le serveur (`STUDIUM_LEARNER_ID`, sinon `anonymous`). Vos réponses y sont
 vérifiées par Studium sur votre ordinateur et ne vont pas au modèle, tant qu'aucun modèle juge n'est
 configuré. `STUDIUM_BROWSER_PLAYER=off` dans `environment` désactive cela. Essayé une fois dans `opencode web`
 (voir Limites).

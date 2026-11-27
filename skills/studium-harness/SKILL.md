@@ -99,7 +99,8 @@ env:  LITELLM_BASE_URL=""            # no judge model
 | `BUNDLES_ROOT` | `<STUDIUM_HOME>/library` | searched first for lessons; authoring never writes here (`create_lesson` and `prepare_sources` write to `<STUDIUM_HOME>/library`) |
 | `STUDIUM_DATA_DIR` | `<STUDIUM_HOME>/data` | durable learner state |
 | `STUDIUM_EPHEMERAL` | unset | `1` keeps state in memory unless `STUDIUM_DATA_DIR` is set; use it for tests and demos |
-| `STUDIUM_LEARNER_ID` | `anonymous` | learner id when a call names none |
+| `STUDIUM_LEARNER_ID` | `anonymous` | the one learner this server plays |
+| `STUDIUM_LEARNERS` | unset | `several` plays the `learner_id` of each call, `STUDIUM_LEARNER_ID` being the default (for a computer several people share through one assistant, or evaluations) |
 | `LITELLM_BASE_URL` | empty | judge model endpoint; non-empty is a paid route |
 
 Preserve a live route the user already chose. From a checkout, `pnpm --filter
@@ -117,15 +118,16 @@ independent MCP client run separate servers with separate sessions and progress.
 
 1. `get_server_info {}` (no session): version, build origin (`source` or `bundled` and
    date), the registered tools and `persistence` (`durable`, `data_dir`,
-   `library_root`, `learner_id_default`, and `learner_id_from_editor` when the editor names the
+   `library_root`, `learner_id_default`, `learner_id_fixed` and `learner_id_from_editor` when the editor names the
    learner). A compiled server older than the checkout
    lacks recent tools; rebuild it. If `durable` is false, tell the learner progress is
    lost at restart.
-2. Pass one stable `learner_id` per person on every call (when `learner_id_from_editor` is
-   true, omit it: the editor names the learner and ignores an id you pass), and the learner's `language`
+2. Omit `learner_id` and never make one up: the server plays one learner, the person using you
+   (`learner_id_default`), and ignores an id you pass (`learner_id_fixed` is true; with
+   `STUDIUM_LEARNERS=several` it is false and each call's id is played). Pass the learner's `language`
    (`fr` or `en`) to `get_study_plan`, `list_lessons` and `start_review_session`;
    without it they use the language of the learner's last lesson, else the server's.
-3. `get_study_plan {learner_id, language?, now_ms?}` says what to do now; its
+3. `get_study_plan {language?, now_ms?}` says what to do now; its
    `next_step` names the call (`start_review_session`, `start_lesson_session` or the
    authoring tools) with its `arguments` (which may carry `language` and `max_items`).
    With the minutes a day the learner gave, `minutes_per_day` and
@@ -151,7 +153,7 @@ independent MCP client run separate servers with separate sessions and progress.
    approval is recorded for this lesson."). Never call a lesson validated from its
    `validated_by` text.
 5. To play on the best surface the client can show, open with `open_lesson_panel
-   {bundle_ref, learner_id, surface?}` instead. Its view's `surface` says where the
+   {bundle_ref, surface?}` instead. Its view's `surface` says where the
    lesson is played, and the last line of its text how to go on: rank 3, a panel or a
    pane beside the conversation, where the learner reads and answers and the server
    answers them; rank 2, forms (`play_in_forms`); rank 1, the conversation (relay as
@@ -162,7 +164,7 @@ clock anchored there: its answers, ratings and review dates are stamped from it.
 (`due_date`, `next_review_date`) are calendar days in `get_server_info.time_zone`.
 Sessions live in the server process: after a restart a call answers `session not
 found` and says how to resume (`start_lesson_session` with the same `bundle_ref` and
-`learner_id`, or `start_review_session` with the same `learner_id`).
+`learner_id` when the server plays several learners, or `start_review_session`).
 
 To change language mid-lesson, call `set_session_language {session_id,
 presentation_language}` (`null` returns to the source language), then read a fresh
@@ -293,15 +295,15 @@ Repeat until `complete`. `end_session {session_id}` closes and keeps durable pro
 a later `start_lesson_session` for the same learner and lesson resumes (inspect
 `resume`). Call `forget_session` only on an explicit erasure request, or to dispose of
 your own labelled test learner. It takes exactly one of `session_id` (this lesson's
-state, the cross-lesson profile and the review schedule) or `learner_id` (every
-lesson's progress too, no live session needed), and an optional `language` (fr|en), irreversibly, and returns `{forgotten,
+state, the cross-lesson profile and the review schedule) or nothing (the learner's every
+lesson's progress too, no live session needed; another `learner_id` is refused), and an optional `language` (fr|en), irreversibly, and returns `{forgotten,
 scope, erased, kept, display_markdown}`. Show `display_markdown`: it names what stays
 on disk, the lessons of the learner's library and their sources, which the learner
 deletes by hand if they want them gone.
 
 ## 5. Reviews on later days
 
-`start_review_session {learner_id?, max_items?, presentation_language?, language?,
+`start_review_session {max_items?, presentation_language?, language?,
 now_ms?}` builds one retrieval scene per concept due, across the lessons studied, and
 plays like a lesson (`submit_response`, `rate_recall`). It never replays a diagnostic
 scene, and without a judge it prefers a scene graded against a key. It returns

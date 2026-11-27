@@ -31,7 +31,7 @@ Le même moteur d'affichage dessine le panneau dans VS Code et dans MCP Apps. Le
 
 Quand une leçon est prête à jouer (celle que l'assistant vient de construire, ou celle que le plan d'étude dit de commencer ou de reprendre), Studium la propose sur les surfaces que votre assistant et son serveur offrent, dans cet ordre :
 
-1. La surface que votre assistant dessine lui-même : le volet du mod Claude Code, une fois que le mod a ouvert une leçon dans cette session, pour l'apprenant que le serveur joue par défaut (celui pour qui `/studium` ouvre les leçons) ; le panneau Studium, quand le client annonce `io.modelcontextprotocol/ui` (l'assistant l'ouvre alors avec `open_lesson_panel`) ; le panneau VS Code, sur le serveur de l'extension Studium.
+1. La surface que votre assistant dessine lui-même : le volet du mod Claude Code, une fois que le mod a ouvert une leçon dans cette session, pour l'apprenant que joue le serveur (celui pour qui `/studium` ouvre les leçons) ; le panneau Studium, quand le client annonce `io.modelcontextprotocol/ui` (l'assistant l'ouvre alors avec `open_lesson_panel`) ; le panneau VS Code, sur le serveur de l'extension Studium.
 2. Le [lecteur dans le navigateur](browser.fr.md#depuis-votre-assistant), quand aucune extension VS Code ne sert Studium.
 3. La conversation : dites « ici ».
 

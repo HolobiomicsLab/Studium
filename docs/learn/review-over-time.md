@@ -96,7 +96,7 @@ keeps everything in memory, and the assistant then warns you that progress is lo
 
 Folders on disk are named by a pseudonym computed from your learner id and the secret, never by your id
 itself. To move your data to another machine, copy the whole data folder, secret included: without it your
-folders can no longer be matched to your id. Use the same `learner_id` in every assistant to keep one history.
+folders can no longer be matched to your id. Set the same `STUDIUM_LEARNER_ID` in every assistant to keep one history.
 
 ## Limits
 
