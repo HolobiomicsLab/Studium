@@ -23,6 +23,11 @@ qu'il l'a approuvé, son `approval.json` (voir [Relire et approuver](../teach/re
 liste des cours dans VS Code dit si un enseignant a approuvé chaque leçon, et signale une leçon modifiée
 depuis son approbation.
 
+Pour les étudiants qui utilisent leur propre ordinateur, un enseignant peut donner la leçon en un seul fichier
+depuis la page du cours : voir [Partager une leçon par votre plateforme de cours](../teach/share-through-your-course-platform.fr.md).
+Pour ce que Studium demande au système d'information de l'établissement, voir
+[Studium pour l'informatique et la protection des données](for-it-and-data-protection.fr.md).
+
 ## 1. Installer l'extension
 
 VS Code installe les extensions pour chaque compte utilisateur. Lancez cette commande une fois pour chaque

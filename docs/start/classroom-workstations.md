@@ -21,6 +21,11 @@ Ask the teacher for the course folders, each with its `lesson.json`, its assets 
 approved it, its `approval.json` (see [Review and approve](../teach/review-and-approve.md)). The course list
 in VS Code says whether a teacher approved each lesson, and flags a lesson changed since its approval.
 
+For students who use their own computers, a teacher can give the lesson as one file from the course page:
+see [Share a lesson through your course platform](../teach/share-through-your-course-platform.md). For what
+Studium asks of the institution's information system, see
+[Studium for IT and data protection](for-it-and-data-protection.md).
+
 ## 1. Install the extension
 
 VS Code installs extensions for each user account. Run this once for every account students use, for

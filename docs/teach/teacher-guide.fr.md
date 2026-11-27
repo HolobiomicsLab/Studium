@@ -94,6 +94,10 @@ Pour une classe :
 - le paquet VS Code simplifie l'installation du panneau de leçon, mais ne diffuse ni ne valide les
   leçons à votre place.
 
+Pour donner la leçon aux étudiants depuis la page de votre cours, dans Moodle ou toute plateforme qui
+porte un fichier et un texte, empaquetez-la en un seul fichier `.studium.zip` que les étudiants importent
+dans VS Code : voir [Partager une leçon par votre plateforme de cours](share-through-your-course-platform.fr.md).
+
 ## Organiser une séance d'expérimentation
 
 Quand une leçon laisse les étudiants explorer avec leur assistant, fixez un périmètre concret :

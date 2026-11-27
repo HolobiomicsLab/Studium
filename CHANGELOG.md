@@ -4,6 +4,14 @@ All notable changes to Studium are recorded here. The format follows [Keep a Cha
 
 ## Unreleased
 
+### Added
+
+- **A lesson in your course page.** `tools/experience_packet.py pack` turns an approved lesson into one file, `<bundle_id>.studium.zip` (the lesson, its approval record and its assets, nothing else), and prints the text to paste next to it in a course page (Moodle, or any platform that carries a file and a text). It refuses a lesson whose approval is missing, incomplete or stale. In VS Code, **Studium: Import a lesson…** (also in the empty Lessons view, in the course picker and on a right-click on a `.studium.zip`) checks the file, shows who approved it, copies it into the library and opens it; a link `vscode://holobiomicslab.studium-vscode/import` in a course page opens that dialog and can never name a file. The lesson plays on the student's computer; nothing is installed in the platform and no network call is added. Tried by automated tests, a scripted round trip and a disposable local Moodle 5.3.1; not tried in a real VS Code window, on a university's Moodle, on Windows or with a class.
+
+### Documentation
+
+- [Share a lesson through your course platform](docs/teach/share-through-your-course-platform.md), for teachers, and [Studium for IT and data protection](docs/start/for-it-and-data-protection.md), which says what Studium asks of an institution's information system.
+
 ## 0.6.10 — 2026-11-27
 
 This release is about Codex: the entry that **Studium: Connect an Assistant…** writes now lets Codex use Studium's tools without asking before each step, which a learner met at every answer and `codex exec` refused outright. Tried with codex-cli 0.170.0: a conversation of 13 turns, from the demo lesson to a lesson built from a notes file, played and rated. Not tried yet: the Codex app and Codex in VS Code. Maintainers get a skill, `studium-release`, for the order of a release and its checks.
