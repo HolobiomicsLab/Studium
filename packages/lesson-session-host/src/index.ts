@@ -89,7 +89,7 @@ export {
 export { shuffleQuizChoices } from "./shuffle-choices.js";
 // Route A, lot 1 (spec 2026-11-27-moodle-etagere-design): a lesson file from a course page, checked, then installed.
 export {
-  inspectLessonArchive, installLessonArchive, LessonArchiveError, BUNDLE_ID_PATTERN, IMPORT_TEMP_PREFIX, LEFTOVER_MAX_AGE_MS,
+  inspectLessonArchive, installLessonArchive, LessonArchiveError, BUNDLE_ID_PATTERN, IMPORT_TEMP_PREFIX, LEFTOVER_MAX_AGE_MS, STAGING_NAME_PATTERN,
   MAX_ARCHIVE_MEMBERS, MAX_ASSET_BYTES, MAX_TOTAL_BYTES, assetSegmentProblem, bundleIdProblem,
   type InstallOptions, type InstallOutcome, type LessonArchiveErrorCode, type LessonArchiveSummary,
 } from "./lesson-archive.js";

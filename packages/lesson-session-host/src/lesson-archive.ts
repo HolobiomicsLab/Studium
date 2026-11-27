@@ -12,7 +12,7 @@
 // enters), then one rename puts it in place: nothing is written outside <library>/<bundle_id>/ and that folder.
 import { createHash } from "node:crypto";
 import { randomBytes } from "node:crypto";
-import { lstat, mkdir, mkdtemp, readdir, readFile, rename, rm, rmdir, stat, writeFile } from "node:fs/promises";
+import { lstat, mkdir, readdir, readFile, rename, rm, rmdir, stat, writeFile } from "node:fs/promises";
 import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { inflateRawSync } from "node:zlib";
 // The loader module itself, not the adapters index: the VS Code extension bundles this file, and the index would bring
@@ -63,7 +63,12 @@ export interface LessonArchiveSummary {
 
 export type InstallOutcome =
   | { status: "installed" | "replaced" | "already_present" | "refreshed"; courseDir: string; bundleRef: string; summary: LessonArchiveSummary }
-  | { status: "conflict"; courseDir: string; existingSha256: string; summary: LessonArchiveSummary };
+  | {
+    status: "conflict"; courseDir: string; existingSha256: string; summary: LessonArchiveSummary;
+    /** The folder in place holds a real community/ folder (class contributions), which a replace carries over; a link
+     * there, or a lesson folder that is itself a link, carries nothing. */
+    carriesCommunity: boolean;
+  };
 
 export const BUNDLE_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$/;
 export const MAX_ARCHIVE_MEMBERS = 2000;
@@ -73,6 +78,12 @@ export const MAX_TOTAL_BYTES = 200 * 1024 * 1024;
 export const MAX_ARCHIVE_FILE_BYTES = MAX_TOTAL_BYTES + 16 * 1024 * 1024;
 /** The temporary folder an install writes into, inside the library. A dot folder: the catalog never lists it. */
 export const IMPORT_TEMP_PREFIX = ".studium-import-";
+/** The exact name of a staging folder: the prefix and 16 hex digits. The install creates its staging folder with this
+ * name and the clean-up removes nothing else (a user's .studium-import-notes is never touched). */
+export const STAGING_NAME_PATTERN = /^\.studium-import-[0-9a-f]{16}$/;
+function stagingName(): string {
+  return IMPORT_TEMP_PREFIX + randomBytes(8).toString("hex");
+}
 /** A leftover temporary folder older than this is removed at the next install (unless it holds a previous lesson). */
 export const LEFTOVER_MAX_AGE_MS = 60 * 60 * 1000;
 /** Names a bundle_id may not take (any case): the archive's own members, and the folders the catalog skips. */
@@ -161,6 +172,9 @@ export async function installLessonArchive(zipPath: string, libraryDir: string, 
   const bundleRef = summary.bundleId + "/lesson.json";
   const existing = await existingLesson(courseDir);
   if (existing !== null && existing === summary.lessonSha256) {
+    // Refreshed only by an approval of this very lesson.json: without one (or with a stale one), the folder in place is
+    // kept as it is, its approval and figures included.
+    if (!summary.approval.matches) return { status: "already_present", courseDir, bundleRef, summary };
     const stale = await staleFiles(courseDir, archive.files);
     if (stale.length === 0) return { status: "already_present", courseDir, bundleRef, summary };
     await asWriteFailure(async () => {
@@ -169,9 +183,10 @@ export async function installLessonArchive(zipPath: string, libraryDir: string, 
     });
     return { status: "refreshed", courseDir, bundleRef, summary };
   }
-  if (existing !== null && options.replace !== true) return { status: "conflict", courseDir, existingSha256: existing, summary };
-  if (existing !== null && options.expectedExistingSha256 !== undefined && existing !== options.expectedExistingSha256)
-    return { status: "conflict", courseDir, existingSha256: existing, summary };
+  const conflict = async (): Promise<InstallOutcome> =>
+    ({ status: "conflict", courseDir, existingSha256: existing ?? "", summary, carriesCommunity: await carriesCommunity(courseDir) });
+  if (existing !== null && options.replace !== true) return conflict();
+  if (existing !== null && options.expectedExistingSha256 !== undefined && existing !== options.expectedExistingSha256) return conflict();
   const status = await asWriteFailure(() => writeFolder(library, courseDir, archive.files, existing !== null));
   return { status, courseDir, bundleRef, summary };
 }
@@ -196,21 +211,32 @@ async function refuseTakenFolder(library: string, bundleId: string): Promise<voi
     throw new LessonArchiveError("folder_taken", "the library already has a folder whose name differs from the bundle_id only by case or accents", taken);
 }
 
-/** Leftover temporary folders of an interrupted install, older than LEFTOVER_MAX_AGE_MS; one holding a previous lesson
- * (a restore that failed) is kept. Best effort. */
+/** Leftover staging folders of an interrupted install. Removed only when all four hold: a real folder (not a link),
+ * named exactly as STAGING_NAME_PATTERN, older than LEFTOVER_MAX_AGE_MS, and holding no entry named « previous » (an old
+ * lesson that could not be put back). Anything else is never touched. Best effort. */
 async function removeLeftovers(library: string): Promise<void> {
-  let entries;
-  try { entries = await readdir(library, { withFileTypes: true }); } catch { return; }
+  let names: string[];
+  try { names = await readdir(library); } catch { return; }
   const oldest = Date.now() - LEFTOVER_MAX_AGE_MS;
-  for (const entry of entries) {
-    if (!entry.isDirectory() || !entry.name.startsWith(IMPORT_TEMP_PREFIX)) continue;
-    const dir = join(library, entry.name);
+  for (const name of names) {
+    if (!STAGING_NAME_PATTERN.test(name)) continue;
+    const dir = join(library, name);
     try {
-      if ((await lstat(dir)).mtimeMs >= oldest) continue;
-      if (await isRegularFile(join(dir, "previous", "lesson.json"))) continue;
+      const entry = await lstat(dir);
+      if (!entry.isDirectory() || entry.mtimeMs >= oldest) continue;
+      if (await exists(join(dir, "previous"))) continue;
       await rm(dir, { recursive: true, force: true });
     } catch { /* another install may be using it */ }
   }
+}
+
+async function exists(path: string): Promise<boolean> {
+  try { await lstat(path); return true; } catch { return false; }
+}
+
+/** The lesson folder is a real folder holding a real community/ folder: what a replace carries over. */
+async function carriesCommunity(courseDir: string): Promise<boolean> {
+  return (await isRealDirectory(courseDir)) && (await isRealDirectory(join(courseDir, "community")));
 }
 
 async function isRegularFile(path: string): Promise<boolean> {
@@ -226,7 +252,8 @@ async function isRealDirectory(path: string): Promise<boolean> {
 async function writeFolder(library: string, courseDir: string, files: Map<string, Buffer>, replacing: boolean): Promise<"installed" | "replaced"> {
   await mkdir(library, { recursive: true });
   await removeLeftovers(library);
-  const staging = await mkdtemp(join(library, IMPORT_TEMP_PREFIX));
+  const staging = join(library, stagingName());
+  await mkdir(staging);
   let keepStaging = false;
   try {
     const fresh = join(staging, "new");
@@ -242,6 +269,7 @@ async function writeFolder(library: string, courseDir: string, files: Map<string
       return "installed";
     }
     // Moved, never entered: when the library holds a link in the lesson's place, the link moves, not what it names.
+    const carry = await carriesCommunity(courseDir); // checked before the move: a link in the lesson's place carries nothing
     const previous = join(staging, "previous");
     await rename(courseDir, previous);
     const community = join(previous, "community");
@@ -249,7 +277,7 @@ async function writeFolder(library: string, courseDir: string, files: Map<string
     let carrying = false;
     try {
       // Approved class contributions (community-bundles.ts) belong to the course, not to one version of its lesson.
-      if (await isRealDirectory(community)) { await rename(community, carried); carrying = true; }
+      if (carry && (await isRealDirectory(community))) { await rename(community, carried); carrying = true; }
       await rename(fresh, courseDir);
     } catch (error) {
       try {
@@ -258,13 +286,15 @@ async function writeFolder(library: string, courseDir: string, files: Map<string
       } catch (restoreError) {
         keepStaging = true;
         const code = (restoreError as NodeJS.ErrnoException)?.code ?? "EUNKNOWN";
-        throw new LessonArchiveError("restore_failed", "the old lesson could not be put back; it is kept in " + previous, previous, code);
+        throw new LessonArchiveError("restore_failed",
+          "the old lesson could not be put back; the old lesson (previous) and its contributions are kept in " + staging, staging, code);
       }
       throw error;
     }
     return "replaced";
   } finally {
-    if (!keepStaging) await rm(staging, { recursive: true, force: true });
+    // The new folder in place is success; a staging folder that cannot be removed is a harmless, invisible leftover.
+    if (!keepStaging) { try { await rm(staging, { recursive: true, force: true }); } catch { /* left for the next clean-up */ } }
   }
 }
 
@@ -330,7 +360,8 @@ async function refreshFiles(courseDir: string, stale: StaleFile[]): Promise<void
     for (const dir of createdDirs.reverse()) { try { await rmdir(dir); } catch { /* not empty */ } }
     throw error;
   }
-  for (const step of steps) if (step.backup) await rm(step.backup, { force: true });
+  // The files are in place: a backup that cannot be removed is a harmless, invisible leftover.
+  for (const step of steps) { if (step.backup) { try { await rm(step.backup, { force: true }); } catch { /* left */ } } }
 }
 
 /** The sha256 of the lesson.json in place, "" for anything else in that place, null when there is nothing. */

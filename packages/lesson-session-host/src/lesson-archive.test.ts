@@ -11,7 +11,7 @@ import { join } from "node:path";
 import { createHash } from "node:crypto";
 import { deflateRawSync } from "node:zlib";
 import {
-  inspectLessonArchive, installLessonArchive, LessonArchiveError, IMPORT_TEMP_PREFIX,
+  inspectLessonArchive, installLessonArchive, LessonArchiveError, IMPORT_TEMP_PREFIX, STAGING_NAME_PATTERN,
   MAX_ARCHIVE_MEMBERS, MAX_ASSET_BYTES, type LessonArchiveErrorCode,
 } from "./lesson-archive.js";
 import { scanCatalog } from "./lesson-catalog.js";
@@ -447,17 +447,35 @@ describe("review 2026-11-27: the same lesson.json, another approval or other fig
     const catalog = await scanCatalog([{ kind: "library", dir: lib }]);
     expect(catalog.lessons.find((l) => l.bundle_id === "chem-l1")?.validated).toBe(true);
   });
-  it("updates a changed asset and writes a missing one; keeps an approval when the archive carries none", async () => {
+  // Changed (second review, items 3 and 4): a refresh needs an approval in the archive that matches the lesson.json; an
+  // archive without one, or with a stale one, writes nothing (the earlier test wrote figures without any approval).
+  it("with a matching approval, updates a changed asset and writes a missing one, and keeps the others", async () => {
     const lib = library();
-    await installLessonArchive(writeArchive(lessonZip({ assets: { "fig.png": "old", "keep.png": "keep" } }).bytes), lib);
-    const approvalBefore = readFileSync(join(lib, "chem-l1", "approval.json"));
-    const outcome = await installLessonArchive(writeArchive(lessonZip({ approval: false, assets: { "fig.png": "new", "sub/more.png": "more" } }).bytes), lib);
+    await installLessonArchive(writeArchive(lessonZip({ approval: false, assets: { "fig.png": "old", "keep.png": "keep" } }).bytes), lib);
+    const outcome = await installLessonArchive(writeArchive(lessonZip({ assets: { "fig.png": "new", "sub/more.png": "more" } }).bytes), lib);
     expect(outcome.status).toBe("refreshed");
     expect(readFileSync(join(lib, "chem-l1", "assets", "fig.png"), "utf8")).toBe("new");
     expect(readFileSync(join(lib, "chem-l1", "assets", "sub", "more.png"), "utf8")).toBe("more");
     expect(readFileSync(join(lib, "chem-l1", "assets", "keep.png"), "utf8")).toBe("keep");
-    expect(readFileSync(join(lib, "chem-l1", "approval.json")).equals(approvalBefore)).toBe(true);
     expect(readdirSync(join(lib, "chem-l1")).filter((n) => n.startsWith("."))).toEqual([]);
+  });
+  it("without an approval, other figures write nothing: already_present", async () => {
+    const lib = library();
+    await installLessonArchive(writeArchive(lessonZip({ assets: { "fig.png": "approved figure" } }).bytes), lib);
+    const before = snapshot(lib);
+    const outcome = await installLessonArchive(writeArchive(lessonZip({ approval: false, assets: { "fig.png": "other figure", "new.png": "x" } }).bytes), lib);
+    expect(outcome.status).toBe("already_present");
+    expect(snapshot(lib)).toBe(before);
+  });
+  it("a stale approval in the archive never overwrites a valid one: already_present", async () => {
+    const lib = library();
+    await installLessonArchive(writeArchive(lessonZip().bytes), lib);
+    const before = snapshot(lib);
+    const outcome = await installLessonArchive(writeArchive(lessonZip({ approval: approvalFor(Buffer.from("another lesson")), assets: { "fig.png": "x" } }).bytes), lib);
+    expect(outcome.status).toBe("already_present");
+    expect(snapshot(lib)).toBe(before);
+    const catalog = await scanCatalog([{ kind: "library", dir: lib }]);
+    expect(catalog.lessons.find((l) => l.bundle_id === "chem-l1")?.validated).toBe(true);
   });
   it("never writes through a link the lesson folder holds in place of assets/", async () => {
     const lib = library();
@@ -474,19 +492,34 @@ describe("review 2026-11-27: the same lesson.json, another approval or other fig
 });
 
 describe("review 2026-11-27: the library around the install", () => {
-  it("removes leftover temporary folders older than an hour, except one that holds a previous lesson", async () => {
+  // Changed (second review, item 1): only a real folder named exactly as the install names its staging folders, older
+  // than an hour, with no entry named « previous » is removed; anything else is never touched.
+  it("removes only its own old staging folders that hold no previous lesson", async () => {
     const lib = library();
-    const old = join(lib, IMPORT_TEMP_PREFIX + "old");
-    const recent = join(lib, IMPORT_TEMP_PREFIX + "recent");
-    const kept = join(lib, IMPORT_TEMP_PREFIX + "kept");
-    mkdirSync(join(old, "new"), { recursive: true });
-    mkdirSync(recent, { recursive: true });
-    mkdirSync(join(kept, "previous"), { recursive: true });
-    writeFileSync(join(kept, "previous", "lesson.json"), "{}");
+    const staging = (hex: string) => join(lib, IMPORT_TEMP_PREFIX + hex);
+    const removed = staging("0123456789abcdef");
+    const withPrevious = staging("1123456789abcdef");
+    const withPreviousFile = staging("2123456789abcdef");
+    const recent = staging("3123456789abcdef");
+    const nearMiss = join(lib, IMPORT_TEMP_PREFIX + "mynotes");
+    const nearMissHex = staging("0123456789abcdeg");
+    const link = staging("4123456789abcdef");
+    const target = tempDir("link-target");
+    expect(STAGING_NAME_PATTERN.test(IMPORT_TEMP_PREFIX + "0123456789abcdef")).toBe(true);
+    expect(STAGING_NAME_PATTERN.test(IMPORT_TEMP_PREFIX + "mynotes")).toBe(false);
+    mkdirSync(join(removed, "new"), { recursive: true });
+    mkdirSync(join(withPrevious, "previous"), { recursive: true });
+    mkdirSync(withPreviousFile, { recursive: true });
+    writeFileSync(join(withPreviousFile, "previous"), "not a folder");
+    for (const dir of [recent, nearMiss, nearMissHex]) mkdirSync(dir, { recursive: true });
+    writeFileSync(join(nearMiss, "notes.txt"), "mine");
+    symlinkSync(target, link);
     const twoHoursAgo = new Date(Date.now() - 2 * 3600 * 1000);
-    for (const dir of [old, kept]) utimesSync(dir, twoHoursAgo, twoHoursAgo);
+    for (const dir of [removed, withPrevious, withPreviousFile, nearMiss, nearMissHex, target]) utimesSync(dir, twoHoursAgo, twoHoursAgo);
     await installLessonArchive(writeArchive(lessonZip().bytes), lib);
-    expect(readdirSync(lib).sort()).toEqual([IMPORT_TEMP_PREFIX + "kept", IMPORT_TEMP_PREFIX + "recent", "chem-l1", "other"].sort());
+    expect(readdirSync(lib).sort()).toEqual(
+      [withPrevious, withPreviousFile, recent, nearMiss, nearMissHex, link].map((p) => p.slice(lib.length + 1)).concat(["chem-l1", "other"]).sort());
+    expect(readFileSync(join(nearMiss, "notes.txt"), "utf8")).toBe("mine");
   });
   it("replace carries the old folder's community/ into the new one", async () => {
     const lib = library();
@@ -497,6 +530,36 @@ describe("review 2026-11-27: the library around the install", () => {
     expect(outcome.status).toBe("replaced");
     expect(readFileSync(join(lib, "chem-l1", "community", "community-item1.zip"), "utf8")).toBe("contribution");
     expect(readdirSync(lib).sort()).toEqual(["chem-l1", "other"]);
+  });
+  it("a community/ that is a link is not carried, and the conflict says it will not be", async () => {
+    const lib = library();
+    await installLessonArchive(writeArchive(lessonZip({ data: lesson("chem-l1", "v1") }).bytes), lib);
+    const elsewhere = tempDir("contributions");
+    writeFileSync(join(elsewhere, "community-item1.zip"), "contribution");
+    symlinkSync(elsewhere, join(lib, "chem-l1", "community"));
+    const v2 = writeArchive(lessonZip({ data: lesson("chem-l1", "v2") }).bytes);
+    const conflict = await installLessonArchive(v2, lib);
+    expect(conflict).toMatchObject({ status: "conflict", carriesCommunity: false });
+    expect((await installLessonArchive(v2, lib, { replace: true })).status).toBe("replaced");
+    expect(existsSync(join(lib, "chem-l1", "community"))).toBe(false);
+    expect(readdirSync(elsewhere)).toEqual(["community-item1.zip"]);
+  });
+  it("a real community/ is announced as carried", async () => {
+    const lib = library();
+    await installLessonArchive(writeArchive(lessonZip({ data: lesson("chem-l1", "v1") }).bytes), lib);
+    expect(await installLessonArchive(writeArchive(lessonZip({ data: lesson("chem-l1", "v2") }).bytes), lib)).toMatchObject({ carriesCommunity: false });
+    mkdirSync(join(lib, "chem-l1", "community"));
+    expect(await installLessonArchive(writeArchive(lessonZip({ data: lesson("chem-l1", "v2") }).bytes), lib)).toMatchObject({ status: "conflict", carriesCommunity: true });
+  });
+  it("a lesson folder that is a link: replace never moves the community/ out of what it names", async () => {
+    const lib = library();
+    const elsewhere = tempDir("linked-course");
+    mkdirSync(join(elsewhere, "community"));
+    writeFileSync(join(elsewhere, "community", "c.zip"), "c");
+    symlinkSync(elsewhere, join(lib, "chem-l1"));
+    expect(await installLessonArchive(writeArchive(lessonZip().bytes), lib)).toMatchObject({ status: "conflict", carriesCommunity: false });
+    expect((await installLessonArchive(writeArchive(lessonZip().bytes), lib, { replace: true })).status).toBe("replaced");
+    expect(readdirSync(join(elsewhere, "community"))).toEqual(["c.zip"]);
   });
   it("a folder whose name differs from the bundle_id only by case is taken (folder_taken), nothing written", async () => {
     const lib = library();

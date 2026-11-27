@@ -7,10 +7,13 @@
 import { describe, it, expect, afterEach, vi } from "vitest";
 import { existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, dirname, join } from "node:path";
 import { createHash } from "node:crypto";
 
-const hooks = vi.hoisted(() => ({ fail: undefined as undefined | ((from: string, to: string) => boolean) }));
+const hooks = vi.hoisted(() => ({
+  fail: undefined as undefined | ((from: string, to: string) => boolean),
+  failRm: undefined as undefined | ((path: string) => boolean),
+}));
 vi.mock("node:fs/promises", async (importOriginal) => {
   const real = await importOriginal<typeof import("node:fs/promises")>();
   return {
@@ -23,12 +26,20 @@ vi.mock("node:fs/promises", async (importOriginal) => {
       }
       return real.rename(from, to);
     },
+    rm: async (path: string, options?: Parameters<typeof real.rm>[1]) => {
+      if (hooks.failRm?.(String(path))) {
+        const error = new Error("EACCES: permission denied, rmdir '" + path + "'") as NodeJS.ErrnoException;
+        error.code = "EACCES";
+        throw error;
+      }
+      return real.rm(path, options);
+    },
   };
 });
-import { installLessonArchive, LessonArchiveError, IMPORT_TEMP_PREFIX } from "./lesson-archive.js";
+import { installLessonArchive, LessonArchiveError, IMPORT_TEMP_PREFIX, STAGING_NAME_PATTERN } from "./lesson-archive.js";
 
 const dirs: string[] = [];
-afterEach(() => { hooks.fail = undefined; for (const d of dirs.splice(0)) rmSync(d, { recursive: true, force: true }); });
+afterEach(() => { hooks.fail = undefined; hooks.failRm = undefined; for (const d of dirs.splice(0)) rmSync(d, { recursive: true, force: true }); });
 function tempDir(label: string): string { const d = mkdtempSync(join(tmpdir(), "lesson-archive-fail-" + label + "-")); dirs.push(d); return d; }
 
 const CRC_TABLE = Array.from({ length: 256 }, (_, n) => {
@@ -77,10 +88,13 @@ function lesson(title: string) {
     rules: [], validated_by: "teacher", validated_at: "2026-06-10T08:00:00Z",
   });
 }
-function archive(title: string): string {
+function archive(title: string, extra: Record<string, string> = {}): string {
   const path = join(tempDir("download"), "chem-l1.studium.zip");
-  writeFileSync(path, storedZip({ "lesson.json": lesson(title), "assets/fig.png": "fig " + title }));
+  writeFileSync(path, storedZip({ "lesson.json": lesson(title), "assets/fig.png": "fig " + title, ...extra }));
   return path;
+}
+function approval(title: string): string {
+  return JSON.stringify({ schema: "studium-approval/1", bundle_sha256: createHash("sha256").update(lesson(title)).digest("hex"), reviewer: "R" });
 }
 function snapshot(dir: string): string {
   const out: string[] = [];
@@ -129,13 +143,56 @@ describe("a file-system failure after the checks", () => {
     const error = await installLessonArchive(archive("v2"), lib, { replace: true }).catch((e) => e);
     expect(error).toBeInstanceOf(LessonArchiveError);
     expect(error.code).toBe("restore_failed");
+    // Changed (second review, item 1): the error names the staging folder, which holds « previous » and « new ».
     const kept = error.member as string;
-    expect(kept.startsWith(join(lib, IMPORT_TEMP_PREFIX)) && kept.endsWith("previous")).toBe(true);
-    expect(readFileSync(join(kept, "lesson.json")).equals(old)).toBe(true);
+    expect(kept.startsWith(join(lib, IMPORT_TEMP_PREFIX))).toBe(true);
+    expect(readFileSync(join(kept, "previous", "lesson.json")).equals(old)).toBe(true);
     expect(existsSync(join(lib, "chem-l1"))).toBe(false);
     hooks.fail = undefined;
     // A later install keeps that folder, even once it is old: it holds a previous lesson.
     await installLessonArchive(archive("v3"), lib);
-    expect(existsSync(join(kept, "lesson.json"))).toBe(true);
+    expect(existsSync(join(kept, "previous", "lesson.json"))).toBe(true);
+  });
+  it("replacing, and community/ cannot be put back: restore_failed names the folder that holds the old lesson and its contributions", async () => {
+    const lib = tempDir("library");
+    await installLessonArchive(archive("v1"), lib);
+    mkdirSync(join(lib, "chem-l1", "community"));
+    writeFileSync(join(lib, "chem-l1", "community", "c.zip"), "contribution");
+    hooks.fail = (from, to) => isNewIntoPlace(from, to) || from.endsWith("/new/community");
+    const error = await installLessonArchive(archive("v2"), lib, { replace: true }).catch((e) => e);
+    expect(error).toBeInstanceOf(LessonArchiveError);
+    expect(error.code).toBe("restore_failed");
+    const kept = error.member as string;
+    expect(readdirSync(kept).sort()).toEqual(["new", "previous"]);
+    expect(readFileSync(join(kept, "new", "community", "c.zip"), "utf8")).toBe("contribution");
+    expect(error.message).toMatch(/contributions/);
+  });
+  // Second review, item 1: the clean-up recognises the name the install gives its staging folder.
+  it("the staging folder an install creates bears the name the clean-up recognises", async () => {
+    const lib = tempDir("library");
+    const moved: string[] = [];
+    hooks.fail = (from) => { moved.push(from); return false; };
+    await installLessonArchive(archive("v1"), lib);
+    const staging = moved.filter((from) => from.endsWith("/new")).map((from) => basename(dirname(from)));
+    expect(staging.length).toBe(1);
+    expect(STAGING_NAME_PATTERN.test(staging[0]!)).toBe(true);
+  });
+  // Second review, item 2: once the new folder is in place the operation has succeeded; a clean-up that fails is not a
+  // failure.
+  it("replacing: the staging folder cannot be removed, the outcome is still replaced", async () => {
+    const lib = tempDir("library");
+    await installLessonArchive(archive("v1"), lib);
+    hooks.failRm = (path) => path.includes(IMPORT_TEMP_PREFIX);
+    const outcome = await installLessonArchive(archive("v2"), lib, { replace: true });
+    expect(outcome.status).toBe("replaced");
+    expect(readFileSync(join(lib, "chem-l1", "lesson.json"), "utf8")).toBe(lesson("v2"));
+  });
+  it("refreshing: a backup cannot be removed, the outcome is still refreshed", async () => {
+    const lib = tempDir("library");
+    await installLessonArchive(archive("v1"), lib);
+    hooks.failRm = (path) => path.endsWith(".old");
+    const outcome = await installLessonArchive(archive("v1", { "approval.json": approval("v1"), "assets/fig.png": "new figure" }), lib);
+    expect(outcome.status).toBe("refreshed");
+    expect(readFileSync(join(lib, "chem-l1", "assets", "fig.png"), "utf8")).toBe("new figure");
   });
 });
