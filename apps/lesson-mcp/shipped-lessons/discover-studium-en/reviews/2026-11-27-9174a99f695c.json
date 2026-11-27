@@ -1,0 +1,97 @@
+{
+  "bundle_ref": "self-study-discover-studium-en",
+  "bundle_sha256": "9174a99f695c414fdbb35aad7ec6933272c726b03738aadce2c1ba9a49d3a4cb",
+  "decided_at": "2026-11-27T08:27:25Z",
+  "decision": "approved",
+  "items": [
+    {
+      "consequence": "wording",
+      "id": "s1-intro",
+      "opened": false,
+      "sha256": "1a3536e4e68e64b59fa467fca64c8ad6490adbb9866530491b17d8a1c942a8f2"
+    },
+    {
+      "consequence": "grading",
+      "id": "s2-quiz",
+      "opened": false,
+      "sha256": "5a84e9df0d7285958efddccaf0e14136c2b97198419222ea2876e95f9f1fd754"
+    },
+    {
+      "consequence": "wording",
+      "id": "s3-concept",
+      "opened": false,
+      "sha256": "ce053e5cd391bf6a2cb5505698e83f6cd4d9ad26d7490a41e1d3089b8a99a669"
+    },
+    {
+      "consequence": "grading",
+      "id": "s4-quiz",
+      "opened": false,
+      "sha256": "a87ec346a26045fd747fb068f8f5f14c73c7ae5adb0b02f3f9c6e88cc5523467"
+    },
+    {
+      "consequence": "wording",
+      "id": "s5-concept",
+      "opened": false,
+      "sha256": "073cd6f4cf97d4cccd9099bbd7fca3f76046d70c4987a300bff13d1a26a91434"
+    },
+    {
+      "consequence": "grading",
+      "id": "s6-quiz",
+      "opened": false,
+      "sha256": "366e51347518c6eaaab1af124a4400c83cc3e2503b971139faef352dfad79e1a"
+    },
+    {
+      "consequence": "grading",
+      "id": "s7-explain_back",
+      "opened": false,
+      "sha256": "9e8ed99ff66c5c958bd1f15f4b65ad256f2d0bac17049388f7f478b267515de2"
+    },
+    {
+      "consequence": "wording",
+      "id": "s8-concept",
+      "opened": false,
+      "sha256": "01334b42cdc60a72fae53292f438b0f363575fee03f5717cb74cb03a3e45c6d5"
+    },
+    {
+      "consequence": "grading",
+      "id": "s9-quiz",
+      "opened": false,
+      "sha256": "052a6f4b7c21e4310ea3aaac2d1deae86f4189f58b12ae3fb2cb831432626627"
+    },
+    {
+      "consequence": "wording",
+      "id": "s10-concept",
+      "opened": false,
+      "sha256": "4c027756a95f18b8fd796fc74e88ab40e152904ad715643d3ea213575a1d6728"
+    },
+    {
+      "consequence": "grading",
+      "id": "s11-quiz",
+      "opened": false,
+      "sha256": "e51795851412a45aaa02ffc67e87f1c2099f3d2e269eed4586ca5a7696153cd3"
+    },
+    {
+      "consequence": "grading",
+      "id": "s12-quiz",
+      "opened": false,
+      "sha256": "4d73bbda7be06d09da1c96be586892026fce1c67a793f130688efa4b34b820c1"
+    },
+    {
+      "consequence": "wording",
+      "id": "s13-concept",
+      "opened": false,
+      "sha256": "5d11d744e12f0ec2ff25a00db60966a36bd99097428327431017d04032d228f7"
+    },
+    {
+      "consequence": "wording",
+      "id": "s14-concept",
+      "opened": false,
+      "sha256": "9708c0feeaf0db5b9484ea120638ad78349f1630270f99319cbca0e5cd88833f"
+    }
+  ],
+  "not_opened": 14,
+  "note": "The owner read the French text of the two new scenes (s13, s14) in the conversation and answered « Approuver pour ces recommendations » on 27 November 2026; no scene of this English version was opened; recorded by the agent on the owner's delegation.",
+  "opened": 0,
+  "reviewer": "beta-testeur",
+  "schema": "studium/review-receipt/v1"
+}

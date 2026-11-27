@@ -10,7 +10,7 @@ import { homedir } from "node:os";
 import { dirname } from "node:path";
 import {
   ASSISTANT_IDS, assistantConfigPath, assistantEntryIsCurrent, connectAssistant, disconnectAssistant, studiumState,
-  type AssistantId,
+  type AssistantId, otherStudiumServers,
 } from "./assistant-config.js";
 import { hasOurEntry, vibeConfigPath, vibeHome } from "./vibe-config.js";
 import { connectVibe, disconnectVibe, readIfPresent, serverEntry, writeConfig, type VibeConnectionDeps } from "./vibe-connection.js";
@@ -76,7 +76,21 @@ async function connectOne(id: AssistantId, context: vscode.ExtensionContext, dep
   }
   deps.log(`[studium] ${NAMES[id].en} connected: ${path} (${result.replaced === "none" ? "entry added" : "entry replaced"}; backup alongside).`);
   if (id === "claude-code") void keepAfterRewrite(id, path, context, deps);
+  warnOfOtherServers(id, path, result.text);
   return true;
+}
+
+/** Another server that runs Studium under another name (a development or hand-written entry) shows every Studium tool
+ *  twice to the assistant. Name it and offer the file; the extension never removes what it did not write. */
+function warnOfOtherServers(id: AssistantId, path: string, text: string): void {
+  const others = otherStudiumServers(id, text);
+  if (!others.length) return;
+  const list = others.join(", ");
+  const open = say("Open the file", "Ouvrir le fichier");
+  void vscode.window.showWarningMessage(say(
+    `${name(id)} also has ${others.length > 1 ? "other servers" : "another server"} that runs Studium (${list}): it would list each Studium tool twice. Keep one: remove ${list} from ${path} if you no longer use it.`,
+    `${name(id)} a aussi ${others.length > 1 ? "d'autres serveurs" : "un autre serveur"} qui lance Studium (${list}) : il listerait chaque outil de Studium deux fois. Gardez-en un : retirez ${list} de ${path} si vous ne vous en servez plus.`),
+    open).then((answer) => { if (answer === open) void vscode.window.showTextDocument(vscode.Uri.file(path)); });
 }
 
 /** Claude Code rewrites ~/.claude.json while it runs; a copy it held before our write could drop the entry. Check

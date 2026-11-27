@@ -23,7 +23,7 @@ n'est remplacée que si vous dites oui. Chaque mise à jour de Studium réécrit
 assistant…** la retire, et la désinstallation de l'extension aussi, pour autant que VS Code exécute son étape de
 désinstallation. Le plugin ci-dessous apporte en plus les skills et les agents de leçon de Studium ; avec les deux, Claude Code lance deux serveurs Studium : n'en gardez qu'un.
 
-Vérifié le 26 novembre 2026 sous macOS : `claude mcp list` (Claude Code 2.1.332) a indiqué le serveur connecté. Une conversation dans Claude Code avec cette entrée n'a pas encore été essayée.
+Vérifié le 26 novembre 2026 sous macOS : `claude mcp list` (Claude Code 2.1.332) a indiqué le serveur connecté. Le 27 novembre 2026, une conversation avec cette entrée (`claude -p`, Claude Code 2.1.332, Sonnet) a lancé « Découvrir Studium » et montré sa première étape telle que Studium l'a écrite.
 
 Les sections ci-dessous installent le serveur à la main.
 

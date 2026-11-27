@@ -95,7 +95,7 @@
       "note": "Comprendre comment fonctionne Studium et me repérer dans son interface en l'utilisant"
     },
     "discipline": "Studium",
-    "duration_minutes": 10,
+    "duration_minutes": 12,
     "language": "fr",
     "target": "Personnes qui découvrent Studium",
     "title": "Découvrir Studium"
@@ -137,11 +137,11 @@
           "degraded": false,
           "enricher_version": "studium-authoring-draft/1",
           "perspicacite_mode_used": "passages",
-          "timestamp": "2026-11-26T10:00:00.000Z"
+          "timestamp": "2026-11-27T06:09:22.896Z"
         }
       },
       "id": "s1-intro",
-      "markdown": "Cette leçon est livrée avec Studium et prend une dizaine de minutes. Elle te montre comment fonctionne Studium en te le faisant utiliser : chaque mécanisme est expliqué à l'étape où tu le rencontres.\n\n**Regarde d'abord le haut de l'écran.** Studium y dit si quelqu'un a validé cette version exacte de la leçon, et qui : une pastille au-dessus de l'étape ou, quand un assistant te montre la leçon, les premières lignes de cette étape. Cette leçon a été rédigée par un agent d'IA à partir de la documentation de Studium.\n\n**Tu réponds, l'assistant relaie.** Studium pose les questions et garde les clés de réponse. Quand tu joues avec un assistant (Copilot, Claude Code, Codex ou un autre), il montre chaque étape telle que Studium l'a écrite, attend ta réponse et transmet tes propres mots. Il ne doit jamais répondre, choisir ou noter à ta place.\n\nContinue quand tu es prêt·e.",
+      "markdown": "Cette leçon est livrée avec Studium et prend environ douze minutes. Elle te montre comment fonctionne Studium en te le faisant utiliser : chaque mécanisme est expliqué à l'étape où tu le rencontres.\n\n**Regarde d'abord le haut de l'écran.** Studium y dit si quelqu'un a validé cette version exacte de la leçon, et qui : une pastille au-dessus de l'étape ou, quand un assistant te montre la leçon, les premières lignes de cette étape. Cette leçon a été rédigée par un agent d'IA à partir de la documentation de Studium.\n\n**Tu réponds, l'assistant relaie.** Studium pose les questions et garde les clés de réponse. Quand tu joues avec un assistant (Copilot, Claude Code, Codex ou un autre), il montre chaque étape telle que Studium l'a écrite, attend ta réponse et transmet tes propres mots. Il ne doit jamais répondre, choisir ou noter à ta place.\n\nContinue quand tu es prêt·e.",
       "objective_refs": [],
       "title": "Bienvenue",
       "type": "intro"
@@ -185,7 +185,7 @@
           "degraded": false,
           "enricher_version": "studium-authoring-draft/1",
           "perspicacite_mode_used": "passages",
-          "timestamp": "2026-11-26T10:00:00.000Z"
+          "timestamp": "2026-11-27T06:09:22.896Z"
         }
       },
       "feedback_correct": "Exact. Studium garde les clés et l'assistant ne fait que relayer : ta réponse, avec tes mots.",
@@ -230,7 +230,7 @@
           "degraded": false,
           "enricher_version": "studium-authoring-draft/1",
           "perspicacite_mode_used": "passages",
-          "timestamp": "2026-11-26T10:00:00.000Z"
+          "timestamp": "2026-11-27T06:09:22.896Z"
         }
       },
       "id": "s3-concept",
@@ -277,7 +277,7 @@
             "authors": [],
             "excerpt": "Un détour vous envoie vers un prérequis, puis vous ramène.",
             "license": "CC-BY-4.0",
-            "perspicacite_doc_id": "p:documentation-de-studium-guide-etudiant:13",
+            "perspicacite_doc_id": "p:documentation-de-studium-guide-etudiant:14",
             "prov_derived_from": "https://github.com/HolobiomicsLab/studium/blob/main/docs/learn/student-guide.fr.md",
             "relevance_score": 1,
             "title": "Documentation de Studium — Guide étudiant"
@@ -287,7 +287,7 @@
           "degraded": false,
           "enricher_version": "studium-authoring-draft/1",
           "perspicacite_mode_used": "passages",
-          "timestamp": "2026-11-26T10:00:00.000Z"
+          "timestamp": "2026-11-27T06:09:22.896Z"
         }
       },
       "feedback_correct": "Oui. Le graphe fait partie du fichier de la leçon : un enseignant peut le lire et le corriger, et la leçon s'en sert pour choisir l'étape suivante.",
@@ -342,7 +342,7 @@
           "degraded": false,
           "enricher_version": "studium-authoring-draft/1",
           "perspicacite_mode_used": "passages",
-          "timestamp": "2026-11-26T10:00:00.000Z"
+          "timestamp": "2026-11-27T06:09:22.896Z"
         }
       },
       "id": "s5-concept",
@@ -390,7 +390,7 @@
           "degraded": false,
           "enricher_version": "studium-authoring-draft/1",
           "perspicacite_mode_used": "passages",
-          "timestamp": "2026-11-26T10:00:00.000Z"
+          "timestamp": "2026-11-27T06:09:22.896Z"
         }
       },
       "feedback_correct": "Exact, et la première étape le disait. Une leçon ne se lit comme validée que si un registre d'approbation correspond à son fichier exact, et ce registre nomme qui l'a approuvée.",
@@ -435,7 +435,7 @@
           "degraded": false,
           "enricher_version": "studium-authoring-draft/1",
           "perspicacite_mode_used": "passages",
-          "timestamp": "2026-11-26T10:00:00.000Z"
+          "timestamp": "2026-11-27T06:09:22.896Z"
         }
       },
       "id": "s7-explain_back",
@@ -510,7 +510,7 @@
           "degraded": false,
           "enricher_version": "studium-authoring-draft/1",
           "perspicacite_mode_used": "passages",
-          "timestamp": "2026-11-26T10:00:00.000Z"
+          "timestamp": "2026-11-27T06:09:22.896Z"
         }
       },
       "id": "s8-concept",
@@ -558,7 +558,7 @@
           "degraded": false,
           "enricher_version": "studium-authoring-draft/1",
           "perspicacite_mode_used": "passages",
-          "timestamp": "2026-11-26T10:00:00.000Z"
+          "timestamp": "2026-11-27T06:09:22.896Z"
         }
       },
       "feedback_correct": "Oui. Ta note est ton propre jugement : elle planifie, elle ne mesure pas.",
@@ -603,7 +603,7 @@
           "degraded": false,
           "enricher_version": "studium-authoring-draft/1",
           "perspicacite_mode_used": "passages",
-          "timestamp": "2026-11-26T10:00:00.000Z"
+          "timestamp": "2026-11-27T06:09:22.896Z"
         }
       },
       "id": "s10-concept",
@@ -651,7 +651,7 @@
           "degraded": false,
           "enricher_version": "studium-authoring-draft/1",
           "perspicacite_mode_used": "passages",
-          "timestamp": "2026-11-26T10:00:00.000Z"
+          "timestamp": "2026-11-27T06:09:22.896Z"
         }
       },
       "feedback_correct": "Exact. Studium garde son état sur ta machine ; le fournisseur de l'assistant voit ce que l'assistant lit. Choisis un assistant dont les conditions te conviennent.",
@@ -704,7 +704,7 @@
           "degraded": false,
           "enricher_version": "studium-authoring-draft/1",
           "perspicacite_mode_used": "passages",
-          "timestamp": "2026-11-26T10:00:00.000Z"
+          "timestamp": "2026-11-27T06:09:22.896Z"
         }
       },
       "feedback_correct": "Oui. Tu peux lire tout le graphe d'une leçon dans sa carte des notions, et un enseignant peut le lire et le corriger dans le fichier de la leçon.",
@@ -717,10 +717,90 @@
       "question": "Encore une question sur le graphe de cette leçon. Quelle notion devait être en place avant *Les révisions espacées* ?\n\nLa carte des notions y répond : chaque notion dit ce qu'elle demande d'abord.",
       "title": "Lire la carte",
       "type": "quiz"
+    },
+    {
+      "adaptation_hooks": [],
+      "concept_refs": [
+        "studium.relay"
+      ],
+      "estimated_seconds": 60,
+      "evidence": {
+        "bibliographic_refs": [
+          {
+            "authors": [],
+            "excerpt": "Studium fonctionne comme un serveur MCP que votre assistant IA lance sur votre ordinateur.",
+            "license": "CC-BY-4.0",
+            "perspicacite_doc_id": "p:documentation-de-studium-connecter-votre:1",
+            "prov_derived_from": "https://github.com/HolobiomicsLab/studium/blob/main/docs/start/harnesses.fr.md",
+            "relevance_score": 1,
+            "title": "Documentation de Studium — Connecter votre assistant"
+          },
+          {
+            "authors": [],
+            "excerpt": "Copilot dans VS Code a déjà le serveur.",
+            "license": "CC-BY-4.0",
+            "perspicacite_doc_id": "p:documentation-de-studium-connecter-votre:7",
+            "prov_derived_from": "https://github.com/HolobiomicsLab/studium/blob/main/docs/start/harnesses.fr.md",
+            "relevance_score": 1,
+            "title": "Documentation de Studium — Connecter votre assistant"
+          }
+        ],
+        "enrichment_metadata": {
+          "degraded": false,
+          "enricher_version": "studium-authoring-draft/1",
+          "perspicacite_mode_used": "passages",
+          "timestamp": "2026-11-27T06:09:22.896Z"
+        }
+      },
+      "id": "s13-concept",
+      "markdown": "Studium n'est pas une application de plus : c'est un serveur que ton assistant lance sur ton ordinateur. Tu le retrouves là où tu travailles déjà.\n\n- **Dans VS Code** : le panneau Studium, et Copilot qui a déjà le serveur.\n- **Avec ton assistant** : Mistral Vibe, Codex, Claude Code, Claude Desktop, Cursor ou OpenCode. Dans VS Code, la commande **Studium : Relier un assistant…** les relie en un clic, sans terminal.\n- **Dans ton navigateur** : une leçon déjà prête se joue aussi sans assistant.\n\nPartout, les mêmes règles : l'assistant relaie, tu réponds, et ta progression reste sur ta machine.\n\n**Petit défi :** compte les assistants déjà installés sur ton ordinateur. Chacun peut devenir une porte d'entrée vers Studium.",
+      "objective_refs": [],
+      "title": "Où jouer Studium",
+      "type": "concept"
+    },
+    {
+      "adaptation_hooks": [],
+      "concept_refs": [
+        "studium.provenance"
+      ],
+      "estimated_seconds": 60,
+      "evidence": {
+        "bibliographic_refs": [
+          {
+            "authors": [],
+            "excerpt": "l'assistant prépare, joue et planifie vos leçons avec les outils de Studium.",
+            "license": "CC-BY-4.0",
+            "perspicacite_doc_id": "p:documentation-de-studium-connecter-votre:1",
+            "prov_derived_from": "https://github.com/HolobiomicsLab/studium/blob/main/docs/start/harnesses.fr.md",
+            "relevance_score": 1,
+            "title": "Documentation de Studium — Connecter votre assistant"
+          },
+          {
+            "authors": [],
+            "excerpt": "C'est vous qui décidez de ce qui est enseigné, de ce que les sources permettent d'affirmer et du moment où une leçon parvient aux étudiants.",
+            "license": "CC-BY-4.0",
+            "perspicacite_doc_id": "p:documentation-de-studium-guide-enseignan:1",
+            "prov_derived_from": "https://github.com/HolobiomicsLab/studium/blob/main/docs/teach/teacher-guide.fr.md",
+            "relevance_score": 1,
+            "title": "Documentation de Studium — Guide enseignant"
+          }
+        ],
+        "enrichment_metadata": {
+          "degraded": false,
+          "enricher_version": "studium-authoring-draft/1",
+          "perspicacite_mode_used": "passages",
+          "timestamp": "2026-11-27T06:09:22.896Z"
+        }
+      },
+      "id": "s14-concept",
+      "markdown": "Studium sert des deux côtés d'un cours.\n\n**Si tu apprends**, demande à ton assistant : « je veux apprendre X avec Studium » : il prépare une leçon à partir de sources que tu juges fiables (un cours, tes notes, un article), la joue avec toi et planifie tes révisions.\n\n**Si tu enseignes**, tu transformes tes sources en une leçon où chaque question notée renvoie à un passage vérifiable. Tu décides de ce qui est enseigné, et aucune leçon ne parvient aux étudiants avant ton approbation. Tu peux ensuite suivre où en est ta classe.\n\nStudium est un prototype de recherche : essaie-le d'abord pour toi, ou avec un collègue.\n\n**Dernier défi :** ferme cette leçon, ouvre ton assistant et demande-lui une leçon sur un sujet qui te tient à cœur.",
+      "objective_refs": [],
+      "title": "Et après : apprendre, enseigner",
+      "type": "concept"
     }
   ],
   "schema_version": "1.4",
-  "source_plan_id": "ss-0d2511ac255dac49",
-  "validated_at": "2026-11-26T09:54:50Z",
+  "source_plan_id": "ss-9a1ae47987968244",
+  "validated_at": "2026-11-27T08:27:25Z",
   "validated_by": "beta-testeur"
 }

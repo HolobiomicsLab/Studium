@@ -4,7 +4,7 @@
   "goal": "Comprendre comment fonctionne Studium et me repérer dans son interface en l'utilisant",
   "target": "Personnes qui découvrent Studium",
   "discipline": "Studium",
-  "duration_minutes": 10,
+  "duration_minutes": 12,
   "concepts": [
     {
       "id": "studium.relay",
@@ -51,7 +51,7 @@
         "studium.relay"
       ],
       "estimated_seconds": 40,
-      "markdown": "Cette leçon est livrée avec Studium et prend une dizaine de minutes. Elle te montre comment fonctionne Studium en te le faisant utiliser : chaque mécanisme est expliqué à l'étape où tu le rencontres.\n\n**Regarde d'abord le haut de l'écran.** Studium y dit si quelqu'un a validé cette version exacte de la leçon, et qui : une pastille au-dessus de l'étape ou, quand un assistant te montre la leçon, les premières lignes de cette étape. Cette leçon a été rédigée par un agent d'IA à partir de la documentation de Studium.\n\n**Tu réponds, l'assistant relaie.** Studium pose les questions et garde les clés de réponse. Quand tu joues avec un assistant (Copilot, Claude Code, Codex ou un autre), il montre chaque étape telle que Studium l'a écrite, attend ta réponse et transmet tes propres mots. Il ne doit jamais répondre, choisir ou noter à ta place.\n\nContinue quand tu es prêt·e.",
+      "markdown": "Cette leçon est livrée avec Studium et prend environ douze minutes. Elle te montre comment fonctionne Studium en te le faisant utiliser : chaque mécanisme est expliqué à l'étape où tu le rencontres.\n\n**Regarde d'abord le haut de l'écran.** Studium y dit si quelqu'un a validé cette version exacte de la leçon, et qui : une pastille au-dessus de l'étape ou, quand un assistant te montre la leçon, les premières lignes de cette étape. Cette leçon a été rédigée par un agent d'IA à partir de la documentation de Studium.\n\n**Tu réponds, l'assistant relaie.** Studium pose les questions et garde les clés de réponse. Quand tu joues avec un assistant (Copilot, Claude Code, Codex ou un autre), il montre chaque étape telle que Studium l'a écrite, attend ta réponse et transmet tes propres mots. Il ne doit jamais répondre, choisir ou noter à ta place.\n\nContinue quand tu es prêt·e.",
       "quotes": [
         {
           "passage_id": "doc:assistant",
@@ -391,6 +391,44 @@
         {
           "passage_id": "doc:map",
           "text": "Chaque notion dit son état en mots et ce qu'elle demande d'abord."
+        }
+      ]
+    },
+    {
+      "type": "concept",
+      "title": "Où jouer Studium",
+      "concept_refs": [
+        "studium.relay"
+      ],
+      "estimated_seconds": 60,
+      "markdown": "Studium n'est pas une application de plus : c'est un serveur que ton assistant lance sur ton ordinateur. Tu le retrouves là où tu travailles déjà.\n\n- **Dans VS Code** : le panneau Studium, et Copilot qui a déjà le serveur.\n- **Avec ton assistant** : Mistral Vibe, Codex, Claude Code, Claude Desktop, Cursor ou OpenCode. Dans VS Code, la commande **Studium : Relier un assistant…** les relie en un clic, sans terminal.\n- **Dans ton navigateur** : une leçon déjà prête se joue aussi sans assistant.\n\nPartout, les mêmes règles : l'assistant relaie, tu réponds, et ta progression reste sur ta machine.\n\n**Petit défi :** compte les assistants déjà installés sur ton ordinateur. Chacun peut devenir une porte d'entrée vers Studium.",
+      "quotes": [
+        {
+          "passage_id": "doc:harnesses",
+          "text": "Studium fonctionne comme un serveur MCP que votre assistant IA lance sur votre ordinateur."
+        },
+        {
+          "passage_id": "doc:harnesses",
+          "text": "Copilot dans VS Code a déjà le serveur."
+        }
+      ]
+    },
+    {
+      "type": "concept",
+      "title": "Et après : apprendre, enseigner",
+      "concept_refs": [
+        "studium.provenance"
+      ],
+      "estimated_seconds": 60,
+      "markdown": "Studium sert des deux côtés d'un cours.\n\n**Si tu apprends**, demande à ton assistant : « je veux apprendre X avec Studium » : il prépare une leçon à partir de sources que tu juges fiables (un cours, tes notes, un article), la joue avec toi et planifie tes révisions.\n\n**Si tu enseignes**, tu transformes tes sources en une leçon où chaque question notée renvoie à un passage vérifiable. Tu décides de ce qui est enseigné, et aucune leçon ne parvient aux étudiants avant ton approbation. Tu peux ensuite suivre où en est ta classe.\n\nStudium est un prototype de recherche : essaie-le d'abord pour toi, ou avec un collègue.\n\n**Dernier défi :** ferme cette leçon, ouvre ton assistant et demande-lui une leçon sur un sujet qui te tient à cœur.",
+      "quotes": [
+        {
+          "passage_id": "doc:harnesses",
+          "text": "l'assistant prépare, joue et planifie vos leçons avec les outils de Studium."
+        },
+        {
+          "passage_id": "doc:teacher",
+          "text": "C'est vous qui décidez de ce qui est enseigné, de ce que les sources permettent d'affirmer et du moment où une leçon parvient aux étudiants."
         }
       ]
     }

@@ -83,7 +83,14 @@ interface Format {
   disconnect(text: string): string | null;
   state(text: string | undefined): StudiumState | null;
   isCurrent(text: string, entry: ServerEntry): boolean;
+  /** The names of the other servers in the file that run Studium (a hand-written or development entry under another
+   *  name): the assistant would list every Studium tool twice. */
+  others(text: string | undefined): string[];
 }
+
+/** Whether a server, by its name or its command line, runs Studium: the npm package, the bundled server, a checkout. */
+const RUNS_STUDIUM = /studium-mcp|lesson-mcp(\.cjs)?\b|apps\/lesson-mcp|studium-vscode/i;
+const looksLikeStudium = (name: string, commandLine: string): boolean => /studium/i.test(name) || RUNS_STUDIUM.test(commandLine);
 
 // ----- JSON files (Claude Code, Claude Desktop, OpenCode) -----
 
@@ -166,6 +173,17 @@ function jsonFormat(shape: JsonShape): Format {
       if (!doc) return false;
       const server = serverAt(doc, shape.path(doc));
       return !!server && stable(server) === stable(shape.value(entry));
+    },
+    others(text) {
+      const doc = text && text.trim() ? readJson(text) : null;
+      if (!doc) return [];
+      const path = shape.path(doc);
+      const container = serverAt(doc, path.slice(0, -1));
+      if (!container) return [];
+      return Object.entries(container)
+        .filter(([key, server]) => key !== path.at(-1) && server && typeof server === "object" && !Array.isArray(server))
+        .filter(([key, server]) => looksLikeStudium(key, shape.commandOf(server as Json)))
+        .map(([key]) => key);
     },
   };
 }
@@ -259,6 +277,14 @@ const codexFormat: Format = {
     if (!span) return null;
     return text.slice(0, span.start).replace(/\n\n$/, "\n") + text.slice(span.end);
   },
+  others(text) {
+    const servers = text && text.trim() ? codexServers(text) : null;
+    if (!servers) return [];
+    return Object.entries(servers)
+      .filter(([key, server]) => key !== VIBE_SERVER_NAME && server && typeof server === "object")
+      .filter(([key, server]) => looksLikeStudium(key, commandLine([(server as Json)["command"], ...(Array.isArray((server as Json)["args"]) ? (server as Json)["args"] as unknown[] : [])])))
+      .map(([key]) => key);
+  },
   isCurrent(text, entry) {
     const span = codexSpan(text);
     return !!span && !!codexFormat.state(text)?.ours && text.slice(span.start, span.end).trim() === codexEntryToml(entry).trim();
@@ -286,6 +312,10 @@ export function disconnectAssistant(id: AssistantId, text: string): string | nul
 /** What the file says about a "studium" server; null when the file cannot be read. */
 export function studiumState(id: AssistantId, text: string | undefined): StudiumState | null {
   return FORMATS[id].state(text);
+}
+/** The other servers in the file that run Studium, by name; empty when there are none or the file cannot be read. */
+export function otherStudiumServers(id: AssistantId, text: string | undefined): string[] {
+  return FORMATS[id].others(text);
 }
 /** Whether the file holds the extension's entry exactly as it would be written now (nothing to refresh). */
 export function assistantEntryIsCurrent(id: AssistantId, text: string, entry: ServerEntry): boolean {

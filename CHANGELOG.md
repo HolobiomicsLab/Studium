@@ -4,6 +4,20 @@ All notable changes to Studium are recorded here. The format follows [Keep a Cha
 
 ## Unreleased
 
+## 0.6.7 — 2026-11-27
+
+This release is about the first minutes with Studium: Claude Desktop users install it with a double click on the `.mcpb` file attached to the release, with no Node and no VS Code; the shipped lesson « Discover Studium » is offered first, in VS Code and in the browser player, and now ends with where to play Studium and what it offers learners and teachers; and connecting an assistant says when another Studium server would show each tool twice. Tried: a Claude Code conversation through the entry the extension writes, and the bundle's server started as Claude Desktop starts it. Not tried yet: installing the bundle in Claude Desktop itself, Codex conversations, and Windows.
+
+### Added
+
+- A Claude Desktop bundle, `studium-vX.Y.Z.mcpb`, attached to each GitHub release: a double click installs Studium in Claude Desktop, which runs it with the Node it ships, with no VS Code and no file to edit. The release build stages it (`.github/scripts/stage-mcpb.mjs`), validates and packs it with the `mcpb` tool (new development dependency `@anthropic-ai/mcpb`), and `tools/release/stage-mcpb.test.mjs` starts the server it names.
+- **Studium: Connect an Assistant…** names any other server that runs Studium in the same assistant (a development or hand-written entry under another name), which would show each Studium tool twice, and offers to open the file; it removes nothing it did not write.
+
+### Changed
+
+- The browser player lists « Discover Studium » first, marked « start here », until the learner finishes it; a lesson shipped with Studium no longer reads « approved by a teacher » there, since its own record says who approved it.
+- « Discover Studium » / « Découvrir Studium » gains two closing steps, where to play Studium (VS Code, an assistant connected in one click, the browser) and what it offers learners and teachers, and takes about twelve minutes. The empty Lessons view in VS Code now opens with it: « New to Studium? Start here ».
+
 ## 0.6.6 — 2026-11-26
 
 This release is about using Studium from the assistant one already has, with no Node and no terminal: the VS Code extension connects Mistral Vibe, Codex, Claude Code, Claude Desktop, Cursor and OpenCode in one click (**Studium: Connect an Assistant…**), by writing one entry into each assistant's own configuration that runs the server the extension carries. A lesson an assistant built now opens by itself in the editor area, and a learner can look back at a step already done, read only, from the progress rail. A tester had Copilot working but could not connect the Vibe extension for VS Code, which looked for a Node he did not have. Tried live on macOS: the Vibe extension for VS Code and Vibe Desktop built and served lessons; Claude Code and OpenCode reported the server connected; the Codex and Claude Desktop entries started the server. Not tried yet: a conversation in Codex, Claude Code, Claude Desktop, Cursor or OpenCode, and Windows.

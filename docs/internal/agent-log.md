@@ -6,6 +6,38 @@ Journal des unités TDD par milestone. Mis à jour à chaque commit significatif
 
 ---
 
+## 2026-11-27 — paquet Claude Desktop (.mcpb)
+
+Propriétaire, 27 nov. : « Autorisation donner. Tu travailles sur le paquaet mcpb claude desktop stp, fais le necessaire »
+(après la recommandation d'ajouter `@anthropic-ai/mcpb` en dépendance de développement). `stage-mcpb.mjs` (serveur,
+leçons livrées, icône 512 px tirée de `docs/assets/brand/studium-icon.svg`, manifeste 0.3 de type `node`) ; `build.sh`
+valide, empaquette et l'ajoute aux sommes ; `release.yml` le joint à la version GitHub. Test : manifeste valide, le
+serveur démarre comme Claude Desktop le lance et propose « Découvrir Studium ». Pas encore installé dans Claude Desktop.
+
+## 2026-11-27 — serveurs Studium en double
+
+Même délégation (jusqu'à 18 h). `otherStudiumServers` (Codex, Claude Code, Claude Desktop, Cursor, OpenCode) : par le nom
+ou la ligne de commande (`studium-mcp`, `lesson-mcp`, `apps/lesson-mcp`, `studium-vscode`) ; avertissement après
+l'écriture, avec « Ouvrir le fichier ». Lu sans écrire sur le `~/.codex/config.toml` du propriétaire : `studium-lesson`
+trouvé. Pilote 117 assertions.
+
+## 2026-11-27 — « pour commencer » dans le lecteur navigateur
+
+Délégation du propriétaire jusqu'à 18 h le 27 nov. (« faire le necessaire (y compris merge) pour avancer sur le projet »).
+La démo livrée non terminée passe en tête du lecteur navigateur, marquée « pour commencer » ; terminée, en dernier. Une
+leçon livrée n'affiche plus « validée par un enseignant » (approuvée par beta-testeur sans lecture complète). Vérifié avec
+Chromium sans tête sur un dossier vide. Conversation Claude Code (`claude -p`, Sonnet) avec l'entrée de « Relier un
+assistant » : étape 1 de la démo montrée telle quelle.
+
+## 2026-11-27 — « Découvrir Studium » : où jouer Studium, apprendre et enseigner
+
+Propriétaire, 27 nov. : « on travaille vite fait sur la lecon de demarrage. Incluons brievement dedans les moyens
+d'integration studium et perspective grand ligne usage enseignants/etudiants ». Deux scènes `concept` ajoutées à la fin
+(s13 « Où jouer Studium », s14 « Et après : apprendre, enseigner »), citant `docs/start/harnesses` et
+`docs/teach/teacher-guide` ; durée 12 min partout ; la vue Leçons vide commence par la leçon. Le propriétaire a lu
+le texte français de s13 et s14 et a répondu « Approuver pour ces recommendations » : approbation enregistrée par l'agent
+sous le nom beta-testeur, `--opened s13-concept,s14-concept` en français, aucune scène en anglais (règle 003).
+
 ## 2026-11-27 — Cursor dans « Relier un assistant… »
 
 Même délégation. `cursor` : `~/.cursor/mcp.json`, `mcpServers.studium` avec `type: "stdio"` (forme de

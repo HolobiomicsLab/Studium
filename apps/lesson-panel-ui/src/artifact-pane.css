@@ -449,6 +449,8 @@ body { margin: 0; }
 .course-picker-title:focus { outline: none; }
 .course-list { display: grid; gap: var(--st-space-2); margin: 0; padding: 0; list-style: none; }
 .course-choice { display: grid; justify-items: start; width: 100%; text-align: start; }
+/* The demo shipped with Studium, not finished yet: first in the browser player's list, marked « start here ». */
+.course-choice.is-start { border-color: var(--st-accent); border-inline-start-width: 3px; }
 .course-choice-facts { color: var(--st-muted); font-size: var(--st-size-sm); font-weight: var(--st-weight-regular); }
 .completion-eyebrow { margin: 0; }
 

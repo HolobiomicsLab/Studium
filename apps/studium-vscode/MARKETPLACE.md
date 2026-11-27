@@ -24,7 +24,7 @@ So a new lesson starts in an assistant. A lesson someone already made plays here
 ## Try the demo lesson
 
 To see how Studium works, select the **Studium** icon in the activity bar, then **Try the demo lesson**, or
-run **Studium: Try the demo lesson** from the Command Palette. « Discover Studium » takes about ten minutes, in
+run **Studium: Try the demo lesson** from the Command Palette. « Discover Studium » takes about twelve minutes, in
 English or French, and ships with the extension: you read a step, answer a quiz with its optional confidence
 scale, ask for a hint, write an answer and compare it with the reference, rate your recall, and open the concept
 map. An AI agent drafted it from Studium's documentation; the project's owner approved it, under the name
@@ -169,7 +169,7 @@ Une nouvelle leçon commence donc dans un assistant. Une leçon déjà faite se 
 
 Pour voir comment fonctionne Studium, sélectionnez l'icône **Studium** dans la barre d'activité, puis
 **Essayer la leçon de démonstration**, ou lancez **Studium : Essayer la leçon de démonstration** depuis la
-palette de commandes. « Découvrir Studium » prend une dizaine de minutes, en français ou en anglais, et est
+palette de commandes. « Découvrir Studium » prend environ douze minutes, en français ou en anglais, et est
 livrée avec l'extension : vous lisez une étape, répondez à un quiz avec son échelle de confiance facultative,
 demandez un indice, rédigez une réponse et la comparez à la référence, notez votre rappel et ouvrez la carte des
 notions. Un agent d'IA l'a rédigée à partir de la documentation de Studium ; le responsable du projet l'a

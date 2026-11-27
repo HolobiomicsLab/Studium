@@ -81,8 +81,10 @@ your current step. Or say "here" to play it in the chat. Studium never opens the
 
 ## Play
 
-1. The page lists the lessons of the folder and of your library, then the demo lesson shipped with
-   Studium in the browser's language (English when the browser is set to English, French otherwise), with their number of steps, whether a teacher approved them, and how far you got. While this
+1. The page lists the demo lesson shipped with Studium first, marked « start here », while you have not finished it,
+   in the browser's language (English when the browser is set to English, French otherwise); then the lessons of the
+   folder and of your library; a finished demo goes last. Each shows its number of steps, how far you got, and, for
+   your own lessons, whether a teacher approved them. While this
    list is on screen, it is read again each time you come back to its tab or its window: a lesson your
    assistant saved in your library meanwhile appears without a reload.
 2. Choose one. It opens at your first unfinished step.

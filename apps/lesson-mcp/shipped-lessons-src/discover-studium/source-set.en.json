@@ -1,6 +1,6 @@
 {
   "schema": "studium-source-set/1",
-  "source_set_id": "ss-b01c347780c9e9ff",
+  "source_set_id": "ss-d24c7298eb50d53a",
   "goal": "Understand how Studium works and find my way around its interface by using it",
   "language": "en",
   "min_chars": 200,
@@ -29,8 +29,8 @@
       "title": "Studium documentation — Learn a topic with your assistant",
       "url": "https://github.com/HolobiomicsLab/studium/blob/main/docs/learn/learn-with-your-assistant.md",
       "license": "CC-BY-4.0",
-      "sha256": "38dc9b006ee20aa52c0c621ba80f4d4b54146210be9add1b3f1829f087680ced",
-      "chars": 12927,
+      "sha256": "88f0816a4b24429c9bc0464f39c57261e963e508eb09b391adfbe4ec77e13adf",
+      "chars": 12937,
       "passages": 25
     },
     {
@@ -38,8 +38,8 @@
       "title": "Studium documentation — Review over time",
       "url": "https://github.com/HolobiomicsLab/studium/blob/main/docs/learn/review-over-time.md",
       "license": "CC-BY-4.0",
-      "sha256": "221d160c25e2b77013e95231c94a6b79923d747eae32b713b556e902d6e0ae08",
-      "chars": 7263,
+      "sha256": "10243664d770ce26d85eecf266f8bee5a24c9d6e2dcbf2920604d64cff498a3b",
+      "chars": 7271,
       "passages": 17
     },
     {
@@ -47,8 +47,8 @@
       "title": "Studium documentation — Privacy and limits",
       "url": "https://github.com/HolobiomicsLab/studium/blob/main/docs/concepts/privacy-and-limits.md",
       "license": "CC-BY-4.0",
-      "sha256": "3b43d0b8efd047186c568fbc336155fcee87575290c6650eeacc16970e01cff0",
-      "chars": 11697,
+      "sha256": "88f8ea112d37526356482805618351668d870b5d8024badd8a180815293466ba",
+      "chars": 11959,
       "passages": 21
     },
     {
@@ -65,9 +65,27 @@
       "title": "Studium documentation — Student guide",
       "url": "https://github.com/HolobiomicsLab/studium/blob/main/docs/learn/student-guide.md",
       "license": "CC-BY-4.0",
-      "sha256": "e16b70ad1a7e4fa89e3d1096d934aee4d74ceda4fce20fd7d2f7bf0cd96e697c",
-      "chars": 7549,
-      "passages": 19
+      "sha256": "2d338ef744708893e1f8a50cbdea2a07e2a1f43a04f6e1aed0b2f3ab51bd5da2",
+      "chars": 8073,
+      "passages": 20
+    },
+    {
+      "source_id": "studium-documentation-connect-your-assis",
+      "title": "Studium documentation — Connect your assistant",
+      "url": "https://github.com/HolobiomicsLab/studium/blob/main/docs/start/harnesses.md",
+      "license": "CC-BY-4.0",
+      "sha256": "c15fab3861675b052ff38e5cd1c3d5697b45772a63d1231caa18402ef4f1eb15",
+      "chars": 5999,
+      "passages": 13
+    },
+    {
+      "source_id": "studium-documentation-teacher-guide",
+      "title": "Studium documentation — Teacher guide",
+      "url": "https://github.com/HolobiomicsLab/studium/blob/main/docs/teach/teacher-guide.md",
+      "license": "CC-BY-4.0",
+      "sha256": "08f931dde036b77ace534023f8669b3014f93b3d9ef15e8ca886a77aec24b615",
+      "chars": 7555,
+      "passages": 18
     }
   ],
   "passages": [
@@ -284,7 +302,7 @@
     {
       "id": "p:studium-documentation-learn-a-topic-with:3",
       "source_id": "studium-documentation-learn-a-topic-with",
-      "text": "## 1. Ask\n\nSay it in your own words, for example:\n\n> I want to learn how the water cycle works with Studium. Here are two pages I trust: <links>.\n\nThe assistant starts with `get_study_plan`, in your language. If a lesson you already have covers the topic, it offers that lesson; otherwise it builds one. With no lesson at all, the plan first proposes « Discover Studium », a ten-minute demo shipped with Studium that shows how it works; say you would rather learn your topic and the assistant builds your lesson instead. Say what you already know, how much time you have a day, or a target date: the assistant is asked to open the lesson with two short questions on what you already know. Those two questions are played once and never come back as reviews. What you know and what interests you shape the draft but are not stored; the lesson keeps only your minutes a day and your target date, and the study plan uses the minutes to size each step."
+      "text": "## 1. Ask\n\nSay it in your own words, for example:\n\n> I want to learn how the water cycle works with Studium. Here are two pages I trust: <links>.\n\nThe assistant starts with `get_study_plan`, in your language. If a lesson you already have covers the topic, it offers that lesson; otherwise it builds one. With no lesson at all, the plan first proposes « Discover Studium », a twelve-minute demo shipped with Studium that shows how it works; say you would rather learn your topic and the assistant builds your lesson instead. Say what you already know, how much time you have a day, or a target date: the assistant is asked to open the lesson with two short questions on what you already know. Those two questions are played once and never come back as reviews. What you know and what interests you shape the draft but are not stored; the lesson keeps only your minutes a day and your target date, and the study plan uses the minutes to size each step."
     },
     {
       "id": "p:studium-documentation-learn-a-topic-with:4",
@@ -359,7 +377,7 @@
     {
       "id": "p:studium-documentation-learn-a-topic-with:18",
       "source_id": "studium-documentation-learn-a-topic-with",
-      "text": "## 6. Come back days later\n\nOpen a new conversation and ask \"What should I study with Studium today?\". The assistant calls `get_study_plan` in your language, which lists the reviews due, the lessons in progress and the next lesson, and names the one step to take now. `start_review_session` then plays every review due, across all your lessons. See [review over time](review-over-time.md). If Studium refused a draft of your lesson and no lesson was written for you since, the plan offers to finish it, after a lesson you have in progress, for 14 days, and only to you (the assistant passes your learner id); say you no longer want it and it is not offered again."
+      "text": "## 6. Come back days later\n\nOpen a new conversation and ask \"What should I study with Studium today?\". The assistant calls `get_study_plan` in your language, which lists the reviews due, the lessons in progress and the next lesson, and names the one step to take now. `start_review_session` then plays every review due, across all your lessons. See [review over time](review-over-time.md). If Studium refused a draft of your lesson and no lesson was written for you since, the plan offers to finish it, after a lesson you have in progress, for 14 days, and only to you (the server plays only you); say you no longer want it and it is not offered again."
     },
     {
       "id": "p:studium-documentation-learn-a-topic-with:19",
@@ -374,7 +392,7 @@
     {
       "id": "p:studium-documentation-learn-a-topic-with:21",
       "source_id": "studium-documentation-learn-a-topic-with",
-      "text": "Your progress survives restarts by default, under `~/.studium`. To find it again from another assistant, use the same data folder and the same learner id: ask the assistant to pass one stable `learner_id` (for example your first name) on every call."
+      "text": "Your progress survives restarts by default, under `~/.studium`. To find it again from another assistant, use the same data folder and set the same `STUDIUM_LEARNER_ID` in each assistant's server settings. The assistant does not name you: the server plays one learner."
     },
     {
       "id": "p:studium-documentation-learn-a-topic-with:22",
@@ -469,7 +487,7 @@
     {
       "id": "p:studium-documentation-review-over-time:15",
       "source_id": "studium-documentation-review-over-time",
-      "text": "Folders on disk are named by a pseudonym computed from your learner id and the secret, never by your id itself. To move your data to another machine, copy the whole data folder, secret included: without it your folders can no longer be matched to your id. Use the same `learner_id` in every assistant to keep one history."
+      "text": "Folders on disk are named by a pseudonym computed from your learner id and the secret, never by your id itself. To move your data to another machine, copy the whole data folder, secret included: without it your folders can no longer be matched to your id. Set the same `STUDIUM_LEARNER_ID` in every assistant to keep one history."
     },
     {
       "id": "p:studium-documentation-review-over-time:16",
@@ -489,7 +507,7 @@
     {
       "id": "p:studium-documentation-privacy-and-limits:2",
       "source_id": "studium-documentation-privacy-and-limits",
-      "text": "## Where your data lives\n\nThe MCP server (`apps/lesson-mcp`) uses these defaults. Each can be changed with an environment variable; see the [configuration reference](../reference/configuration.md).\n\n| What | Default location | Change it with | |---|---|---| | Root of your library and data | `~/.studium` | `STUDIUM_HOME` | | Lessons written for you | `<STUDIUM_HOME>/library/<course>/lesson.json`, whatever `BUNDLES_ROOT` names | `STUDIUM_HOME`; `BUNDLES_ROOT` only adds a folder searched first | | Sources prepared for those lessons (their passages, and for a file read by path its full path, size and SHA-256) | `<STUDIUM_HOME>/library/_sources/` | `STUDIUM_HOME` | | A draft Studium refused, kept so the assistant resends only the faulty scenes (see *A kept draft* below) | `<STUDIUM_HOME>/library/_drafts/` | `STUDIUM_HOME` | | Your progress | `<STUDIUM_HOME>/data` | `STUDIUM_DATA_DIR` | | Nothing on disk, memory only | off | `STUDIUM_EPHEMERAL=1` | | Learner id when the assistant gives none | `anonymous` | `STUDIUM_LEARNER_ID` |"
+      "text": "## Where your data lives\n\nThe MCP server (`apps/lesson-mcp`) uses these defaults. Each can be changed with an environment variable; see the [configuration reference](../reference/configuration.md).\n\n| What | Default location | Change it with | |---|---|---| | Root of your library and data | `~/.studium` | `STUDIUM_HOME` | | Lessons written for you | `<STUDIUM_HOME>/library/<course>/lesson.json`, whatever `BUNDLES_ROOT` names | `STUDIUM_HOME`; `BUNDLES_ROOT` only adds a folder searched first | | Sources prepared for those lessons (their passages, and for a file read by path its full path, size and SHA-256) | `<STUDIUM_HOME>/library/_sources/` | `STUDIUM_HOME` | | A draft Studium refused, kept so the assistant resends only the faulty scenes (see *A kept draft* below) | `<STUDIUM_HOME>/library/_drafts/` | `STUDIUM_HOME` | | Your progress | `<STUDIUM_HOME>/data` | `STUDIUM_DATA_DIR` | | Nothing on disk, memory only | off | `STUDIUM_EPHEMERAL=1` | | The one learner the server plays (an id an assistant passes is ignored) | `anonymous` | `STUDIUM_LEARNER_ID` | | Play the `learner_id` of each call (shared computer, evaluations) | off | `STUDIUM_LEARNERS=several` |"
     },
     {
       "id": "p:studium-documentation-privacy-and-limits:3",
@@ -509,7 +527,7 @@
     {
       "id": "p:studium-documentation-privacy-and-limits:6",
       "source_id": "studium-documentation-privacy-and-limits",
-      "text": "The study plan offers to finish it only to the learner it was refused for, after a lesson they have in progress. When the assistant gave no `learner_id` and `STUDIUM_LEARNER_ID` is not set, no learner is known: the draft serves only the resend in the same conversation and is offered to no one, so a computer several learners share never shows one learner's goal or file to another."
+      "text": "The study plan offers to finish it only to the learner it was refused for, after a lesson they have in progress. The server plays one learner, so the draft is kept for them even when that learner is `anonymous`. With `STUDIUM_LEARNERS=several`, when a call gives no `learner_id` and `STUDIUM_LEARNER_ID` is not set, no learner is known: the draft serves only the resend in the same conversation and is offered to no one, so a computer several learners share never shows one learner's goal or file to another."
     },
     {
       "id": "p:studium-documentation-privacy-and-limits:7",
@@ -719,52 +737,212 @@
     {
       "id": "p:studium-documentation-student-guide:10",
       "source_id": "studium-documentation-student-guide",
-      "text": "## See your concept map\n\nThe concept map shows each concept's state, what it needs first, the path you travelled and the assessed answers behind it. Open it in the lesson panel or pane, in forms, or ask in the conversation for the map returned by `get_workflow_graph`. On a concept you have reached, you can say that you know it or are unsure: Studium asks one or two check questions and reports their outcome; the claim alone never raises mastery or skips a scene. See [Concept map](concept-map.md)."
+      "text": "## Look back at a step already done\n\nIn the VS Code pane and the browser player, each step of the lesson's main path you already did is a numbered button under the progress rail. It shows that step again as it was, with your answer and the feedback you got, read only: going back never rewinds the lesson, and nothing you do there changes your progress, your mastery or your reviews. **Back to where I was** returns to your current step, as you left it. See [What you see](../start/vscode.md#what-you-see) for the details."
     },
     {
       "id": "p:studium-documentation-student-guide:11",
       "source_id": "studium-documentation-student-guide",
-      "text": "## Use the assistant without giving it the activity\n\nRequests that keep you in charge:\n\n> Give me a hint about the approach, then wait for my attempt.\n\n> Show these data with their units. Ask me first what I predict when the threshold changes. Keep the reference > visible next to the variant."
+      "text": "## See your concept map\n\nThe concept map shows each concept's state, what it needs first, the path you travelled and the assessed answers behind it. Open it in the lesson panel or pane, in forms, or ask in the conversation for the map returned by `get_workflow_graph`. On a concept you have reached, you can say that you know it or are unsure: Studium asks one or two check questions and reports their outcome; the claim alone never raises mastery or skips a scene. See [Concept map](concept-map.md)."
     },
     {
       "id": "p:studium-documentation-student-guide:12",
       "source_id": "studium-documentation-student-guide",
-      "text": "> Here is my explanation: […]. Ask me one question that tests its limit, without replacing my text before I > submit it.\n\n> Explain the last adaptation with the Studium tool. Separate what it reports from your own interpretation."
+      "text": "## Use the assistant without giving it the activity\n\nRequests that keep you in charge:\n\n> Give me a hint about the approach, then wait for my attempt.\n\n> Show these data with their units. Ask me first what I predict when the threshold changes. Keep the reference > visible next to the variant."
     },
     {
       "id": "p:studium-documentation-student-guide:13",
       "source_id": "studium-documentation-student-guide",
-      "text": "A hint lowers the mastery credit of your eventual answer; it is still worth asking when you are stuck. A detour sends you to a prerequisite and then back. Mastery figures are a learning aid, not an official grade or a diagnosis. See [the learner model](../concepts/learner-model.md)."
+      "text": "> Here is my explanation: […]. Ask me one question that tests its limit, without replacing my text before I > submit it.\n\n> Explain the last adaptation with the Studium tool. Separate what it reports from your own interpretation."
     },
     {
       "id": "p:studium-documentation-student-guide:14",
       "source_id": "studium-documentation-student-guide",
-      "text": "## Experiment with an article or a capsule\n\nFollow the [agentic experiment tutorial](../tutorials/agentic-experiment.md): pick a question, predict an effect, run a reference, change one factor and judge the difference. Record your prediction before seeing any result in the [experiment journal](experiment-journal.md)."
+      "text": "A hint lowers the mastery credit of your eventual answer; it is still worth asking when you are stuck. A detour sends you to a prerequisite and then back. Mastery figures are a learning aid, not an official grade or a diagnosis. See [the learner model](../concepts/learner-model.md)."
     },
     {
       "id": "p:studium-documentation-student-guide:15",
       "source_id": "studium-documentation-student-guide",
-      "text": "The assistant may search documentation or read a skill, but it must say what it actually consulted and ran. Check units, data, edge cases and provenance: a graph an AI produced can be wrong. Keep outputs in your experiment folder. A capsule marked `type-checked` is not a successful run. If a dependency is missing or a calculation fails, keep that failure; never ask the assistant to make up a result. In VS Code, a reproduction asks you to confirm the exact command before anything runs."
+      "text": "## Experiment with an article or a capsule\n\nFollow the [agentic experiment tutorial](../tutorials/agentic-experiment.md): pick a question, predict an effect, run a reference, change one factor and judge the difference. Record your prediction before seeing any result in the [experiment journal](experiment-journal.md)."
     },
     {
       "id": "p:studium-documentation-student-guide:16",
       "source_id": "studium-documentation-student-guide",
-      "text": "## Language, representations and reports\n\nAsk for another language at any time (\"Continue in French\"); your answers and the original sources are kept as they are. You can ask for a readable equation, a diagram, a chemical structure or a plain-text explanation. See [language and supports](language-and-supports.md)."
+      "text": "The assistant may search documentation or read a skill, but it must say what it actually consulted and ran. Check units, data, edge cases and provenance: a graph an AI produced can be wrong. Keep outputs in your experiment folder. A capsule marked `type-checked` is not a successful run. If a dependency is missing or a calculation fails, keep that failure; never ask the assistant to make up a result. In VS Code, a reproduction asks you to confirm the exact command before anything runs."
     },
     {
       "id": "p:studium-documentation-student-guide:17",
       "source_id": "studium-documentation-student-guide",
-      "text": "To keep a record of your own actions, see the [learner report](learner-report.md) and the [activity-to-report tutorial](../tutorials/activity-to-report.md). You choose what goes in; producing a report does not send it to your teacher."
+      "text": "## Language, representations and reports\n\nAsk for another language at any time (\"Continue in French\"); your answers and the original sources are kept as they are. You can ask for a readable equation, a diagram, a chemical structure or a plain-text explanation. See [language and supports](language-and-supports.md)."
     },
     {
       "id": "p:studium-documentation-student-guide:18",
       "source_id": "studium-documentation-student-guide",
-      "text": "## Stop and resume\n\n- **Pause.** Say \"stop here\"; the assistant calls `end_session`, which closes the session and keeps your progress. Closing a window alone does not erase anything. - **Resume.** Start the same lesson with the same learner id: Studium resumes at the first unfinished step. A finished lesson starts again from the beginning as a retake. - **Several places.** The VS Code pane and an assistant keep separate progress, except Copilot with the server the Studium extension offers, which shares the pane's: same folder, same learner. Two assistants share it when they use the same data folder and learner id. - **Erase.** Ask the assistant to forget your data for a lesson, or all your data (`forget_session`); it then tells you what stays on disk. See [learn with your assistant](learn-with-your-assistant.md#7-close-or-forget). In VS Code, **Studium: Forget my data** erases what the extension keeps, not an assistant's data. Experiment folders and the assistant's own history follow their own retention rules."
+      "text": "To keep a record of your own actions, see the [learner report](learner-report.md) and the [activity-to-report tutorial](../tutorials/activity-to-report.md). You choose what goes in; producing a report does not send it to your teacher."
     },
     {
       "id": "p:studium-documentation-student-guide:19",
       "source_id": "studium-documentation-student-guide",
+      "text": "## Stop and resume\n\n- **Pause.** Say \"stop here\"; the assistant calls `end_session`, which closes the session and keeps your progress. Closing a window alone does not erase anything. - **Resume.** Start the same lesson with the same learner id: Studium resumes at the first unfinished step. A finished lesson starts again from the beginning as a retake. - **Several places.** The VS Code pane and an assistant keep separate progress, except Copilot with the server the Studium extension offers, which shares the pane's: same folder, same learner. Two assistants share it when they use the same data folder and learner id. - **Erase.** Ask the assistant to forget your data for a lesson, or all your data (`forget_session`); it then tells you what stays on disk. See [learn with your assistant](learn-with-your-assistant.md#7-close-or-forget). In VS Code, **Studium: Forget my data** erases what the extension keeps, not an assistant's data. Experiment folders and the assistant's own history follow their own retention rules."
+    },
+    {
+      "id": "p:studium-documentation-student-guide:20",
+      "source_id": "studium-documentation-student-guide",
       "text": "Spaced reviews bring concepts back over the following days: see [review over time](review-over-time.md). If something goes wrong, see [troubleshooting](../start/troubleshooting.md) and send your teacher only a small, anonymised example. Privacy details: [privacy and limits](../concepts/privacy-and-limits.md)."
+    },
+    {
+      "id": "p:studium-documentation-connect-your-assis:1",
+      "source_id": "studium-documentation-connect-your-assis",
+      "text": "English · [Français](harnesses.fr.md)\n\n# Connect your assistant\n\nStudium runs as an MCP server that your AI assistant starts on your computer. Once it is connected, you can say \"I want to learn X with Studium\" and the assistant builds, plays and schedules your lessons through Studium's tools. This page helps you pick the page for your client, then shows how to check the connection."
+    },
+    {
+      "id": "p:studium-documentation-connect-your-assis:2",
+      "source_id": "studium-documentation-connect-your-assis",
+      "text": "## Before you start\n\nThe assistant's client is called a *harness* (see the [glossary](../concepts/glossary.md)). The server talks over stdio: it opens no port and shows no web page. A configuration starts it in one of two ways:"
+    },
+    {
+      "id": "p:studium-documentation-connect-your-assis:3",
+      "source_id": "studium-documentation-connect-your-assis",
+      "text": "| Way | Command | When | |---|---|---| | From npm | `npx -y studium-mcp` | the usual way; needs only Node 20 or later (see [Installation](installation.md#add-the-server-to-your-assistant)) | | From a file | `node /path/to/studium/apps/studium-vscode/dist/lesson-mcp.cjs` | from a checkout after `pnpm --filter studium-vscode build`, or with a `lesson-mcp.cjs` downloaded from a release (use its own path) |"
+    },
+    {
+      "id": "p:studium-documentation-connect-your-assis:4",
+      "source_id": "studium-documentation-connect-your-assis",
+      "text": "Each client page gives the `npx` form first and the checkout form second. Replace `/path/to/studium` with the absolute path of your checkout. If `npx` cannot reach npm, see [Where the packages are](installation.md#where-the-packages-are)."
+    },
+    {
+      "id": "p:studium-documentation-connect-your-assis:5",
+      "source_id": "studium-documentation-connect-your-assis",
+      "text": "You meet two environment variables first:\n\n| Setting | Effect | |---|---| | `BUNDLES_ROOT` | Leave it unset (recommended): lessons live in `~/.studium/library`, progress in `~/.studium/data`. Set `BUNDLES_ROOT=/path/to/studium/fixtures` to play the demo lessons shipped with the repository; lessons your assistant builds still go to `~/.studium/library`. | | `LITELLM_BASE_URL=\"\"` | No judge model, even if your shell defines one (see [Judge model](../reference/configuration.md#judge-model-optional)). |"
+    },
+    {
+      "id": "p:studium-documentation-connect-your-assis:6",
+      "source_id": "studium-documentation-connect-your-assis",
+      "text": "`STUDIUM_EPHEMERAL=1` keeps progress in memory only, for a demo or a test. All variables are listed in [Configuration](../reference/configuration.md).\n\nThe files in [docs/examples](../examples/) are complete examples, in the checkout form, that add `BUNDLES_ROOT` for the demo lessons: [codex.toml](../examples/codex.toml), [mcp.claude.json](../examples/mcp.claude.json), [mcp.vscode.json](../examples/mcp.vscode.json) and [opencode-v2.json](../examples/opencode-v2.json). Merge them into your client's file; never overwrite other servers already configured there."
+    },
+    {
+      "id": "p:studium-documentation-connect-your-assis:7",
+      "source_id": "studium-documentation-connect-your-assis",
+      "text": "## Choose your client\n\nWith the Studium extension for VS Code, **Studium: Connect an Assistant…** connects Mistral Vibe, Codex, Claude Code, Claude Desktop, Cursor and OpenCode in one click, with no Node and no terminal: it writes one `studium` entry into each assistant's own file, running the server the extension carries. Copilot in VS Code has the server already. Each page below starts with that route, then gives the manual one."
+    },
+    {
+      "id": "p:studium-documentation-connect-your-assis:8",
+      "source_id": "studium-documentation-connect-your-assis",
+      "text": "| Client | Where its configuration lives | Page | |---|---|---| | Codex | **Studium: Connect an Assistant…** in VS Code (no Node), or `~/.codex/config.toml`, or `codex mcp add` | [Connect Codex](codex.md) | | Claude Code | **Studium: Connect an Assistant…** in VS Code (no Node), the `studium` plugin, `claude mcp add`, or `.mcp.json` at the project root | [Connect Claude Code](claude-code.md) | | Copilot in VS Code | `.vscode/mcp.json` | [Connect Copilot in VS Code](copilot.md) | | OpenCode | **Studium: Connect an Assistant…** in VS Code (no Node), or `opencode.jsonc` at the project root | [Connect OpenCode](opencode.md) | | Cursor | **Studium: Connect an Assistant…** in VS Code (no Node), or `.cursor/mcp.json` or `~/.cursor/mcp.json` | [Connect Cursor](cursor.md) | | Mistral Vibe | **Studium: Connect an Assistant…** or **Studium: Connect Mistral Vibe** in VS Code (no Node), or `~/.vibe/config.toml`, or `vibe mcp add` | [Connect Mistral Vibe](vibe.md) | | Claude Desktop | **Studium: Connect an Assistant…** in VS Code (no Node), or `claude_desktop_config.json` | [below](#claude-desktop) | | A script or a custom client | no MCP configuration | [HTTP API](../reference/http-api.md) and"
+    },
+    {
+      "id": "p:studium-documentation-connect-your-assis:9",
+      "source_id": "studium-documentation-connect-your-assis",
+      "text": "[file channel](../reference/agentic-session-protocol.md) |\n\n## Claude Desktop\n\nClaude Desktop reads `claude_desktop_config.json`, in `~/Library/Application Support/Claude/` on macOS and in `%APPDATA%\\Claude\\` on Windows. With the Studium extension for VS Code, **Studium: Connect an Assistant…** with **Claude Desktop** ticked writes the entry for you, with no Node; then quit and reopen Claude Desktop. Checked on 26 November 2026 on macOS: the entry it writes started the server with its 40 tools; Claude Desktop itself was not tried yet. By hand, merge this into the file, then restart the app:"
+    },
+    {
+      "id": "p:studium-documentation-connect-your-assis:10",
+      "source_id": "studium-documentation-connect-your-assis",
+      "text": "```json { \"mcpServers\": { \"studium\": { \"command\": \"npx\", \"args\": [\"-y\", \"studium-mcp\"], \"env\": { \"LITELLM_BASE_URL\": \"\" } } } } ```\n\nFrom a checkout, use `\"command\": \"node\"` and `\"args\": [\"/path/to/studium/apps/studium-vscode/dist/lesson-mcp.cjs\"]`."
+    },
+    {
+      "id": "p:studium-documentation-connect-your-assis:11",
+      "source_id": "studium-documentation-connect-your-assis",
+      "text": "## Check the connection\n\nA configuration entry, or a skill the client discovered, does not prove the server is connected. Ask:\n\n```text Call the Studium tool get_server_info and tell me the version, the build date, the number of tools and whether my progress is durable. Then call get_study_plan. ```"
+    },
+    {
+      "id": "p:studium-documentation-connect-your-assis:12",
+      "source_id": "studium-documentation-connect-your-assis",
+      "text": "The answer should list 40 tools (25 lesson, 5 study, 3 authoring, 2 teacher tools, 1 form tool, 3 panel tools and 1 companion tool; see [MCP tools](../reference/mcp-tools.md)) and `persistence.durable: true`. If `durable` is false, progress is lost when the server stops. When the server connects, the assistant also receives Studium's instructions (relay each `display_markdown` as it is, wait for your own answer, never answer or rate for you) and two prompts, `learn` and `review`, in clients that support MCP prompts."
+    },
+    {
+      "id": "p:studium-documentation-connect-your-assis:13",
+      "source_id": "studium-documentation-connect-your-assis",
+      "text": "## Where to go next\n\n- [Keep answers fast](fast-answers.md): the choices that decide how long you wait for each screen. - [Skills](skills.md) and [lesson panels](harness-panels.md) for your assistant. - [VS Code](vscode.md) for the extension's own lesson pane. - [Troubleshooting](troubleshooting.md) when the check fails."
+    },
+    {
+      "id": "p:studium-documentation-teacher-guide:1",
+      "source_id": "studium-documentation-teacher-guide",
+      "text": "English · [Français](teacher-guide.fr.md)\n\n# Teacher guide\n\nStudium helps you turn sources you trust into a lesson your students can play, with every graded item tied to a passage you can check. You decide what is taught, what the sources allow you to claim, and when a lesson reaches students. A lesson that passes every technical check stays a draft until you approve it; that human decision before any distribution is the project's rule 003."
+    },
+    {
+      "id": "p:studium-documentation-teacher-guide:2",
+      "source_id": "studium-documentation-teacher-guide",
+      "text": "This page walks through the whole journey and links to the page for each step. To have your assistant guide you through it, load the `studium-teacher` skill (see [skills](../start/skills.md)).\n\n## The journey at a glance"
+    },
+    {
+      "id": "p:studium-documentation-teacher-guide:3",
+      "source_id": "studium-documentation-teacher-guide",
+      "text": "<picture> <source media=\"(prefers-color-scheme: dark)\" srcset=\"../assets/diagrams/teacher-journey-dark.svg\"> <img src=\"../assets/diagrams/teacher-journey-light.svg\" alt=\"Teacher journey in seven steps: sources, evidence packet, sourced draft, check and lint, MySTRA review, human approval, class; below it, the learner-contribution loop: submission, dashboard review, decision, community bundle.\"> </picture>"
+    },
+    {
+      "id": "p:studium-documentation-teacher-guide:4",
+      "source_id": "studium-documentation-teacher-guide",
+      "text": "| Step | What you do | Result | Page | |---|---|---|---| | Prepare | Choose a question, an audience and the sources you may use | A pilot plan | [below](#prepare-the-activity) | | Author | Have your assistant draft the lesson from captured passages | A checked draft | [Author a lesson](author-a-lesson.md) | | Review | Read the plan, the quotes, the keys and the provenance | Your corrections | [Review and approve](review-and-approve.md) | | Approve | Record your decision for the exact lesson file | `approval.json` | [Review and approve](review-and-approve.md#approve-the-exact-file) | | Distribute | Give students the lesson folder | Lessons in their library | [below](#distribute-a-lesson) | | Follow a class | Read class-level aggregates, never a single student | A class report | [Follow a class](follow-a-class.md) | | Moderate | Review what learners propose to add | Community items | [Learner contributions](learner-contributions.md) |"
+    },
+    {
+      "id": "p:studium-documentation-teacher-guide:5",
+      "source_id": "studium-documentation-teacher-guide",
+      "text": "Approval also writes a receipt of the items you opened and your verdict on each graded item. To send a lesson back without approving it, record a returned receipt instead; see [Review and approve](review-and-approve.md#approve-the-exact-file)."
+    },
+    {
+      "id": "p:studium-documentation-teacher-guide:6",
+      "source_id": "studium-documentation-teacher-guide",
+      "text": "<picture> <source media=\"(prefers-color-scheme: dark)\" srcset=\"../assets/screenshots/teacher-library-dark.png\"> <img src=\"../assets/screenshots/teacher-library-light.png\" width=\"720\" alt=\"The teacher dashboard library, in French: counts of courses, checked and approved lessons, then each lesson with its language, author, number of scenes and concepts, duration, badges for its key classes, a Checked status and a Review button.\"> </picture>"
+    },
+    {
+      "id": "p:studium-documentation-teacher-guide:7",
+      "source_id": "studium-documentation-teacher-guide",
+      "text": "<em>The teacher dashboard library: each lesson with who holds its answer keys and its review status.</em>\n\n## Before you start\n\n1. Install Studium: [installation](../start/installation.md). 2. Play a lesson yourself to see what a student receives: [first lesson](../tutorials/first-lesson.md). 3. Connect your assistant (Codex, Claude Code, Copilot, OpenCode or another MCP client): [harnesses](../start/harnesses.md). No extra model provider is needed to author through it. 4. Follow the [literature to course tutorial](../tutorials/literature-to-course.md) once, on the shipped example, before using your own material."
+    },
+    {
+      "id": "p:studium-documentation-teacher-guide:8",
+      "source_id": "studium-documentation-teacher-guide",
+      "text": "## Prepare the activity\n\nStart from a question that asks for more than a computed output, for example \"Is a high spectral similarity enough to identify a molecule?\". Then separate:\n\n- the concept to understand and the task to carry out; - the expected observation and the limit to discuss; - a new case to check transfer."
+    },
+    {
+      "id": "p:studium-documentation-teacher-guide:9",
+      "source_id": "studium-documentation-teacher-guide",
+      "text": "Decide the pilot: audience, prerequisites, duration, judgement question, what students may explore, which materials are allowed and how results are returned. A framing prompt for your assistant can look like this:"
+    },
+    {
+      "id": "p:studium-documentation-teacher-guide:10",
+      "source_id": "studium-documentation-teacher-guide",
+      "text": "> Prepare a Studium draft for [audience], in [duration], on [question]. Use only the passages > and materials in the packet. Separate the paper's results, hypotheses and synthetic data. > Ask for a prediction before any run, a comparison and a transfer question. Flag missing > evidence. Mark nothing as approved and invent no capsule result."
+    },
+    {
+      "id": "p:studium-documentation-teacher-guide:11",
+      "source_id": "studium-documentation-teacher-guide",
+      "text": "The [use cases](../tutorials/use-cases.md) show complete examples (spectral annotation, diagnosing an analysis, robustness, photographs in archaeology). Ready-made interactive starters are in [activity templates](activity-templates.md); figures, equations and media in [media and visual support](media-and-visual-support.md)."
+    },
+    {
+      "id": "p:studium-documentation-teacher-guide:12",
+      "source_id": "studium-documentation-teacher-guide",
+      "text": "## Distribute a lesson\n\nA lesson is a folder: `lesson.json`, its `assets/` and, once approved, `approval.json`. Keep the three together and at the same revision. A lesson shipped as a `.zip` carries the record as its member `approval.json` (the demo build scripts add it when it matches `lesson.json`); without it the lesson reads \"No approval is recorded for this lesson.\" Students place the folder in their Studium library (by default `~/.studium/library/<course_id>/`, or the folder `BUNDLES_ROOT` names) and open it from their assistant or from VS Code (see [VS Code](../start/vscode.md)). When a learner starts the lesson, the session reports whether an approval record matches the exact file."
+    },
+    {
+      "id": "p:studium-documentation-teacher-guide:13",
+      "source_id": "studium-documentation-teacher-guide",
+      "text": "For a class:\n\n- start with a few students and check the session on their machines (bundle access, display, language, behaviour when the model or the network is unavailable, export); - give written instructions and a fallback if the assistant account or the internet fails; - the VS Code package makes the lesson pane easy to install, but it does not distribute or validate lessons for you."
+    },
+    {
+      "id": "p:studium-documentation-teacher-guide:14",
+      "source_id": "studium-documentation-teacher-guide",
+      "text": "## Run an experiment session\n\nWhen a lesson lets students explore with their assistant, set a concrete scope: data, commands, dependencies, web access, interactive controls and duration. Redisplaying the approved materials can stay inside the activity; a new claim, exercise or scene generated beyond that scope is a draft you review before use. Studium does not yet enforce that boundary for you."
+    },
+    {
+      "id": "p:studium-documentation-teacher-guide:15",
+      "source_id": "studium-documentation-teacher-guide",
+      "text": "Ask students for their prediction, the differences they observed, one limit and a transfer test. An agent's output is not evidence that the student understood. The [agentic experiment tutorial](../tutorials/agentic-experiment.md) gives a full run, and [literature and evidence](literature-and-evidence.md) explains the portable exploration receipt."
+    },
+    {
+      "id": "p:studium-documentation-teacher-guide:16",
+      "source_id": "studium-documentation-teacher-guide",
+      "text": "## What students can share with you\n\nA student may choose to export a [learner report](../learn/learner-report.md) of their recorded actions, and keeps a private [experiment journal](../learn/experiment-journal.md). Discuss with them what will be shared and how you will read it: an incomplete trace does not measure autonomy. The default report excludes personal text and gives no access to the full journal or the assistant's history. See [privacy and limits](../concepts/privacy-and-limits.md)."
+    },
+    {
+      "id": "p:studium-documentation-teacher-guide:17",
+      "source_id": "studium-documentation-teacher-guide",
+      "text": "The [interaction report](follow-a-class.md#how-the-interface-was-used) shows how a consenting class used the interface. To lay those class figures over the lesson's concepts, use `tools/concept_map_report.py` and the [concept map's teacher viewpoint](../learn/concept-map.md#the-teacher-viewpoint-and-class-figures)."
+    },
+    {
+      "id": "p:studium-documentation-teacher-guide:18",
+      "source_id": "studium-documentation-teacher-guide",
+      "text": "## Limits\n\n- Technical checks (schema, exact quotes, lint) are not a pedagogical review; an exact quote can still be misread. - The approval record names the reviewer you type; Studium does not authenticate it. - The dashboard, Observatory and analytics services are local tools without login; do not expose them on the internet."
     }
   ],
   "dropped_short": 0

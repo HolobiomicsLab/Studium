@@ -32,7 +32,7 @@ d'autre : ni Node, ni terminal, ni compte d'assistant IA.
 1. Dans VS Code, ouvrez la vue Extensions, cherchez **Studium** et installez l'extension publiée par
    HolobiomicsLab.
 2. Pour voir d'abord comment fonctionne Studium, sélectionnez l'icône **Studium** dans la barre d'activité,
-   puis **Essayer la leçon de démonstration** : « Découvrir Studium » (une dizaine de minutes, en français ou en
+   puis **Essayer la leçon de démonstration** : « Découvrir Studium » (environ douze minutes, en français ou en
    anglais) est livrée avec l'extension. Un agent d'IA l'a rédigée à partir de la documentation de Studium ; le
    responsable du projet l'a approuvée, sous le nom beta-testeur, sans l'avoir lue.
 3. Pour d'autres leçons, munissez-vous d'un dossier de leçons : celui que votre enseignant vous a donné, ou les leçons de
@@ -173,7 +173,7 @@ Redémarrez l'assistant et demandez : « Je veux apprendre la photosynthèse a
 
 ## État et limites
 
-Studium est un prototype de recherche, en version 0.6.6. Le moteur adaptatif, les outils d'auteur, les enregistrements de provenance et le banc d'évaluation sont implémentés et testés, mais l'effet de Studium sur les apprentissages n'a pas été évalué. Un enseignant doit relire et approuver une leçon avant que des étudiants l'utilisent. Une leçon construite par un assistant IA à partir de vos sources est signalée comme rédigée par un agent et non validée par un enseignant. Sans modèle juge configuré, les réponses ouvertes sont comparées à la référence plutôt que notées. L'adaptateur HTTP expose les 25 opérations de leçon et `rate_recall` ; les autres outils d'étude et tous les outils d'auteur et enseignant n'existent que par MCP. Le workflow de version peut publier sur la Marketplace VS Code, Open VSX et npm dès que leurs jetons sont configurés ; d'ici là, une version est une release GitHub en brouillon avec le VSIX et le fichier du serveur.
+Studium est un prototype de recherche, en version 0.6.7. Le moteur adaptatif, les outils d'auteur, les enregistrements de provenance et le banc d'évaluation sont implémentés et testés, mais l'effet de Studium sur les apprentissages n'a pas été évalué. Un enseignant doit relire et approuver une leçon avant que des étudiants l'utilisent. Une leçon construite par un assistant IA à partir de vos sources est signalée comme rédigée par un agent et non validée par un enseignant. Sans modèle juge configuré, les réponses ouvertes sont comparées à la référence plutôt que notées. L'adaptateur HTTP expose les 25 opérations de leçon et `rate_recall` ; les autres outils d'étude et tous les outils d'auteur et enseignant n'existent que par MCP. Le workflow de version peut publier sur la Marketplace VS Code, Open VSX et npm dès que leurs jetons sont configurés ; d'ici là, une version est une release GitHub en brouillon avec le VSIX et le fichier du serveur.
 
 - [Capacités, surfaces et maturité](docs/concepts/capabilities.fr.md#surfaces-et-maturité) : ce que fait chaque surface et jusqu'où elle est prise en charge.
 - [Architecture et carte du dépôt](docs/develop/architecture.fr.md) : le schéma, chaque application, paquet et service.

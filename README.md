@@ -32,7 +32,7 @@ terminal and no AI account.
 1. In VS Code, open the Extensions view, search for **Studium** and install the extension published by
    HolobiomicsLab.
 2. To see how Studium works first, select the **Studium** icon in the activity bar, then **Try the demo
-   lesson**: « Discover Studium » (about ten minutes, English or French) ships with the extension. An AI agent
+   lesson**: « Discover Studium » (about twelve minutes, English or French) ships with the extension. An AI agent
    drafted it from Studium's documentation; the project's owner approved it, under the name beta-testeur,
    without reading it.
 3. For other lessons, have a folder of lessons: the one your teacher gave you, or the demo lessons, which are the `fixtures`
@@ -166,7 +166,7 @@ Restart the assistant and ask: "I want to learn photosynthesis with Studium". Th
 
 ## Status and limits
 
-Studium is a research prototype, version 0.6.6. The adaptive runtime, the authoring tools, the provenance records and the evaluation harness are implemented and tested, but Studium has not been evaluated for learning outcomes. A teacher must review and approve a lesson before students use it. A lesson built by an AI assistant from your sources is labelled as agent-drafted and not teacher-validated. Without a configured judge model, open answers are compared with the reference rather than scored. The HTTP adapter exposes the 25 lesson operations plus `rate_recall`; the other study tools and all authoring and teacher tools are MCP-only. The release workflow can publish to the VS Code Marketplace, Open VSX and npm once their tokens are configured; until then, a release is a GitHub draft with the VSIX and the server file.
+Studium is a research prototype, version 0.6.7. The adaptive runtime, the authoring tools, the provenance records and the evaluation harness are implemented and tested, but Studium has not been evaluated for learning outcomes. A teacher must review and approve a lesson before students use it. A lesson built by an AI assistant from your sources is labelled as agent-drafted and not teacher-validated. Without a configured judge model, open answers are compared with the reference rather than scored. The HTTP adapter exposes the 25 lesson operations plus `rate_recall`; the other study tools and all authoring and teacher tools are MCP-only. The release workflow can publish to the VS Code Marketplace, Open VSX and npm once their tokens are configured; until then, a release is a GitHub draft with the VSIX and the server file.
 
 - [Capabilities, surfaces and maturity](docs/concepts/capabilities.md#surfaces-and-maturity): what each surface does and how far it is supported.
 - [Architecture and repository map](docs/develop/architecture.md): the diagram, every app, package and service.

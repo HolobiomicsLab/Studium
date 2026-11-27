@@ -23,7 +23,7 @@ Formulez-le simplement, par exemple :
 
 L'assistant commence par `get_study_plan`, dans votre langue. Si une de vos leçons couvre déjà le sujet, il
 vous la propose ; sinon il en prépare une. Sans aucune leçon, le plan propose d'abord « Découvrir Studium », une
-démonstration d'une dizaine de minutes livrée avec Studium, qui montre comment il fonctionne ; dites que vous
+démonstration d'environ douze minutes livrée avec Studium, qui montre comment il fonctionne ; dites que vous
 préférez apprendre votre sujet et l'assistant prépare votre leçon à la place. Indiquez ce que vous savez déjà, le temps dont vous disposez par
 jour ou une date visée : l'assistant est alors invité à ouvrir la leçon par deux courtes questions sur vos
 acquis. Ces deux questions sont jouées une fois et ne reviennent jamais en révision. Ce que vous savez et ce

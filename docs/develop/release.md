@@ -16,7 +16,8 @@ release workflow:
 |---|---|
 | `studium-vX.Y.Z.vsix` | the VS Code extension, with the MCP server, viewer libraries and French and English interface inside |
 | `lesson-mcp.cjs` | the MCP server as one self-contained Node file, the one the VSIX embeds |
-| `SHA256SUMS.txt` | checksums of the two files |
+| `studium-vX.Y.Z.mcpb` | the Claude Desktop bundle: that server, the shipped lessons and a manifest, packed by the [`mcpb`](https://github.com/anthropics/mcpb) tool from what [`stage-mcpb.mjs`](../../.github/scripts/stage-mcpb.mjs) stages; attached to the GitHub release |
+| `SHA256SUMS.txt` | checksums of the three files |
 | `npm-stage/` | the npm package `studium-mcp`: the same server with no runtime dependency, staged by [`stage-npm-mcp.mjs`](../../.github/scripts/stage-npm-mcp.mjs) |
 
 Every file carries the licence of the repository: Apache-2.0, with `LICENSE` and `NOTICE` inside the VSIX

@@ -55,6 +55,20 @@
         "title": "Studium documentation — Student guide",
         "url": "https://github.com/HolobiomicsLab/studium/blob/main/docs/learn/student-guide.md",
         "license": "CC-BY-4.0"
+      },
+      {
+        "key": "harnesses",
+        "path": "docs/start/harnesses.md",
+        "title": "Studium documentation — Connect your assistant",
+        "url": "https://github.com/HolobiomicsLab/studium/blob/main/docs/start/harnesses.md",
+        "license": "CC-BY-4.0"
+      },
+      {
+        "key": "teacher",
+        "path": "docs/teach/teacher-guide.md",
+        "title": "Studium documentation — Teacher guide",
+        "url": "https://github.com/HolobiomicsLab/studium/blob/main/docs/teach/teacher-guide.md",
+        "license": "CC-BY-4.0"
       }
     ],
     "fr": [
@@ -105,6 +119,20 @@
         "path": "docs/learn/student-guide.fr.md",
         "title": "Documentation de Studium — Guide étudiant",
         "url": "https://github.com/HolobiomicsLab/studium/blob/main/docs/learn/student-guide.fr.md",
+        "license": "CC-BY-4.0"
+      },
+      {
+        "key": "harnesses",
+        "path": "docs/start/harnesses.fr.md",
+        "title": "Documentation de Studium — Connecter votre assistant",
+        "url": "https://github.com/HolobiomicsLab/studium/blob/main/docs/start/harnesses.fr.md",
+        "license": "CC-BY-4.0"
+      },
+      {
+        "key": "teacher",
+        "path": "docs/teach/teacher-guide.fr.md",
+        "title": "Documentation de Studium — Guide enseignant",
+        "url": "https://github.com/HolobiomicsLab/studium/blob/main/docs/teach/teacher-guide.fr.md",
         "license": "CC-BY-4.0"
       }
     ]
