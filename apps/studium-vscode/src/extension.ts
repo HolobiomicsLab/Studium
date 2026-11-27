@@ -33,7 +33,7 @@ import { browserPhrases, localeFromLanguage, phrase, type Locale } from "./phras
 import { inlineImageAsset } from "./asset-path.js";
 import { hostPhrase, lessonReadyMessage } from "./host-phrases.js";
 import { inspectLessonArchive, installLessonArchive, type InstallOutcome } from "@studium/lesson-panel/lesson-archive";
-import { alreadyPresentMessage, conflictPrompt, importConfirmation, importDialogOptions, importErrorMessage } from "./lesson-import.js";
+import { alreadyPresentMessage, conflictPrompt, importConfirmation, importDialogOptions, importErrorMessage, refreshedMessage } from "./lesson-import.js";
 import { defaultBundlesRoot, demoLessonRef, shippedLessonsRoot, studiumHome } from "./data-paths.js";
 import { isTrusted, runConsent, runFingerprint, withTrusted } from "./run-trust.js";
 import { checkLessonPath, parseOpenLessonLink, type OpenLessonResult } from "./lesson-uri.js";
@@ -486,6 +486,9 @@ function reportLessonPathError(result: Extract<OpenLessonResult, { ok: false }>)
 
 /** vscode://<publisher>.studium-vscode/open?bundle=<path of lesson.json> (C7). */
 async function handleLessonUri(context: vscode.ExtensionContext, uri: vscode.Uri): Promise<void> {
+  // Route A: vscode://holobiomicslab.studium-vscode/import in a course page opens the import's file dialog. It takes no
+  // parameter and ignores any query: a link must never be able to name the file to install.
+  if (uri.path === "/import") { await importLesson(context); return; }
   if (uri.path !== "/open") return;
   // D2: VS Code hands over the query decoded once (uri.query); uri.toString() would encode its "=" again.
   const result = parseOpenLessonLink(uri.query ?? "", existsSync, lessonLinkRoots(context));
@@ -535,17 +538,24 @@ async function importLesson(context: vscode.ExtensionContext, resource?: unknown
     const confirmed = await vscode.window.showInformationMessage(confirmation.message, { modal: true, detail: confirmation.detail }, confirmation.action);
     if (confirmed !== confirmation.action) return;
     // BN-1: the lesson the learner imports here is not announced as ready a moment later.
-    libraryWatch?.markOwn(join(library, summary.bundleId, "lesson.json"));
-    let outcome: InstallOutcome = await installLessonArchive(archive, library);
-    if (outcome.status === "conflict") {
-      const conflict = conflictPrompt(outcome.summary, locale);
+    const lessonPath = join(library, summary.bundleId, "lesson.json");
+    libraryWatch?.markOwn(lessonPath);
+    // The file the student confirmed, byte for byte: a file swapped since is refused (changed_since_check).
+    const expectedArchiveSha256 = summary.archiveSha256;
+    let outcome: InstallOutcome = await installLessonArchive(archive, library, { expectedArchiveSha256 });
+    // Replace only what the prompt showed: when the library changed meanwhile, the install answers conflict again and the
+    // student is asked about what is there now.
+    for (let asked = 0; outcome.status === "conflict" && asked < 3; asked++) {
+      const conflict = conflictPrompt(outcome.summary, locale, outcome.existingSha256);
       const replace = await vscode.window.showWarningMessage(conflict.message, { modal: true, detail: conflict.detail }, conflict.replace);
       if (replace !== conflict.replace) return;
-      outcome = await installLessonArchive(archive, library, { replace: true });
+      libraryWatch?.markOwn(lessonPath); // the answer may have taken longer than the ownership window
+      outcome = await installLessonArchive(archive, library, { replace: true, expectedArchiveSha256, expectedExistingSha256: outcome.existingSha256 });
     }
-    if (outcome.status === "conflict") return; // replace: true never answers a conflict
+    if (outcome.status === "conflict") return;
     treeProvider?.refresh();
     if (outcome.status === "already_present") void vscode.window.showInformationMessage(alreadyPresentMessage(outcome.summary, locale));
+    if (outcome.status === "refreshed") void vscode.window.showInformationMessage(refreshedMessage(outcome.summary, locale));
     await openLesson(context, outcome.bundleRef, "lesson", { bundlesRoot: library });
   } catch (error) {
     vscode.window.showErrorMessage(importErrorMessage(error, locale));

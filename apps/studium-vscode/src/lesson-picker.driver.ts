@@ -55,6 +55,22 @@ const bundle = (title: string, target: string, language: string, validatedBy: st
   expect(/Importer un fichier de leçon…/.test(importFr?.label ?? ""), `and in French (got ${importFr?.label})`);
 }
 
+// Review 2026-11-27, item 3: a dot folder (a leftover .studium-import-* of an interrupted import) is never entered, as
+// the server's catalog does not.
+{
+  const root = mkdtempSync(join(tmpdir(), "studium-picker-dot-"));
+  try {
+    for (const dir of ["visible", ".studium-import-abc/new", ".hidden"]) mkdirSync(join(root, dir), { recursive: true });
+    writeFileSync(join(root, "visible", "lesson.json"), bundle("Visible", "L1", "fr", "T"));
+    writeFileSync(join(root, ".studium-import-abc", "new", "lesson.json"), bundle("Leftover", "L1", "fr", "T"));
+    writeFileSync(join(root, ".hidden", "lesson.json"), bundle("Hidden", "L1", "fr", "T"));
+    const refs = discoverCoursesInRoot(root).map((course) => course.ref);
+    expect(JSON.stringify(refs) === JSON.stringify(["visible/lesson.json"]), `dot folders are not listed (got ${JSON.stringify(refs)})`);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+}
+
 // Approval state comes from approval.json bound to the bytes of the lesson; validated_by text never shows.
 {
   const lesson = bundle("Signed", "L1", "fr", "Teacher Z");
