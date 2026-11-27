@@ -8,6 +8,7 @@
 //   rateRecall messages from the pane are validated before they reach a tool; forget-my-data erases the lot.
 //   node_modules/.pnpm/node_modules/.bin/tsx apps/studium-vscode/src/extension-host.driver.ts
 import Module from "node:module";
+import { createHash } from "node:crypto";
 import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
@@ -1278,6 +1279,81 @@ async function main() {
         "a file that is not a lesson archive is refused in one line (got " + seen.errors.slice(errorsBefore).join(" | ") + ")");
       expect(libraryState() === refusedBefore && seen.panels.length === panesBefore, "and nothing is written or opened");
       expect(readdirSync(libraryRoot).every((name) => !name.startsWith(".studium-import-")), "no temporary folder is left in the library");
+    }
+    infoAnswer = savedInfo;
+    warningAnswer = savedWarning;
+  }
+
+  // Review 2026-11-27: the import is the lesson the student confirmed (items 1, 2), and a link can only open the dialog
+  // (item 11).
+  {
+    const importLesson = seen.commands.get("studium.importLesson");
+    const libraryRoot = join(isolation.studiumHome, "library");
+    const libraryState = () => listFiles(libraryRoot).sort().map((f) => f + " " + readFileSync(f).toString("base64")).join("\n");
+    const downloads = join(scratch, "downloads-review");
+    mkdirSync(downloads, { recursive: true });
+    const base = JSON.parse(readFileSync(safePath, "utf8"));
+    const lessonOf = (id: string, title: string) => Buffer.from(JSON.stringify({ ...base, bundle_id: id, metadata: { ...base.metadata, title } }));
+    const approvalOf = (bytes: Buffer) => JSON.stringify({ schema: "studium-approval/1", bundle_sha256: createHash("sha256").update(bytes).digest("hex"), reviewer: "Élise Dumont", reviewed_at: "2026-11-27T09:00:00Z" });
+    const savedInfo = infoAnswer;
+    const savedWarning = warningAnswer;
+    const confirm = (_m: string, items: unknown[]) => items.find((i) => i === "Import" || i === "Importer") as string | undefined;
+    if (importLesson) {
+      // Item 1: the file swapped while the confirmation is open: refused, nothing written.
+      const good = lessonOf("good-lesson", "Good lesson");
+      const swapped = join(downloads, "good-lesson.studium.zip");
+      writeFileSync(swapped, makeZip({ "lesson.json": good }));
+      const before = libraryState();
+      const errorsBefore = seen.errors.length;
+      infoAnswer = (m, items) => { writeFileSync(swapped, makeZip({ "lesson.json": lessonOf("other-lesson", "Other lesson") })); return confirm(m, items); };
+      await importLesson(FakeUri.file(swapped));
+      expect(libraryState() === before && !existsSync(join(libraryRoot, "other-lesson")), "a file swapped after the confirmation installs nothing");
+      expect(seen.errors.length === errorsBefore + 1 && hostEither("import_error_changed_since_check").includes(seen.errors.at(-1) ?? ""),
+        "and says the file changed after it was confirmed (got " + seen.errors.slice(errorsBefore).join(" | ") + ")");
+
+      // Item 1, replace: the library changes while the conflict prompt is open: asked again, Cancel writes nothing.
+      infoAnswer = confirm;
+      const v1 = join(downloads, "review-lesson-1.studium.zip");
+      writeFileSync(v1, makeZip({ "lesson.json": lessonOf("review-lesson", "Review lesson") }));
+      await importLesson(FakeUri.file(v1));
+      lastPanel()?.dispose();
+      const v2 = join(downloads, "review-lesson-2.studium.zip");
+      writeFileSync(v2, makeZip({ "lesson.json": lessonOf("review-lesson", "Review lesson, version 2") }));
+      const meanwhile = lessonOf("review-lesson", "Review lesson, written meanwhile");
+      let asked = 0;
+      warningAnswer = (items) => {
+        asked++;
+        if (asked === 1) { writeFileSync(join(libraryRoot, "review-lesson", "lesson.json"), meanwhile); return items.find((i) => i === "Replace" || i === "Remplacer"); }
+        return undefined;
+      };
+      await importLesson(FakeUri.file(v2));
+      expect(asked === 2, "a lesson changed in the library while the prompt was open is asked about again (asked " + asked + " times)");
+      expect(readFileSync(join(libraryRoot, "review-lesson", "lesson.json")).equals(meanwhile), "and Cancel leaves it as it is");
+
+      // Item 2: the same lesson.json, the library without its approval: refreshed, said in one line, the lesson opens.
+      const same = lessonOf("refresh-lesson", "Refresh lesson");
+      const bare = join(downloads, "refresh-bare.studium.zip");
+      writeFileSync(bare, makeZip({ "lesson.json": same }));
+      await importLesson(FakeUri.file(bare));
+      lastPanel()?.dispose();
+      const approved = join(downloads, "refresh-approved.studium.zip");
+      writeFileSync(approved, makeZip({ "lesson.json": same, "approval.json": approvalOf(same) }));
+      const panesBefore = seen.panels.length;
+      await importLesson(FakeUri.file(approved));
+      expect(existsSync(join(libraryRoot, "refresh-lesson", "approval.json")), "the approval the library lacked is written");
+      expect(seen.infos.some((m) => hostEither("import_refreshed", { title: "Refresh lesson" }).includes(m)), "and the student is told the approval record or figures were updated");
+      await waitFor(() => seen.panels.length > panesBefore && lastPanel().posted.some((m: Json) => m.type === "render"), "the refreshed lesson's pane");
+      lastPanel()?.dispose();
+
+      // Item 11: vscode://holobiomicslab.studium-vscode/import opens the file dialog; a query never names the file.
+      openDialogAnswer = undefined;
+      for (const query of ["", "file=" + encodeURIComponent(approved), "bundle=" + encodeURIComponent(v2)]) {
+        const dialogsBefore = seen.openDialogOptions.length;
+        const state = libraryState();
+        await seen.uriHandler.handleUri({ path: "/import", query, toString: () => "vscode://holobiomicslab.studium-vscode/import" + (query ? "?" + query : "") });
+        expect(seen.openDialogOptions.length === dialogsBefore + 1, "a /import link opens the file dialog (query " + JSON.stringify(query) + ")");
+        expect(libraryState() === state, "and installs nothing by itself (query " + JSON.stringify(query) + ")");
+      }
     }
     infoAnswer = savedInfo;
     warningAnswer = savedWarning;

@@ -195,6 +195,9 @@ function collectLessonFiles(
   output: LessonDirectoryEntry[],
 ): void {
   for (const entry of safeReadDirectory(join(root, relativeDirectory), fileSystem)) {
+    // A dot folder is never entered, as the server's catalog does not (lesson-catalog.ts): a leftover .studium-import-*
+    // of an interrupted import, .git, an editor's folder.
+    if (entry.isDirectory && entry.name.startsWith(".")) continue;
     if (entry.isDirectory && !IGNORED_DIRECTORIES.has(entry.name) && depth < MAX_DIRECTORY_DEPTH) {
       collectLessonFiles(root, appendRef(relativeDirectory, entry.name), depth + 1, fileSystem, output);
       continue;

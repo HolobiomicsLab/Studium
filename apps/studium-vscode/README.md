@@ -65,7 +65,7 @@ Titles, setting descriptions and the view name follow VS Code's display language
 | Studium: Open lesson | `studium.openLesson` | the lesson pane |
 | Studium: Open lesson as notebook | `studium.openLessonNotebook` | the notebook surface |
 | Studium: Open this lesson | `studium.openThisLesson` | also in the explorer and editor-tab menus on a `lesson.json`; opens it without touching the settings |
-| Studium: Import a lesson… | `studium.importLesson` | also in the explorer menu on a `*.studium.zip`; checks a lesson file a teacher packed, asks, copies it into your library and opens it |
+| Studium: Import a lesson… | `studium.importLesson` | also in the explorer menu on a `*.studium.zip`, and from a `vscode://holobiomicslab.studium-vscode/import` link in a course page (it opens the file dialog; a link never names the file); checks a lesson file a teacher packed, asks, copies it into your library and opens it |
 | Studium: Community contributions | `studium.communityContributions` | open peer-authored, teacher-approved bundles under the course's `community/` folder |
 | Studium: Run reproduction (current scene's capsule) | `studium.runReproduction` | run the current scene's capsule, after confirmation |
 | Studium: Refresh the lessons view | `studium.refreshLessons` | rescan courses and reviews |
