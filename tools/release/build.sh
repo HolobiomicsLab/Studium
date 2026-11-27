@@ -67,6 +67,8 @@ say "Install and build"
 
 if [ "$tests" -eq 1 ]; then
   say "Tests of the extension and of the MCP server"
+  # The dist-load driver loads the built extension (2026-11-27): build it before its tests.
+  "${pnpm[@]}" --filter studium-vscode build
   "${pnpm[@]}" --filter studium-vscode test
   "${pnpm[@]}" --filter @studium/lesson-mcp test
 fi

@@ -4,6 +4,14 @@ All notable changes to Studium are recorded here. The format follows [Keep a Cha
 
 ## Unreleased
 
+## 0.6.8 — 2026-11-27
+
+This release publishes what 0.6.7 held, whose release build stopped before reaching any registry: the VS Code extension starts again (0.6.6 did not), the Claude Desktop bundle, and « Discover Studium » offered first. See 0.6.7 below.
+
+### Fixed
+
+- The release build ran the extension's tests before building it, so the new `dist-load` driver found no built extension and the 0.6.7 release stopped before publishing anything; 0.6.7 reached no registry. `tools/release/build.sh` now builds the extension before its tests.
+
 ## 0.6.7 — 2026-11-27
 
 This release is about the first minutes with Studium: Claude Desktop users install it with a double click on the `.mcpb` file attached to the release, with no Node and no VS Code; the shipped lesson « Discover Studium » is offered first, in VS Code and in the browser player, and now ends with where to play Studium and what it offers learners and teachers; and connecting an assistant says when another Studium server would show each tool twice. Tried: a Claude Code conversation through the entry the extension writes, and the bundle's server started as Claude Desktop starts it. It also fixes 0.6.6, whose VS Code extension did not start at all. Not tried yet: installing the bundle in Claude Desktop itself, Codex conversations, and Windows.
