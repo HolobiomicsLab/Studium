@@ -1162,7 +1162,8 @@ async function main() {
     const nodes = tree.getChildren();
     expect(nodes[0]?.id === "continue" && !nodes.some((n: Json) => n.id === "reviews"),
       `no review history and no course: the tree shows Continue first instead of the welcome view (got ${nodes.map((n: Json) => n.id).join(",")})`);
-    expect(hostEither("tree_continue_step", { step: 2, total: 12 }).some((s) => String(continueNode()?.description).startsWith(s)),
+    // Changed: 2026-11-27, the demo has 14 steps (was 12): two closing scenes, where to play Studium and what it offers.
+    expect(hostEither("tree_continue_step", { step: 2, total: 14 }).some((s) => String(continueNode()?.description).startsWith(s)),
       `it names the next step (got ${continueNode()?.description})`);
     expect(status.shown && hostEither("status_continue", { title: "Discover Studium" }).includes(status.text),
       `nothing due: the bar offers to continue (got ${status.text})`);
@@ -1180,7 +1181,7 @@ async function main() {
         `Continue resumes the lesson at its next step (got ${resumed?.view?.bundle_ref} ${resumed?.scene?.id})`);
       await answer(pane, 2);
       pane.dispose();
-      await refreshUntil(() => hostEither("tree_continue_step", { step: 4, total: 12 }).some((s) => String(continueNode()?.description).startsWith(s)), "Continue at step 4");
+      await refreshUntil(() => hostEither("tree_continue_step", { step: 4, total: 14 }).some((s) => String(continueNode()?.description).startsWith(s)), "Continue at step 4");
     }
     expect(configWrites.length === writesBefore, "Continue writes no setting");
     settings["learnerId"] = savedLearner;
