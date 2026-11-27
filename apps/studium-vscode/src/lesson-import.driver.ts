@@ -63,13 +63,13 @@ const nbsp = (s: string) => s.replace(/[\u00a0\u202f]/g, " ");
 
 // The conflict: a different lesson with the same identifier; what replacing does to it and to the learner's progress.
 {
-  const en = conflictPrompt({ ...base, title: "Les orbitales, version 2" }, "en", "ab".repeat(32));
+  const en = conflictPrompt({ ...base, title: "Les orbitales, version 2" }, "en", "ab".repeat(32), true);
   expect(en.message.includes("chem-l1") && /different lesson/.test(en.message), "the conflict names the identifier and says the lesson there is a different one (got " + en.message + ")");
   expect(/deletes/.test(en.detail) && en.detail.includes("Les orbitales, version 2"), "it says replacing deletes the lesson there and puts the new one in its place (got " + en.detail + ")");
   expect(/progress/.test(en.detail) && /kept/.test(en.detail) && /identifier/.test(en.detail), "it says the progress is kept, as it is saved under the identifier");
   expect(/finished/.test(en.detail) && /steps/.test(en.detail), "it says what carries over: shared steps, a finished lesson");
   expect(en.replace === "Replace", "the English button is « Replace »");
-  const fr = conflictPrompt(base, "fr", "ab".repeat(32));
+  const fr = conflictPrompt(base, "fr", "ab".repeat(32), true);
   expect(fr.message.includes("chem-l1") && /progression/.test(fr.detail) && /gardée/.test(fr.detail) && fr.replace === "Remplacer", "and in French (got " + fr.message + " / " + fr.detail + ")");
 }
 
@@ -90,7 +90,7 @@ const nbsp = (s: string) => s.replace(/[\u00a0\u202f]/g, " ");
   }
   const long = importConfirmation({ ...base, title: "x".repeat(500) }, "en").message;
   expect(!long.includes("x".repeat(201)), "a title is capped at 200 characters");
-  const conflict = conflictPrompt({ ...base, bundleId: "chem-l1", title: "T\nReplacing is safe" }, "en", "ab".repeat(32));
+  const conflict = conflictPrompt({ ...base, bundleId: "chem-l1", title: "T\nReplacing is safe" }, "en", "ab".repeat(32), true);
   expect(!conflict.detail.includes("\nReplacing is safe"), "the conflict detail too");
 }
 
@@ -100,13 +100,31 @@ const nbsp = (s: string) => s.replace(/[\u00a0\u202f]/g, " ");
   expect(/already in your library/.test(refreshedMessage(base, "en")) && /approval record or figures were updated/.test(refreshedMessage(base, "en")),
     "refreshed: already there, approval record or figures updated (got " + refreshedMessage(base, "en") + ")");
   expect(/déjà dans ta bibliothèque/.test(refreshedMessage(base, "fr")) && /mis à jour/.test(refreshedMessage(base, "fr")), "and in French");
-  const en = conflictPrompt(base, "en", "ab".repeat(32));
+  const en = conflictPrompt(base, "en", "ab".repeat(32), true);
   expect(/community\//.test(en.detail) && /contributions/.test(en.detail), "the conflict detail says the class contributions (community/) are kept (got " + en.detail + ")");
-  expect(/community\//.test(conflictPrompt(base, "fr", "ab".repeat(32)).detail), "and in French");
-  const empty = conflictPrompt(base, "en", "");
+  expect(/community\//.test(conflictPrompt(base, "fr", "ab".repeat(32), true).detail), "and in French");
+  const empty = conflictPrompt(base, "en", "", true);
   expect(/holds no readable lesson/.test(empty.message) && !/different lesson/.test(empty.message) && empty.message.includes("chem-l1"),
     "a folder without a readable lesson.json is named as such (got " + empty.message + ")");
-  expect(/aucune leçon lisible/.test(conflictPrompt(base, "fr", "").message), "and in French");
+  expect(/aucune leçon lisible/.test(conflictPrompt(base, "fr", "", true).message), "and in French");
+}
+
+
+// Second review, items 5 and 6: every character of Unicode categories Cc, Cf, Zl and Zp (and U+034F, U+180E) is removed
+// from what the archive says; the class contributions are promised only when a real community/ folder is carried.
+{
+  const hidden = ["\u{61C}", "\u{FFF9}", "\u{FFFA}", "\u{FFFB}", "\u{E0041}", "\u{E007F}", "\u{34F}", "\u{180E}", "\u{202E}", "\u{2066}", "\u{200B}", "\u{2028}", "\u{2029}", "\u{AD}"];
+  const title = "Les" + hidden.join("") + " orbitales";
+  const shown = importConfirmation({ ...base, title, approval: { ...base.approval, reviewer: "Élise" + hidden.join("") } }, "en");
+  expect(!hidden.some((c) => shown.message.includes(c) || shown.detail.includes(c)), "no hidden character reaches the modal (got " + JSON.stringify(shown.message) + ")");
+  expect(shown.message.includes("“Les orbitales”"), "the visible text stays (got " + shown.message + ")");
+  for (const locale of ["en", "fr"] as const) {
+    for (const existing of ["ab".repeat(32), ""]) {
+      const without = conflictPrompt(base, locale, existing, false).detail;
+      const withIt = conflictPrompt(base, locale, existing, true).detail;
+      expect(!/community/.test(without) && /community\//.test(withIt), locale + " " + (existing ? "lesson" : "no lesson") + ": community/ promised only when carried (got " + without + " / " + withIt + ")");
+    }
+  }
 }
 
 // Each refusal maps to one line that says nothing was written and what to do.
@@ -131,7 +149,7 @@ const nbsp = (s: string) => s.replace(/[\u00a0\u202f]/g, " ");
   expect(failed.includes("EEXIST") && !failed.includes("/Users") && /nothing was changed/.test(failed), "write_failed: the code, no path, nothing changed (got " + failed + ")");
   expect(/rien n'a été changé/.test(importErrorMessage(new LessonArchiveError("write_failed", "x", undefined, "ENOSPC"), "fr")), "and in French");
   const restore = importErrorMessage(new LessonArchiveError("restore_failed", "x", "/tmp/lib/.studium-import-abc/previous", "EACCES"), "en");
-  expect(restore.includes("/tmp/lib/.studium-import-abc/previous"), "restore_failed names where the old lesson is (got " + restore + ")");
+  expect(restore.includes("/tmp/lib/.studium-import-abc/previous") && /contributions/.test(restore), "restore_failed names the folder that holds the old lesson and its contributions (got " + restore + ")");
   const taken = importErrorMessage(new LessonArchiveError("folder_taken", "x", "demo"), "en");
   expect(taken.includes("demo"), "folder_taken names the folder (got " + taken + ")");
   expect(/changed after you confirmed/.test(importErrorMessage(new LessonArchiveError("changed_since_check", "x"), "en")), "changed_since_check says the file changed");

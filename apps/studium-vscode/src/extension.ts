@@ -546,7 +546,7 @@ async function importLesson(context: vscode.ExtensionContext, resource?: unknown
     // Replace only what the prompt showed: when the library changed meanwhile, the install answers conflict again and the
     // student is asked about what is there now.
     for (let asked = 0; outcome.status === "conflict" && asked < 3; asked++) {
-      const conflict = conflictPrompt(outcome.summary, locale, outcome.existingSha256);
+      const conflict = conflictPrompt(outcome.summary, locale, outcome.existingSha256, outcome.carriesCommunity);
       const replace = await vscode.window.showWarningMessage(conflict.message, { modal: true, detail: conflict.detail }, conflict.replace);
       if (replace !== conflict.replace) return;
       libraryWatch?.markOwn(lessonPath); // the answer may have taken longer than the ownership window
