@@ -4,6 +4,10 @@ All notable changes to Studium are recorded here. The format follows [Keep a Cha
 
 ## Unreleased
 
+## 0.6.10 — 2026-11-27
+
+This release is about Codex: the entry that **Studium: Connect an Assistant…** writes now lets Codex use Studium's tools without asking before each step, which a learner met at every answer and `codex exec` refused outright. Tried with codex-cli 0.170.0: a conversation of 13 turns, from the demo lesson to a lesson built from a notes file, played and rated. Not tried yet: the Codex app and Codex in VS Code. Maintainers get a skill, `studium-release`, for the order of a release and its checks.
+
 ### Changed
 
 - **Codex no longer asks before each Studium step.** The entry that **Studium: Connect an Assistant…** writes into Codex's `config.toml` now carries `default_tools_approval_mode = "approve"`. Without it, Codex asked before every Studium tool not marked read-only (starting a lesson, each answer, each recall rating), and `codex exec` refused them (« MCP tool call requires approval, but approval policy is never »). Studium's tools write only Studium's own lessons and progress; the owner allowed them for Codex on 27 November 2026. An entry written by an earlier version is rewritten when VS Code next starts the extension. Tried with codex-cli 0.170.0 on macOS: a conversation of 13 turns in `codex exec` with the 0.6.9 entry's server and the approval line, from the demo lesson to a lesson built from a notes file, played and rated. Not tried yet: the Codex app and Codex in VS Code.
