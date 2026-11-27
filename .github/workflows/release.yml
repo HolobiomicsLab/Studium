@@ -60,7 +60,7 @@ jobs:
           if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
             echo "The release $GITHUB_REF_NAME exists already; its files are left as they are."
           else
-            gh release create "$GITHUB_REF_NAME" "release/studium-${GITHUB_REF_NAME}.vsix" release/lesson-mcp.cjs release/SHA256SUMS.txt \
+            gh release create "$GITHUB_REF_NAME" "release/studium-${GITHUB_REF_NAME}.vsix" release/lesson-mcp.cjs "release/studium-${GITHUB_REF_NAME}.mcpb" release/SHA256SUMS.txt \
               --draft --generate-notes --title "Studium ${GITHUB_REF_NAME}"
           fi
 

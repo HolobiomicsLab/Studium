@@ -57,7 +57,13 @@ would list each Studium tool twice, so keep one. It never removes an entry it di
 
 ## Claude Desktop
 
-Claude Desktop reads `claude_desktop_config.json`, in `~/Library/Application Support/Claude/` on macOS and
+**From Studium 0.6.7, the simplest way:** download `studium-vX.Y.Z.mcpb` from the
+[latest release](https://github.com/HolobiomicsLab/Studium/releases/latest), double-click it, and choose **Install** in
+Claude Desktop. Claude Desktop runs the server with the Node it ships: no Node, no VS Code, no file to edit. The bundle
+carries « Discover Studium »; ask Claude « I want to learn X with Studium ». Its manifest and the server it starts are
+checked by the release build; installing it in Claude Desktop was not tried yet.
+
+Otherwise, Claude Desktop reads `claude_desktop_config.json`, in `~/Library/Application Support/Claude/` on macOS and
 in `%APPDATA%\Claude\` on Windows. With the Studium extension for VS Code, **Studium: Connect an Assistant…** with
 **Claude Desktop** ticked writes the entry for you, with no Node; then quit and reopen Claude Desktop. Checked on
 26 November 2026 on macOS: the entry it writes started the server with its 40 tools; Claude Desktop itself was not

@@ -6,6 +6,7 @@ All notable changes to Studium are recorded here. The format follows [Keep a Cha
 
 ### Added
 
+- A Claude Desktop bundle, `studium-vX.Y.Z.mcpb`, attached to each GitHub release: a double click installs Studium in Claude Desktop, which runs it with the Node it ships, with no VS Code and no file to edit. The release build stages it (`.github/scripts/stage-mcpb.mjs`), validates and packs it with the `mcpb` tool (new development dependency `@anthropic-ai/mcpb`), and `tools/release/stage-mcpb.test.mjs` starts the server it names.
 - **Studium: Connect an Assistant…** names any other server that runs Studium in the same assistant (a development or hand-written entry under another name), which would show each Studium tool twice, and offers to open the file; it removes nothing it did not write.
 
 ### Changed
