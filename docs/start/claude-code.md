@@ -22,7 +22,7 @@ offered in the Studium pane and opens there by itself when it is ready; elsewher
 Studium update rewrites the entry; **Studium: Disconnect an Assistant…** removes it, and so does uninstalling the
 extension, as far as VS Code runs its uninstall step. The plugin below brings Studium's skills and lesson agents as well; with both, Claude Code runs two Studium servers, so keep one.
 
-Checked on 26 November 2026 on macOS: `claude mcp list` (Claude Code 2.1.332) reported the server connected. A conversation in Claude Code with this entry was not tried yet.
+Checked on 26 November 2026 on macOS: `claude mcp list` (Claude Code 2.1.332) reported the server connected. On 27 November 2026, a conversation with this entry (`claude -p`, Claude Code 2.1.332, Sonnet) started « Discover Studium » and showed its first step as Studium wrote it.
 
 The sections below set the server up by hand.
 

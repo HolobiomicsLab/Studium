@@ -6,6 +6,7 @@ All notable changes to Studium are recorded here. The format follows [Keep a Cha
 
 ### Changed
 
+- The browser player lists « Discover Studium » first, marked « start here », until the learner finishes it; a lesson shipped with Studium no longer reads « approved by a teacher » there, since its own record says who approved it.
 - « Discover Studium » / « Découvrir Studium » gains two closing steps, where to play Studium (VS Code, an assistant connected in one click, the browser) and what it offers learners and teachers, and takes about twelve minutes. The empty Lessons view in VS Code now opens with it: « New to Studium? Start here ».
 
 ## 0.6.6 — 2026-11-26

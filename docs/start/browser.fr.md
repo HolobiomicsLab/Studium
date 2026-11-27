@@ -87,8 +87,10 @@ n'ouvre jamais le navigateur de lui-même.
 
 ## Jouer
 
-1. La page liste les leçons du dossier et de votre bibliothèque, puis la leçon de démonstration livrée avec
-   Studium dans la langue du navigateur (l'anglais quand le navigateur est réglé en anglais, sinon le français), avec leur nombre d'étapes, si un enseignant les a validées, et où vous en êtes. Tant que cette
+1. La page liste d'abord la leçon de démonstration livrée avec Studium, marquée « pour commencer », tant que vous ne
+   l'avez pas terminée, dans la langue du navigateur (l'anglais quand le navigateur est réglé en anglais, sinon le
+   français) ; puis les leçons du dossier et de votre bibliothèque ; une démonstration terminée passe en dernier.
+   Chacune indique son nombre d'étapes, où vous en êtes et, pour vos propres leçons, si un enseignant les a validées. Tant que cette
    liste est affichée, elle est relue chaque fois que vous revenez à son onglet ou à sa fenêtre : une leçon
    que votre assistant a enregistrée entre-temps dans votre bibliothèque apparaît sans recharger la page.
 2. Choisissez-en une. Elle s'ouvre à votre première étape non terminée.
