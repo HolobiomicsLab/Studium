@@ -11,9 +11,9 @@ Journal des unités TDD par milestone. Mis à jour à chaque commit significatif
 Propriétaire, 27 nov. : « on travaille vite fait sur la lecon de demarrage. Incluons brievement dedans les moyens
 d'integration studium et perspective grand ligne usage enseignants/etudiants ». Deux scènes `concept` ajoutées à la fin
 (s13 « Où jouer Studium », s14 « Et après : apprendre, enseigner »), citant `docs/start/harnesses` et
-`docs/teach/teacher-guide` ; durée 12 min partout ; la vue Leçons vide commence par la leçon. L'approbation
-précédente est périmée (nouveaux octets) : `shipped-lessons.test.ts` échoue sur 3 tests tant que le propriétaire n'a pas
-approuvé ces octets (règle 003).
+`docs/teach/teacher-guide` ; durée 12 min partout ; la vue Leçons vide commence par la leçon. Le propriétaire a lu
+le texte français de s13 et s14 et a répondu « Approuver pour ces recommendations » : approbation enregistrée par l'agent
+sous le nom beta-testeur, `--opened s13-concept,s14-concept` en français, aucune scène en anglais (règle 003).
 
 ## 2026-11-27 — Cursor dans « Relier un assistant… »
 

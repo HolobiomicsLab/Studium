@@ -1,0 +1,97 @@
+{
+  "bundle_ref": "self-study-discover-studium-fr",
+  "bundle_sha256": "28a1072e9c98cbd0ecde9f4545aadc127f36c658574de6d9198daa47a96dc362",
+  "decided_at": "2026-11-27T08:27:25Z",
+  "decision": "approved",
+  "items": [
+    {
+      "consequence": "wording",
+      "id": "s1-intro",
+      "opened": false,
+      "sha256": "f76dc366d9b01378eda76980c4221ece6dcdeb0806a7136efb858173f2d40307"
+    },
+    {
+      "consequence": "grading",
+      "id": "s2-quiz",
+      "opened": false,
+      "sha256": "35a090cb9e4695cfbe5950414b04e123132a705d961d804137669e31df8db6c8"
+    },
+    {
+      "consequence": "wording",
+      "id": "s3-concept",
+      "opened": false,
+      "sha256": "622ecfbfe6811f77575bd85efc23a8fb5e986f8dea53a06c03745e713e7d092c"
+    },
+    {
+      "consequence": "grading",
+      "id": "s4-quiz",
+      "opened": false,
+      "sha256": "64a841bbe2f2bcd0223acd592110919c81306dfef387907701f6f3cf3ad16644"
+    },
+    {
+      "consequence": "wording",
+      "id": "s5-concept",
+      "opened": false,
+      "sha256": "9698c345381c6baf7af7d4447c8664669ef93c1e599f519d425bdcd046a0e73e"
+    },
+    {
+      "consequence": "grading",
+      "id": "s6-quiz",
+      "opened": false,
+      "sha256": "fd76da6676276c36123024600d744d0a7f1930fe3be0ea85fce4a0d0e54d522a"
+    },
+    {
+      "consequence": "grading",
+      "id": "s7-explain_back",
+      "opened": false,
+      "sha256": "831245834846dc7680304028327e072df88d0c0e20848e0a4886cfd902981832"
+    },
+    {
+      "consequence": "wording",
+      "id": "s8-concept",
+      "opened": false,
+      "sha256": "6c34a8277445d392bc080c28d8c113c932b2f2ef01d7e3f3bf7786827ba5fb34"
+    },
+    {
+      "consequence": "grading",
+      "id": "s9-quiz",
+      "opened": false,
+      "sha256": "f5dcb304c00315919dc2dcb8a0d7ab5e55f6140e12954ea73113aac105a1a9b0"
+    },
+    {
+      "consequence": "wording",
+      "id": "s10-concept",
+      "opened": false,
+      "sha256": "d316206feb80823953a3ef0ac45c00cf539daf30e40d88622cf0c4820f824bb5"
+    },
+    {
+      "consequence": "grading",
+      "id": "s11-quiz",
+      "opened": false,
+      "sha256": "1e541f474bccb0a9114cbf7fdacc2a567768a56300c1538ce00711dd4dca1589"
+    },
+    {
+      "consequence": "grading",
+      "id": "s12-quiz",
+      "opened": false,
+      "sha256": "993a08d691c19f8fca3b87df1588940c08489256620030513c45dc2c43dc8949"
+    },
+    {
+      "consequence": "wording",
+      "id": "s13-concept",
+      "opened": true,
+      "sha256": "6f16702e053565ad377b489e08e4807d475a1bc13a77e7d9b5c1b40772c93e90"
+    },
+    {
+      "consequence": "wording",
+      "id": "s14-concept",
+      "opened": true,
+      "sha256": "463519bf88c26bdfa51e861f2c0b90e69fbdd78f9431e5d73455a96db95dc63d"
+    }
+  ],
+  "not_opened": 12,
+  "note": "Le propriétaire a lu dans la conversation le texte des deux nouvelles scènes, s13 « Où jouer Studium » et s14 « Et après : apprendre, enseigner », et a répondu « Approuver pour ces recommendations » le 27 novembre 2026 ; enregistré par l'agent sur sa délégation. Les douze autres scènes sont celles approuvées le 26 novembre, sans lecture.",
+  "opened": 2,
+  "reviewer": "beta-testeur",
+  "schema": "studium/review-receipt/v1"
+}
