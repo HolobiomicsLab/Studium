@@ -47,10 +47,10 @@ export interface LessonPickItem {
   ref: string;
 }
 
-/** A complete picker choice: a course, the demo lesson shipped with Studium, or the action that chooses another
- * bundles root. */
+/** A complete picker choice: a course, the demo lesson shipped with Studium, the action that imports a lesson file
+ * (route A: a .studium.zip from a course page), or the action that chooses another bundles root. */
 export interface LessonPickerChoice {
-  action: "course" | "demo" | "folder";
+  action: "course" | "demo" | "import" | "folder";
   label: string;
   description: string;
   detail: string;
@@ -144,12 +144,13 @@ export function toLessonPickItems(courses: readonly LessonCourse[], locale: Loca
 }
 
 /** Add the always-available folder action to the pure course choices, after the demo lesson shipped with Studium
- * when the extension carries it (`demo`), labelled as such and kept apart from the folder's courses. */
+ * when the extension carries it (`demo`), labelled as such and kept apart from the folder's courses. The import of a
+ * lesson file, when the caller offers it (`importFile`), comes after the courses and before the demo. */
 export function toLessonPickerChoices(
   courses: readonly LessonCourse[],
   bundlesRoot: string,
   locale: Locale = "fr",
-  opts: { demo?: boolean } = {},
+  opts: { demo?: boolean; importFile?: boolean } = {},
 ): LessonPickerChoice[] {
   const courseChoices = toLessonPickItems(courses, locale).map((item) => ({ ...item, action: "course" as const }));
   const demo: LessonPickerChoice[] = opts.demo ? [{
@@ -158,7 +159,13 @@ export function toLessonPickerChoices(
     description: hostPhrase("demo_pick_description", {}, locale),
     detail: hostPhrase("demo_pick_detail", {}, locale),
   }] : [];
-  return [...courseChoices, ...demo, {
+  const importFile: LessonPickerChoice[] = opts.importFile ? [{
+    action: "import",
+    label: hostPhrase("picker_import_label", {}, locale),
+    description: hostPhrase("picker_import_description", {}, locale),
+    detail: hostPhrase("picker_import_detail", {}, locale),
+  }] : [];
+  return [...courseChoices, ...importFile, ...demo, {
     label: phrase("picker_folder", {}, locale),
     description: phrase("picker_folder_description", {}, locale),
     detail: bundlesRoot,

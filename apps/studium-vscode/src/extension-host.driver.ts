@@ -70,6 +70,8 @@ const seen = {
   // BN-1 / BN-4 / BN-3: the file watchers the extension created (with their listeners), the buttons of each information
   // message, and the options of each quick pick.
   watchers: [] as FakeWatcher[], infoItems: [] as string[][], quickPickOptions: [] as Json[],
+  // Route A, lot 1: the options of each file dialog.
+  openDialogOptions: [] as Json[],
 };
 interface FakeWatcher { base: string; pattern: string; create: Array<(u: unknown) => void>; change: Array<(u: unknown) => void>; del: Array<(u: unknown) => void>; disposed: boolean }
 let infoAnswer: ((message: string, items: string[]) => string | undefined) = () => undefined;
@@ -200,7 +202,7 @@ const fakeVscode: Json = {
       return Promise.resolve(warningAnswer(items));
     },
     showQuickPick: async (items: Json[], options?: Json) => { seen.quickPickOptions.push(options ?? {}); return quickPickAnswer(items); },
-    showOpenDialog: async () => (openDialogAnswer ? [new FakeUri(openDialogAnswer)] : undefined),
+    showOpenDialog: async (options?: Json) => { seen.openDialogOptions.push(options ?? {}); return openDialogAnswer ? [new FakeUri(openDialogAnswer)] : undefined; },
     showNotebookDocument: async () => ({}),
     createWebviewPanel: (viewType: string) => { const p = fakePanel(viewType); seen.panels.push(p); return p; },
   },
@@ -1187,6 +1189,100 @@ async function main() {
     settings["learnerId"] = savedLearner;
     settings["bundlesRoot"] = savedRoot;
   }
+  // Route A, lot 1 (plan 2026-11-27-moodle-etagere, task 3): « Studium: Import a lesson… » on a lesson file downloaded
+  // from a course page. A cancelled confirmation writes nothing; a confirmed one installs the lesson into the library and
+  // opens it; the same file again opens it and says it was already there; a different lesson under the same identifier
+  // asks first, and Cancel writes nothing; a refused archive says why and writes nothing.
+  {
+    const importLesson = seen.commands.get("studium.importLesson");
+    expect(typeof importLesson === "function", "the studium.importLesson command is registered");
+    const libraryRoot = join(isolation.studiumHome, "library");
+    const libraryState = () => listFiles(libraryRoot).sort().map((f) => f + " " + readFileSync(f).toString("base64")).join("\n");
+    const downloads = join(scratch, "downloads");
+    mkdirSync(downloads, { recursive: true });
+    const lessonData = JSON.parse(readFileSync(safePath, "utf8"));
+    lessonData.bundle_id = "imported-lesson";
+    lessonData.metadata.title = "Imported lesson";
+    const lessonBytes = Buffer.from(JSON.stringify(lessonData));
+    const zipPath = join(downloads, "imported-lesson.studium.zip");
+    writeFileSync(zipPath, makeZip({ "lesson.json": lessonBytes, "assets/fig.txt": "figure", "reviews/r.json": "{}" }));
+    const savedInfo = infoAnswer;
+    const savedWarning = warningAnswer;
+    const confirm = (_m: string, items: unknown[]) => items.find((i) => i === "Import" || i === "Importer") as string | undefined;
+    if (importLesson) {
+      const before = libraryState();
+      infoAnswer = () => undefined;
+      const infosBefore = seen.infos.length;
+      await importLesson(FakeUri.file(zipPath));
+      const asked = seen.infos.slice(infosBefore).find((m) => m.includes("Imported lesson"));
+      const askedItems = seen.infoItems[seen.infos.lastIndexOf(asked ?? "")] ?? [];
+      expect(!!asked && askedItems.some((i: any) => i?.modal === true && /no approval is recorded|aucune approbation/i.test(String(i?.detail ?? ""))),
+        "the import asks first, in a modal that says no approval is recorded (got " + JSON.stringify(seen.infos.slice(infosBefore)) + ")");
+      expect(libraryState() === before, "a cancelled confirmation writes nothing into the library");
+
+      infoAnswer = confirm;
+      let panesBefore = seen.panels.length;
+      await importLesson(FakeUri.file(zipPath));
+      const installed = join(libraryRoot, "imported-lesson");
+      expect(existsSync(join(installed, "lesson.json")) && readFileSync(join(installed, "lesson.json")).equals(lessonBytes),
+        "a confirmed import installs the lesson's exact bytes into <library>/<bundle_id>/");
+      expect(existsSync(join(installed, "assets", "fig.txt")) && !existsSync(join(installed, "reviews")), "its assets with it, and nothing the archive should not carry");
+      await waitFor(() => seen.panels.length > panesBefore && lastPanel().posted.some((m: Json) => m.type === "render"), "the imported lesson's pane");
+      const render = lastPanel()?.posted.find((m: Json) => m.type === "render");
+      expect(render?.view?.bundle_ref === "imported-lesson/lesson.json", "the imported lesson opens from the library (got " + render?.view?.bundle_ref + ")");
+      lastPanel()?.dispose();
+
+      // No URI: a file dialog filtered on zip files picks it; the same file again is already present, opened, and said so.
+      openDialogAnswer = zipPath;
+      const dialogsBefore = seen.openDialogOptions.length;
+      panesBefore = seen.panels.length;
+      const stateBefore = libraryState();
+      await importLesson();
+      const dialog = seen.openDialogOptions[dialogsBefore];
+      expect(!!dialog && JSON.stringify(Object.values(dialog.filters ?? {})) === JSON.stringify([["zip"]]) && dialog.canSelectMany === false,
+        "without a file, a dialog asks for one zip file (got " + JSON.stringify(dialog) + ")");
+      expect(seen.infos.some((m) => hostEither("import_already_present", { title: "Imported lesson" }).includes(m)), "the same lesson again says it was already there");
+      expect(libraryState() === stateBefore, "and writes nothing");
+      await waitFor(() => seen.panels.length > panesBefore && lastPanel().posted.some((m: Json) => m.type === "render"), "the already present lesson's pane");
+      lastPanel()?.dispose();
+      openDialogAnswer = undefined;
+
+      // A different lesson.json under the same bundle_id: asked first; Cancel writes nothing, Replace puts it in place.
+      const v2 = Buffer.from(JSON.stringify({ ...lessonData, metadata: { ...lessonData.metadata, title: "Imported lesson, version 2" } }));
+      const zip2 = join(downloads, "imported-lesson-2.studium.zip");
+      writeFileSync(zip2, makeZip({ "lesson.json": v2 }));
+      warningAnswer = () => undefined;
+      const warningsBefore = seen.warnings.length;
+      const conflictBefore = libraryState();
+      await importLesson(FakeUri.file(zip2));
+      const conflict = seen.warnings.slice(warningsBefore).find((w) => w.message.includes("imported-lesson"));
+      expect(!!conflict && conflict.options?.modal === true && conflict.items.some((i) => i === "Replace" || i === "Remplacer"),
+        "a different lesson with the same identifier asks before replacing (got " + JSON.stringify(seen.warnings.slice(warningsBefore)) + ")");
+      expect(/progress|progression/.test(String(conflict?.options?.detail ?? "")), "and says what happens to the learner's progress");
+      expect(libraryState() === conflictBefore, "conflict then Cancel writes nothing");
+      warningAnswer = (items) => items.find((i) => i === "Replace" || i === "Remplacer");
+      panesBefore = seen.panels.length;
+      await importLesson(FakeUri.file(zip2));
+      expect(readFileSync(join(installed, "lesson.json")).equals(v2) && !existsSync(join(installed, "assets")), "Replace puts the new lesson in the old one's place");
+      await waitFor(() => seen.panels.length > panesBefore && lastPanel().posted.some((m: Json) => m.type === "render"), "the replaced lesson's pane");
+      lastPanel()?.dispose();
+
+      // A refused archive: one line saying why, nothing written, no pane.
+      const bad = join(downloads, "broken.studium.zip");
+      writeFileSync(bad, "not a zip");
+      const errorsBefore = seen.errors.length;
+      const refusedBefore = libraryState();
+      panesBefore = seen.panels.length;
+      await importLesson(FakeUri.file(bad));
+      expect(seen.errors.length === errorsBefore + 1 && /^Studium/.test(seen.errors.at(-1) ?? "") && !(seen.errors.at(-1) ?? "").includes("\n"),
+        "a file that is not a lesson archive is refused in one line (got " + seen.errors.slice(errorsBefore).join(" | ") + ")");
+      expect(libraryState() === refusedBefore && seen.panels.length === panesBefore, "and nothing is written or opened");
+      expect(readdirSync(libraryRoot).every((name) => !name.startsWith(".studium-import-")), "no temporary folder is left in the library");
+    }
+    infoAnswer = savedInfo;
+    warningAnswer = savedWarning;
+  }
+
 }
 
 main().then(() => {
