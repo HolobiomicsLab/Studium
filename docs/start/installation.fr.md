@@ -2,17 +2,19 @@
 
 # Installation
 
-Choisissez la voie la plus courte pour votre cas. Pour apprendre avec un assistant IA, Node suffit :
-l'assistant lance le serveur Studium avec `npx`, sans clone du dépôt. Les enseignants qui préparent et
-approuvent des cours, et les contributeurs, installent depuis un clone. La première séance ne demande
-aucune clé d'API de modèle.
+Choisissez la voie la plus courte pour votre cas. La plupart des gens n'ont besoin d'aucun terminal : VS Code
+et l'extension Studium relient votre assistant en un clic, sans Node
+([Démarrer sans terminal](easy-start.fr.md)). Depuis un terminal, l'assistant lance le serveur Studium avec
+`npx`, ce qui demande Node mais aucun clone. Les enseignants qui préparent et approuvent des cours, et les
+contributeurs, installent depuis un clone. La première séance ne demande aucune clé d'API de modèle.
 
 ## Choisir comment vous installez
 
 | Vous voulez | Voie | Il vous faut |
 |---|---|---|
-| Apprendre avec Copilot dans VS Code, sans Node ni terminal | [Installer l'extension VS Code](#installer-lextension-vs-code) ; elle propose son propre serveur à Copilot ([Connecter Copilot](copilot.fr.md)) | VS Code 1.101 ou plus récent, un abonnement Copilot |
-| Apprendre avec un assistant IA (Codex, Claude Code, Copilot, Cursor, OpenCode, Claude Desktop) | [Ajouter le serveur à votre assistant](#ajouter-le-serveur-à-votre-assistant) | Node |
+| Apprendre avec votre assistant d'IA, sans Node ni terminal : Copilot, Claude Code, Codex, Mistral Vibe, Claude Desktop, Cursor ou OpenCode | [Démarrer sans terminal](easy-start.fr.md) : [installer l'extension VS Code](#installer-lextension-vs-code), puis **Studium : Relier un assistant…** ; Copilot n'a besoin de rien de plus | VS Code 1.95 ou plus récent (1.101 ou plus récent pour Copilot) |
+| Apprendre dans Claude Desktop, sans VS Code | le paquet `.mcpb` joint à une version publiée ([Claude Desktop](harnesses.fr.md#claude-desktop)) | Claude Desktop |
+| Apprendre avec un assistant IA, depuis un terminal | [Ajouter le serveur à votre assistant](#ajouter-le-serveur-à-votre-assistant) | Node |
 | Apprendre dans Claude Code, avec les agents de leçon et les skills | [Installer le plugin Claude Code](#installer-le-plugin-claude-code) | Node, Claude Code 2.1.275 ou plus |
 | Jouer les leçons dans un panneau visuel | [Installer l'extension VS Code](#installer-lextension-vs-code) | VS Code |
 | Préparer et approuver des cours, ou contribuer | [Installer depuis un clone](#installer-depuis-un-clone) | Git, Node, pnpm ; Python pour les outils enseignant |
@@ -30,7 +32,7 @@ Seul un clone vous donne :
 
 | Outil | Version | Voie | Vérification |
 |---|---|---|---|
-| Node | 22 LTS (20 et plus acceptés) | serveur, plugin, clone | `node --version` |
+| Node | 22 LTS (20 et plus acceptés) | voie terminal, plugin, lecteur dans le navigateur, clone | `node --version` |
 | Claude Code | 2.1.275 ou plus | plugin | `claude --version` |
 | VS Code | 1.95 ou plus | extension | Aide, À propos |
 | Git | récente | clone | `git --version` |

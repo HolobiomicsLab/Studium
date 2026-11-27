@@ -8,6 +8,7 @@ Studium turns sources you trust into lessons you can play. Each answer says who 
 
 | You are | Read first | Then |
 |---|---|---|
+| New to Studium, without a terminal | [Start without a terminal](start/easy-start.md) | [Learn with your assistant](learn/learn-with-your-assistant.md) |
 | A student in a class | [Student guide](learn/student-guide.md) | [Your first lesson](tutorials/first-lesson.md) |
 | Learning alone with an assistant | [Learn with your assistant](learn/learn-with-your-assistant.md) | [Review over time](learn/review-over-time.md) |
 | A teacher | [Teacher guide](teach/teacher-guide.md) | [From literature to a course](tutorials/literature-to-course.md) |
@@ -15,6 +16,7 @@ Studium turns sources you trust into lessons you can play. Each answer says who 
 
 ## Install and fix
 
+- [Start without a terminal](start/easy-start.md): VS Code, the demo lesson, then your assistant connected in one click, with no Node.
 - [Quickstart](start/quickstart.md): about fifteen minutes from a clone to a first question.
 - [Installation](start/installation.md), [VS Code](start/vscode.md) and [Troubleshooting](start/troubleshooting.md).
 - [Classroom workstations](start/classroom-workstations.md): for an IT team, VS Code and the lessons installed for a class, with no terminal for students.
@@ -42,7 +44,7 @@ These pages are not a validation of teaching effectiveness. Use the code and the
 <details>
 <summary>All pages</summary>
 
-- **Install and connect.** [Quickstart](start/quickstart.md) · [Installation](start/installation.md) · [Connect your assistant](start/harnesses.md) · [Connect Claude Code](start/claude-code.md) · [Connect Codex](start/codex.md) · [Connect Copilot in VS Code](start/copilot.md) · [Connect Cursor](start/cursor.md) · [Connect OpenCode](start/opencode.md) · [Connect Mistral Vibe](start/vibe.md) · [Choose your model](start/models.md) · [VS Code](start/vscode.md) · [Classroom workstations](start/classroom-workstations.md) · [Play in your browser](start/browser.md) · [Lesson panels in your assistant](start/harness-panels.md) · [Skills](start/skills.md) · [Keep answers fast](start/fast-answers.md) · [Troubleshooting](start/troubleshooting.md) · [Report a problem or contribute](start/report-and-contribute.md)
+- **Install and connect.** [Start without a terminal](start/easy-start.md) · [Quickstart](start/quickstart.md) · [Installation](start/installation.md) · [Connect your assistant](start/harnesses.md) · [Connect Claude Code](start/claude-code.md) · [Connect Codex](start/codex.md) · [Connect Copilot in VS Code](start/copilot.md) · [Connect Cursor](start/cursor.md) · [Connect OpenCode](start/opencode.md) · [Connect Mistral Vibe](start/vibe.md) · [Choose your model](start/models.md) · [VS Code](start/vscode.md) · [Classroom workstations](start/classroom-workstations.md) · [Play in your browser](start/browser.md) · [Lesson panels in your assistant](start/harness-panels.md) · [Skills](start/skills.md) · [Keep answers fast](start/fast-answers.md) · [Troubleshooting](start/troubleshooting.md) · [Report a problem or contribute](start/report-and-contribute.md)
 - **Learn.** [Student guide](learn/student-guide.md) · [Learn a topic with your assistant](learn/learn-with-your-assistant.md) · [Review over time](learn/review-over-time.md) · [Concept map](learn/concept-map.md) · [Experiment journal](learn/experiment-journal.md) · [Learner activity report](learn/learner-report.md) · [Language and supports](learn/language-and-supports.md)
 - **Teach.** [Teacher guide](teach/teacher-guide.md) · [Author a lesson](teach/author-a-lesson.md) · [Literature and evidence](teach/literature-and-evidence.md) · [Review and approve](teach/review-and-approve.md) · [Follow a class](teach/follow-a-class.md) · [Observatory](teach/observatory.md) · [Activity templates](teach/activity-templates.md) · [Media and visual support](teach/media-and-visual-support.md) · [Learner contributions](teach/learner-contributions.md)
 - **Tutorials.** [Your first lesson](tutorials/first-lesson.md) · [Learn a topic in a conversation](tutorials/learn-a-topic-in-a-conversation.md) · [Self-study from your references](tutorials/self-study-from-references.md) · [From the literature to a reviewable draft](tutorials/literature-to-course.md) · [From an interactive activity to an ASTRA/MySTRA report](tutorials/activity-to-report.md) · [A scientific experiment with your agent](tutorials/agentic-experiment.md) · [Choose a Studium use case](tutorials/use-cases.md)

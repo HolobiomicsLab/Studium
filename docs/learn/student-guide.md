@@ -15,12 +15,13 @@ do in a lesson, how to use the assistant without handing it the work, and how to
 ## Before your first session
 
 Ask your teacher for the course lesson (a `lesson.json` with its assets), the Studium version and which
-experiments you may run. A PDF alone is not a playable lesson. To try right away, use the `atomistique-l1`
-lesson shipped in `fixtures/`.
+experiments you may run. A PDF alone is not a playable lesson. To try right away, play « Discover Studium », the
+demo lesson shipped with the VS Code extension.
 
-1. Follow the [quickstart](../start/quickstart.md).
+1. Install: [Start without a terminal](../start/easy-start.md) needs only VS Code; the
+   [quickstart](../start/quickstart.md) works from a checkout, with the demo lessons of `fixtures/`.
 2. Choose where to play: the [VS Code lesson pane](../start/vscode.md), which needs no AI account, or an
-   assistant such as Codex, Claude Code, Copilot or OpenCode over MCP ([harnesses](../start/harnesses.md)).
+   assistant such as Copilot, Claude Code, Codex, Mistral Vibe or OpenCode over MCP ([harnesses](../start/harnesses.md)).
 3. Play the [first lesson tutorial](../tutorials/first-lesson.md).
 
 If your teacher gives you a portable activity (`index.html`), open it in a browser: nothing to install.

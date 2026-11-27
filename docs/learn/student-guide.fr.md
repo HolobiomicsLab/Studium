@@ -16,12 +16,13 @@ reprendre.
 ## Avant la première séance
 
 Demandez à votre enseignant la leçon du cours (un `lesson.json` et ses ressources), la version de Studium et
-les expériences autorisées. Un PDF seul n'est pas une leçon jouable. Pour essayer tout de suite, utilisez la
-leçon `atomistique-l1` fournie dans `fixtures/`.
+les expériences autorisées. Un PDF seul n'est pas une leçon jouable. Pour essayer tout de suite, jouez « Découvrir Studium »,
+la leçon de démonstration livrée avec l'extension VS Code.
 
-1. Suivez le [démarrage rapide](../start/quickstart.fr.md).
+1. Installez : [Démarrer sans terminal](../start/easy-start.fr.md) ne demande que VS Code ; le
+   [démarrage rapide](../start/quickstart.fr.md) part d'un clone, avec les leçons de démonstration de `fixtures/`.
 2. Choisissez où jouer : le [panneau de leçon VS Code](../start/vscode.fr.md), sans compte IA, ou un assistant
-   comme Codex, Claude Code, Copilot ou OpenCode par MCP ([harnais](../start/harnesses.fr.md)).
+   comme Copilot, Claude Code, Codex, Mistral Vibe ou OpenCode par MCP ([harnais](../start/harnesses.fr.md)).
 3. Faites le [tutoriel première séance](../tutorials/first-lesson.fr.md).
 
 Si l'enseignant vous fournit une activité portable (`index.html`), ouvrez-la dans un navigateur : rien à

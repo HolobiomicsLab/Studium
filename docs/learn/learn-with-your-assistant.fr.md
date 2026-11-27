@@ -7,8 +7,10 @@ leçon, la joue avec vous une question à la fois, puis fait revenir les idées 
 enseignant ni terminal : l'assistant dialogue avec Studium par MCP (Model Context Protocol, le moyen par lequel
 un assistant appelle des outils extérieurs).
 
-Cela fonctionne dans Codex, Claude Code et tout assistant capable d'utiliser un serveur MCP. Pour brancher
-Studium, voir [harnais](../start/harnesses.fr.md).
+Cela fonctionne dans Copilot, Claude Code, Codex, Mistral Vibe, Claude Desktop, Cursor, OpenCode et tout
+assistant capable d'utiliser un serveur MCP. Pour brancher Studium sans terminal, voir
+[Démarrer sans terminal](../start/easy-start.fr.md) ; toutes les voies sont dans
+[Connecter votre assistant](../start/harnesses.fr.md).
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="../assets/diagrams/self-learner-journey-dark.svg">

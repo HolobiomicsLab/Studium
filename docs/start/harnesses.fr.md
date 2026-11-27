@@ -60,7 +60,7 @@ n'a pas écrite.
 
 ## Claude Desktop
 
-**À partir de Studium 0.6.7, le plus simple :** téléchargez `studium-vX.Y.Z.mcpb` depuis la
+**À partir de Studium 0.6.8, le plus simple :** téléchargez `studium-vX.Y.Z.mcpb` depuis la
 [dernière version](https://github.com/HolobiomicsLab/Studium/releases/latest), double-cliquez dessus et choisissez
 **Installer** dans Claude Desktop. Claude Desktop lance le serveur avec le Node qu'il contient : ni Node, ni VS Code, ni
 fichier à modifier. Le paquet contient « Découvrir Studium » ; demandez à Claude « je veux apprendre X avec Studium ».

@@ -22,6 +22,7 @@ message without keys, personal data or private lesson content.
 
 | Symptom | Check and fix |
 |---|---|
+| The assistant has no Studium tools after **Studium: Connect an Assistant…** | restart the assistant: reload the VS Code window for one inside VS Code, quit and reopen Claude Desktop, Cursor or OpenCode, or open a new command-line session. The **Studium — lesson-mcp** output channel names the file the command wrote; run the command again: the list marks the assistant « connected » when that file holds the entry |
 | The server waits and shows no page | normal: it talks over stdio to an MCP client, not to a browser |
 | No Studium tools in the chat | read the client's MCP log, check the absolute path to `lesson-mcp.cjs`, restart the server and open a new conversation |
 | VS Code ignores the JSON | `.vscode/mcp.json` uses `servers`; Claude Code and Cursor use `mcpServers`; OpenCode v2 uses `mcp.servers` |
@@ -49,6 +50,7 @@ message without keys, personal data or private lesson content.
 
 | Symptom | Check and fix |
 |---|---|
+| « command 'studium.connectAssistant' not found », or the same for any Studium command; the links of the Studium view do nothing | the extension did not start. Version 0.6.6 had this fault: update the extension to 0.6.8 or later, then run **Developer: Reload Window**. If it persists, open the **Output** panel, choose **Extension Host**, and look for a line about `holobiomicslab.studium-vscode` |
 | F5 finds no launch configuration | open the folder `apps/studium-vscode`, which holds the Extension Host configuration |
 | The installed VSIX finds no lesson | lessons are not in the VSIX: put them in `~/.studium/library`, or set `studium.bundlesRoot` and `studium.bundleRef`, or use **Studium: Pick a course** |
 | Choosing a course warns "could not be saved" (`Unable to write into ... Settings`) | the lesson opens anyway; only the choice is not remembered. Open the settings file the message names, fix its errors or save its unsaved changes, or make it writable; up to version 0.6.3 this message stopped the lesson from opening when no folder was open, so update the extension |

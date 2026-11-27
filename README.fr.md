@@ -24,33 +24,49 @@ Studium a deux parties. Savoir laquelle fait quoi évite de chercher :
 
 Une nouvelle leçon commence donc toujours dans un assistant. Une leçon déjà faite se joue dans VS Code seul.
 
-### Jouer une leçon sans terminal
+### Le plus simple : VS Code, sans terminal
 
-Une leçon donnée par un enseignant, ou l'une des leçons de démonstration, se joue dans VS Code sans rien
-d'autre : ni Node, ni terminal, ni compte d'assistant IA.
+VS Code, l'extension Studium et l'assistant que vous utilisez déjà : ni ligne de commande, ni Node.
 
 1. Dans VS Code, ouvrez la vue Extensions, cherchez **Studium** et installez l'extension publiée par
    HolobiomicsLab.
-2. Pour voir d'abord comment fonctionne Studium, sélectionnez l'icône **Studium** dans la barre d'activité,
-   puis **Essayer la leçon de démonstration** : « Découvrir Studium » (environ douze minutes, en français ou en
-   anglais) est livrée avec l'extension. Un agent d'IA l'a rédigée à partir de la documentation de Studium ; le
-   responsable du projet l'a approuvée, sous le nom beta-testeur, sans l'avoir lue.
-3. Pour d'autres leçons, munissez-vous d'un dossier de leçons : celui que votre enseignant vous a donné, ou les leçons de
-   démonstration, qui sont le dossier `fixtures` de l'[archive du dépôt](https://github.com/HolobiomicsLab/studium/archive/refs/heads/main.zip) (environ 30 Mo ;
-   décompressez-la d'abord).
-4. Sélectionnez l'icône **Studium** dans la barre d'activité, puis **Choisir un cours**, **Choisir un autre
-   dossier de cours…**, et sélectionnez ce dossier.
-5. Choisissez un cours. Il s'ouvre dans un panneau, à sa première étape.
+2. Sélectionnez l'icône **Studium** dans la barre d'activité, puis **Découvrir Studium** : cette leçon (environ
+   douze minutes, en français ou en anglais) est livrée avec l'extension et ne demande aucun compte d'IA. Un
+   agent d'IA l'a rédigée à partir de la documentation de Studium ; le responsable du projet l'a approuvée,
+   sous le nom beta-testeur, sans l'avoir lue.
+3. Reliez votre assistant. Copilot dans VS Code a déjà le serveur Studium (VS Code 1.101 ou plus récent).
+   Pour Claude Code, Codex, Mistral Vibe, Claude Desktop, Cursor ou OpenCode, sélectionnez **Relier un
+   assistant** dans la même vue, cochez le vôtre, puis redémarrez-le (**Recharger la fenêtre** pour celui
+   qui tourne dans VS Code).
+4. Dans une nouvelle conversation avec votre assistant, avec vos mots :
 
-Construire une nouvelle leçon à partir de vos propres sources demande un assistant, relié comme ci-dessous :
-cette partie demande Node et une commande dans un terminal. Pour une salle d'enseignement où une équipe
+   > Je veux apprendre comment fonctionne le cycle de l'eau avec Studium. Sers-toi de ces deux pages : (deux
+   > liens en lesquels vous avez confiance).
+
+   L'assistant construit une leçon à partir de vos sources, vous en montre le plan, puis pose la première
+   question. Vous répondez ; il transmet vos mots. Quelques minutes plus tard, la leçon est aussi dans la vue
+   **Leçons**. Elle est enregistrée dans `~/.studium/library` et votre progression dans `~/.studium/data`.
+
+Chaque étape, avec la façon de la vérifier : [Démarrer sans terminal](docs/start/easy-start.fr.md). Ensuite,
+[Apprendre avec votre assistant](docs/learn/learn-with-your-assistant.fr.md).
+
+Une leçon donnée par votre enseignant, ou l'une des leçons de démonstration du dépôt, se joue dans VS Code
+seul : **Choisir un cours**, puis **Choisir un autre dossier de cours…**
+([VS Code](docs/start/vscode.fr.md#ouvrir-une-leçon)). Pour une salle d'enseignement où une équipe
 informatique installe Studium pour une classe, voir
 [Postes de salle de TP](docs/start/classroom-workstations.fr.md).
 
-### 1. Relier votre assistant
+### Sans VS Code : Claude Desktop
 
-Il vous faut Node 20 ou plus (`node --version`). Lancez une fois la ligne de votre assistant, puis
-redémarrez-le :
+Téléchargez `studium-vX.Y.Z.mcpb` depuis la
+[dernière version publiée](https://github.com/HolobiomicsLab/Studium/releases/latest), double-cliquez dessus et
+choisissez **Installer** dans Claude Desktop, qui le lance avec le Node qu'il embarque. Demandez ensuite à
+Claude « Je veux apprendre X avec Studium ». L'installation du paquet dans Claude Desktop lui-même n'a pas
+encore été essayée.
+
+### Depuis un terminal
+
+Avec Node 20 ou plus (`node --version`), lancez une fois la ligne de votre assistant, puis redémarrez-le :
 
 | Assistant | Commande |
 |---|---|
@@ -61,45 +77,26 @@ redémarrez-le :
 Cursor, OpenCode et Claude Desktop, ainsi que le plugin Claude Code qui apporte aussi les skills, sont sur
 la page [Installation](docs/start/installation.fr.md). `LITELLM_BASE_URL=` (vide) empêche Studium
 d'appeler un modèle payant. Quel modèle utiliser, avec un abonnement Copilot ou un modèle sur votre
-machine : [Choisir son modèle](docs/start/models.fr.md).
-
-### 2. Demander une leçon
-
-Dans une nouvelle conversation, avec vos mots :
-
-> Je veux apprendre comment fonctionne le cycle de l'eau avec Studium. Sers-toi de ces deux pages : (deux
-> liens en lesquels vous avez confiance).
-
-L'assistant construit une leçon à partir de vos sources, vous en montre le plan, puis pose la première
-question. Vous répondez ; il transmet vos mots. La leçon est enregistrée dans `~/.studium/library` et votre
-progression dans `~/.studium/data`. Chaque étape est décrite dans
-[Apprendre avec votre assistant](docs/learn/learn-with-your-assistant.fr.md).
-
-### 3. La jouer dans VS Code (facultatif)
-
-```bash
-code --install-extension holobiomicslab.studium-vscode
-```
-
-Ouvrez l'icône **Studium** dans la barre d'activité : la leçon construite par votre assistant est dans la
-vue **Leçons** (utilisez son bouton de rafraîchissement si VS Code était déjà ouvert), sauf si vous avez
-choisi un autre dossier de leçons. Vous pouvez aussi demander à l'assistant d'ouvrir la leçon dans VS Code.
-Le panneau garde sa propre progression, distincte de celle de la conversation. Voir
-[VS Code](docs/start/vscode.fr.md#obtenir-votre-première-leçon).
+machine : [Choisir son modèle](docs/start/models.fr.md). Demandez ensuite une leçon comme à l'étape 4 ; pour
+la jouer dans un panneau, installez l'extension (`code --install-extension holobiomicslab.studium-vscode`) et
+ouvrez sa vue **Leçons** ([VS Code](docs/start/vscode.fr.md#obtenir-votre-première-leçon)).
 
 ### Si vous êtes un assistant IA qui aide quelqu'un avec Studium
 
 Ces étapes sont écrites pour vous.
 
-1. Vérifiez Node : `node --version` doit afficher 20 ou plus.
-2. Déclarez le serveur avec la ligne de l'étape 1 qui correspond à votre harnais. Laissez
-   `LITELLM_BASE_URL` vide sauf si la personne demande un modèle juge : une valeur non vide est une route
-   payante.
+1. Préférez la voie qui n'installe rien. Si la personne utilise VS Code, faites-lui installer l'extension
+   Studium et lancer **Studium : Relier un assistant…** en vous cochant ; Copilot dans VS Code n'a besoin de
+   rien. Sinon, vérifiez Node (`node --version`, 20 ou plus) et déclarez le serveur avec la ligne de
+   [Depuis un terminal](#depuis-un-terminal) qui correspond à votre harnais.
+2. Laissez `LITELLM_BASE_URL` vide sauf si la personne demande un modèle juge : une valeur non vide est une
+   route payante.
 3. Après le redémarrage, prouvez la connexion en appelant `get_server_info` : il renvoie la version et la
    liste des outils. Un fichier de configuration n'est pas une preuve.
-4. Appelez `get_study_plan` avec un `learner_id` stable et la langue de la personne. Son `next_step` nomme
-   l'appel suivant ; sans leçon, il vous envoie vers `get_authoring_guide`, puis `prepare_sources` et
-   `create_lesson`.
+4. Appelez `get_study_plan` avec la langue de la personne et sans `learner_id` : le serveur joue un seul
+   apprenant, la personne qui vous utilise. Son `next_step` nomme l'appel suivant ; sans leçon, il propose
+   la leçon de démonstration « Découvrir Studium », puis vous envoie vers `get_authoring_guide`,
+   `prepare_sources` et `create_lesson`.
 5. L'apprenant répond et vous transmettez : ne répondez, ne choisissez et ne notez jamais à sa place, et ne
    lisez pas le corrigé d'une leçon. Affichez chaque `display_markdown` tel quel.
 6. Une leçon que vous rédigez n'est pas approuvée par un enseignant : transmettez l'avis de son premier
@@ -114,6 +111,7 @@ Pour modifier le code de Studium, lisez plutôt [`AGENTS.md`](AGENTS.md).
 
 | Je veux… | Commencer ici | Ce que vous obtenez |
 |---|---|---|
+| Essayer Studium sans terminal | [Démarrer sans terminal](docs/start/easy-start.fr.md) | VS Code, la leçon de démonstration, puis votre assistant relié en un clic |
 | Apprendre seul un sujet avec un assistant IA | [Apprendre avec votre assistant](docs/learn/learn-with-your-assistant.fr.md) | Une leçon construite à partir des sources choisies, puis des révisions espacées les jours suivants |
 | Étudier dans une classe | [Guide étudiant](docs/learn/student-guide.fr.md) | Une leçon approuvée par l'enseignant, dans VS Code ou dans votre assistant, avec un retour après chaque réponse |
 | Enseigner | [Guide enseignant](docs/teach/teacher-guide.fr.md) | Une leçon sourcée, un enregistrement d'approbation lié à son contenu exact et un rapport de classe agrégé |
