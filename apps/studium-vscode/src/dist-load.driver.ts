@@ -25,9 +25,18 @@ expect(existsSync(extension) && existsSync(uninstall), `the build is there (${di
 const standIn: any = new Proxy(function () { return standIn; }, { get: (_t, key) => key === Symbol.toPrimitive ? () => "" : standIn, apply: () => standIn, construct: () => standIn });
 const load = (Module as any)._load;
 (Module as any)._load = function (request: string, ...rest: unknown[]) { return request === "vscode" ? standIn : load.call(this, request, ...rest); };
+// Loading must not read `navigator`: Zod's allowsEval probe does, and Node 21+ then warns (PendingMigrationError). The lesson
+// schema validator is needed only when a lesson is imported, so lesson-archive is reached by a dynamic import().
+const navigatorBefore = Object.getOwnPropertyDescriptor(globalThis, "navigator");
+let navigatorReads = 0;
+Object.defineProperty(globalThis, "navigator", { configurable: true, get() { navigatorReads++; return navigatorBefore?.get?.call(globalThis) ?? navigatorBefore?.value; } });
 let loaded: any = null;
 try { loaded = createRequire(import.meta.url)(extension); } catch (e: any) { failures.push(`dist/extension.js loads (got: ${e?.message ?? e})`); }
-finally { (Module as any)._load = load; }
+finally {
+  (Module as any)._load = load;
+  if (navigatorBefore) Object.defineProperty(globalThis, "navigator", navigatorBefore); else delete (globalThis as any).navigator;
+}
+expect(navigatorReads === 0, `loading dist/extension.js reads no navigator (read ${navigatorReads} times): the lesson schema validator is not evaluated at start-up`);
 expect(typeof loaded?.activate === "function" && typeof loaded?.deactivate === "function", "dist/extension.js exports activate and deactivate");
 
 const home = mkdtempSync(join(tmpdir(), "studium-dist-load-"));

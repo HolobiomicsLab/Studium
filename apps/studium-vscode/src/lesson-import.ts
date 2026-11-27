@@ -3,7 +3,9 @@
 // the archive's summary, the conflict prompt, the outcome. The archive is checked and installed by
 // packages/lesson-session-host/src/lesson-archive.ts (inspectLessonArchive, installLessonArchive).
 import { join } from "node:path";
-import { LessonArchiveError, type LessonArchiveErrorCode, type LessonArchiveSummary } from "@studium/lesson-panel/lesson-archive";
+// Type-only: the archive module (and the schema validator behind it) is loaded by a dynamic import() when a lesson is
+// imported, never at start-up (see importLesson in extension.ts and dist-load.driver.ts).
+import type { LessonArchiveError, LessonArchiveErrorCode, LessonArchiveSummary } from "@studium/lesson-panel/lesson-archive";
 import { shownText } from "@studium/lesson-panel/shown-text";
 import { hostPhrase, type HostPhraseKey } from "./host-phrases.js";
 import type { Locale } from "./phrases.js";
@@ -84,9 +86,15 @@ const ERROR_KEYS: Record<LessonArchiveErrorCode, HostPhraseKey> = {
   restore_failed: "import_error_restore_failed",
 };
 
+/** The archive module is not imported statically, so its error class cannot be tested with instanceof: its name and a
+ * known code recognise it. */
+function isLessonArchiveError(error: unknown): error is LessonArchiveError {
+  return error instanceof Error && error.name === "LessonArchiveError" && Object.hasOwn(ERROR_KEYS, (error as { code?: unknown }).code as string);
+}
+
 /** One line that says why the file was not imported and what to do. */
 export function importErrorMessage(error: unknown, locale: Locale): string {
-  if (error instanceof LessonArchiveError) {
+  if (isLessonArchiveError(error)) {
     // write_failed carries the system code only: its message may hold an absolute path. restore_failed names the folder
     // that holds the old lesson, on purpose.
     return hostPhrase(ERROR_KEYS[error.code], {
