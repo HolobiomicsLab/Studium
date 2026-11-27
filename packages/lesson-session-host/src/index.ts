@@ -93,6 +93,7 @@ export {
   MAX_ARCHIVE_MEMBERS, MAX_ASSET_BYTES, MAX_TOTAL_BYTES, assetSegmentProblem, bundleIdProblem,
   type InstallOptions, type InstallOutcome, type LessonArchiveErrorCode, type LessonArchiveSummary,
 } from "./lesson-archive.js";
+export { shownText } from "./shown-text.js";
 export { ResponseInputSchema, RESPONSE_KINDS, type HostResponseInput, type ReplyInput, type UnnamedQuizChoice } from "./response-input-schema.js";
 export { ExperimentInputSchema, type ExperimentInput, type ExperimentDocument } from "./experiment-journal.js";
 export {
