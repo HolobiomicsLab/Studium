@@ -20,6 +20,7 @@ import subprocess
 import sys
 import unicodedata
 import uuid
+import zipfile
 from collections import Counter
 from copy import deepcopy
 from dataclasses import dataclass
@@ -511,6 +512,10 @@ class PacketError(ValueError):
         super().__init__(message)
         self.key = key
         self.values = values or {}
+
+
+class PackRefusal(PacketError):
+    """`pack` refuses: no matching approval, an unsafe asset, a bad id, or an output in the way (exit 1)."""
 
 
 class SourceQuoteError(PacketError):
@@ -2741,6 +2746,138 @@ def approve_lesson_bundle(
     return approval_path
 
 
+# The instruction a teacher pastes next to the packed file, and the refusals of `pack`. The Marketplace
+# address is the one docs/start/installation.md gives for the extension.
+MARKETPLACE_URL = "https://marketplace.visualstudio.com/items?itemName=holobiomicslab.studium-vscode"
+PACK_BUNDLE_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$")
+PACK_TEXT = {
+    "en": {
+        "instruction": (
+            "Lesson: {title}\n"
+            "Validated by {reviewer} on {date}. Lesson fingerprint: {fingerprint}.\n"
+            "\n"
+            "1. Install VS Code, then the Studium extension ({marketplace}).\n"
+            "2. Download {file} from this course page.\n"
+            '3. In VS Code, open the Studium view, choose "Import a lesson file" and select the downloaded file.\n'
+            "\n"
+            "In the Studium pane the lesson plays on your computer and your answers stay there. "
+            "If you use an AI assistant with it, that assistant's provider receives what the assistant reads."
+        ),
+        "no_approval": "no approval.json next to {path}: run approve first",
+        "stale_approval": "approval.json does not match {path} (edited since approval, or not its approval): run approve again",
+        "bad_bundle_id": "bundle_id {bundle_id!r} cannot name a file (letters, digits, . _ - only; at most 100)",
+        "symlink": "assets/{member} is a symbolic link: replace it with the real file before packing",
+        "exists": "{path} already exists; use --force to replace it",
+        "not_a_lesson": "{path} is not a lesson bundle (no metadata.title)",
+    },
+    "fr": {
+        "instruction": (
+            "Leçon : {title}\n"
+            "Validée par {reviewer} le {date}. Empreinte de la leçon : {fingerprint}.\n"
+            "\n"
+            "1. Installez VS Code, puis l'extension Studium ({marketplace}).\n"
+            "2. Téléchargez {file} depuis cette page de cours.\n"
+            "3. Dans VS Code, ouvrez la vue Studium, choisissez « Importer un fichier de leçon » "
+            "et sélectionnez le fichier téléchargé.\n"
+            "\n"
+            "Dans le volet Studium, la leçon se joue sur votre ordinateur et vos réponses y restent. "
+            "Si vous y associez un assistant d'IA, le fournisseur de cet assistant reçoit ce que l'assistant lit."
+        ),
+        "no_approval": "pas d'approval.json à côté de {path} : lancez d'abord approve",
+        "stale_approval": "approval.json ne correspond pas à {path} (modifié depuis l'approbation) : relancez approve",
+        "bad_bundle_id": "bundle_id {bundle_id!r} ne peut pas nommer un fichier (lettres, chiffres, . _ - ; 100 au plus)",
+        "symlink": "assets/{member} est un lien symbolique : remplacez-le par le vrai fichier avant d'empaqueter",
+        "exists": "{path} existe déjà ; utilisez --force pour le remplacer",
+        "not_a_lesson": "{path} n'est pas une leçon (pas de metadata.title)",
+    },
+}
+
+
+def _pack_refusal(language: str, key: str, **values: Any) -> PackRefusal:
+    return PackRefusal(PACK_TEXT[language][key].format(**values))
+
+
+def _pack_assets(lesson_dir: Path, language: str) -> list[tuple[str, Path]]:
+    """Regular files under assets/, sorted by path, as (member name, path). Hidden names are skipped;
+    a symbolic link anywhere refuses, so nothing outside the folder can be packed."""
+    root = lesson_dir / "assets"
+    if root.is_symlink():
+        raise _pack_refusal(language, "symlink", member="")
+    found: list[tuple[str, Path]] = []
+    if not root.is_dir():
+        return found
+    for current, directories, files in os.walk(root, followlinks=False):
+        directories[:] = sorted(name for name in directories if not name.startswith("."))
+        for name in sorted(files + [d for d in directories if (Path(current) / d).is_symlink()]):
+            path = Path(current) / name
+            if name.startswith("."):
+                continue
+            member = path.relative_to(root).as_posix()
+            if path.is_symlink():
+                raise _pack_refusal(language, "symlink", member=member)
+            if path.is_file():
+                found.append((member, path))
+    return sorted(found)
+
+
+def pack_lesson(
+    *, bundle_path: Path, out: Path | None = None, language: str | None = None, force: bool = False
+) -> dict[str, Any]:
+    """Write <bundle_id>.studium.zip: lesson.json, approval.json, then assets/ sorted, nothing else.
+    Refuses (PackRefusal) unless approval.json matches the exact bytes of lesson.json. Returns the report."""
+    bundle_path = bundle_path.resolve()
+    lesson, lesson_bytes = _load_json(bundle_path, "LessonBundle")
+    metadata = lesson.get("metadata") if isinstance(lesson, dict) else None
+    metadata = metadata if isinstance(metadata, dict) else {}
+    text_language = language or _locale(str(metadata.get("language", "en")))
+    if not isinstance(metadata.get("title"), str):
+        raise _pack_refusal(text_language, "not_a_lesson", path=bundle_path)
+    approval_path = bundle_path.parent / "approval.json"
+    if not approval_path.is_file():
+        raise _pack_refusal(text_language, "no_approval", path=bundle_path)
+    approval, approval_bytes = _load_json(approval_path, "approval record")
+    if (
+        not isinstance(approval, dict)
+        or approval.get("schema") != APPROVAL_SCHEMA
+        or approval.get("bundle_sha256") != _sha256(lesson_bytes)
+    ):
+        raise _pack_refusal(text_language, "stale_approval", path=bundle_path)
+    bundle_id = lesson.get("bundle_id")
+    if not isinstance(bundle_id, str) or not PACK_BUNDLE_ID.fullmatch(bundle_id):
+        raise _pack_refusal(text_language, "bad_bundle_id", bundle_id=bundle_id)
+    assets = _pack_assets(bundle_path.parent, text_language)
+    name = f"{bundle_id}.studium.zip"
+    target = Path(out or Path.cwd())
+    target = (target if not target.is_dir() else target / name).resolve()
+    if _output_exists(target) and not force:
+        raise _pack_refusal(text_language, "exists", path=target)
+    partial = target.with_name(f".{target.name}.{uuid.uuid4().hex[:8]}.part")
+    try:
+        with zipfile.ZipFile(partial, "w", zipfile.ZIP_DEFLATED, allowZip64=False) as archive:
+            archive.writestr(zipfile.ZipInfo("lesson.json", (2020, 1, 1, 0, 0, 0)), lesson_bytes, zipfile.ZIP_DEFLATED)
+            archive.writestr(zipfile.ZipInfo("approval.json", (2020, 1, 1, 0, 0, 0)), approval_bytes, zipfile.ZIP_DEFLATED)
+            for member, path in assets:
+                info = zipfile.ZipInfo(f"assets/{member}", (2020, 1, 1, 0, 0, 0))
+                info.compress_type = zipfile.ZIP_DEFLATED
+                archive.writestr(info, path.read_bytes())
+        os.replace(partial, target)
+    except (OSError, zipfile.LargeZipFile) as exc:
+        partial.unlink(missing_ok=True)
+        raise PacketError(f"cannot write {target}: {exc}") from exc
+    sha = _sha256(lesson_bytes)
+    reviewer = str(approval.get("reviewer", ""))
+    date = str(approval.get("reviewed_at", ""))[:10]
+    instruction = PACK_TEXT[text_language]["instruction"].format(
+        title=metadata["title"], reviewer=reviewer, date=date, fingerprint=sha[:12],
+        marketplace=MARKETPLACE_URL, file=name,
+    )
+    return {
+        "path": str(target), "bundle_id": bundle_id, "title": metadata["title"], "sha256": sha,
+        "reviewer": reviewer, "reviewed_at": approval.get("reviewed_at"), "assets": len(assets),
+        "language": text_language, "instruction": instruction,
+    }
+
+
 def _voice_preview(name: str, language: str = "en") -> list[str]:
     """The lesson's voice as learners read it on every screen (the host's voice line), so the teacher
     sees what --validated-by turns into; an e-mail address is noted, never refused."""
@@ -2857,6 +2994,25 @@ def _add_approve_parser(commands: Any) -> None:
     _add_lang_argument(approve)
 
 
+def _add_pack_parser(commands: Any) -> None:
+    pack = commands.add_parser(
+        "pack",
+        help="pack an approved lesson into one <bundle_id>.studium.zip file",
+        description=(
+            "Write one file from an approved lesson folder: lesson.json, approval.json and the files under "
+            "assets/ (never reviews/, community/ or hidden files). Refuses unless approval.json matches the "
+            "exact lesson.json (run approve again after any edit). Prints the file, who approved it, the "
+            "lesson fingerprint and the instruction to paste next to the file in a course page. "
+            "approval.json is a record, not a signature."
+        ),
+    )
+    pack.add_argument("--bundle", type=Path, required=True, metavar="LESSON_JSON")
+    pack.add_argument("--out", type=Path, metavar="DIR_OR_FILE", help="folder or file to write (default: current directory)")
+    pack.add_argument("--language", choices=("en", "fr"), help="language of the instruction (default: the lesson's)")
+    pack.add_argument("--force", action="store_true", help="replace an existing file")
+    pack.add_argument("--json", action="store_true", help="print the report as JSON")
+
+
 def _add_receipt_arguments(command: Any) -> None:
     command.add_argument(
         "--opened",
@@ -2957,6 +3113,7 @@ def _parser() -> argparse.ArgumentParser:
         _add_check_parser,
         _add_bundle_parser,
         _add_approve_parser,
+        _add_pack_parser,
         _add_receipt_parser,
     ):
         add_command(commands)
@@ -3022,6 +3179,10 @@ def _run_approve(args: argparse.Namespace) -> Path:
     )
 
 
+def _run_pack(args: argparse.Namespace) -> dict[str, Any]:
+    return pack_lesson(bundle_path=args.bundle, out=args.out, language=args.language, force=args.force)
+
+
 def _run_receipt(args: argparse.Namespace) -> Path:
     return record_review_receipt(
         bundle_path=args.bundle,
@@ -3039,6 +3200,7 @@ _COMMANDS = {
     "check": _run_check,
     "bundle": _run_bundle,
     "approve": _run_approve,
+    "pack": _run_pack,
     "receipt": _run_receipt,
 }
 
@@ -3089,6 +3251,9 @@ def main(argv: list[str] | None = None) -> int:
     except SourceQuoteError as exc:
         print(f"ERROR: {exc}")
         return 1
+    except PackRefusal as exc:
+        print(_summary_text("en", "error", message=str(exc)), file=sys.stderr)
+        return 1
     except PacketError as exc:
         if args.command == "check" and args.json:
             finding = _error("packet_error", str(exc))
@@ -3111,6 +3276,16 @@ def main(argv: list[str] | None = None) -> int:
             for finding in output.findings:
                 print(_format_check_finding(finding))
             print("\n".join(summary))
+        return 0
+    if args.command == "pack":
+        if args.json:
+            print(json.dumps({k: v for k, v in output.items() if k != "instruction"}, ensure_ascii=False, indent=2, sort_keys=True))
+        else:
+            print(output["path"])
+            print(f"{output['title']}")
+            print(f"{output['reviewer']} {output['reviewed_at']}  {output['sha256'][:12]}  assets: {output['assets']}")
+            print()
+            print(output["instruction"])
         return 0
     if args.command == "bundle":
         bundle, _ = _load_json(output, "generated LessonBundle")
