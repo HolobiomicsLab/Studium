@@ -68,6 +68,12 @@ en relais strict sur le modèle rapide, et `studium-explainer`, un modèle plus 
 question qui demande une vraie explication. Voir
 [Garder des réponses rapides](../docs/start/fast-answers.fr.md).
 
+Un skill n'est pas nécessaire pour apprendre un sujet : dès que le serveur Studium est connecté (sans terminal
+avec l'extension VS Code, voir [Démarrer sans terminal](../docs/start/easy-start.fr.md)), il donne à l'assistant
+ses propres instructions, et les skills ci-dessus ajoutent les procédures plus longues. Ils vivent dans ce
+dépôt : un assistant sans copie du dépôt a besoin que les dossiers soient liés à la main, ou de lire le fichier par son nom
+([Des skills pour votre assistant](../docs/start/skills.fr.md)).
+
 ## Voir aussi
 
 - [Des skills pour votre assistant](../docs/start/skills.fr.md)

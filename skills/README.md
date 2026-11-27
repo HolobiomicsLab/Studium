@@ -64,6 +64,12 @@ Beside the skills, `.claude/agents/` holds two Claude Code agents: `studium-less
 a strict relay on the fast model, and `studium-explainer`, a stronger model it calls for a question that
 needs a real explanation. See [Keep answers fast](../docs/start/fast-answers.md).
 
+A skill is not needed to learn a topic: once the Studium server is connected (no terminal needed with the VS Code
+extension, see [Start without a terminal](../docs/start/easy-start.md)), it hands the assistant its own
+instructions, and the skills above add the longer procedures. They live in this repository, so an assistant
+without a checkout needs the folders linked by hand or the file read by name
+([Skills for your assistant](../docs/start/skills.md)).
+
 ## See also
 
 - [Skills for your assistant](../docs/start/skills.md)

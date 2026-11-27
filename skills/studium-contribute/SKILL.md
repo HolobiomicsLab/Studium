@@ -33,7 +33,7 @@ fault is Studium's, say that you are not sure and what would settle it.
 | What is wrong | Where it goes |
 |---|---|
 | Studium itself: server, tools, extension, panel, dashboard, command-line tools, documentation, skills | the repository: an issue, or a change proposed as a pull request |
-| A lesson that ships with Studium (the demo lessons under `fixtures/`) | the repository as well |
+| A lesson that ships with Studium (« Discover Studium » in `apps/lesson-mcp/shipped-lessons-src`, or the demo lessons under `fixtures/`) | the repository as well |
 | The content of a teacher's lesson: a wrong key, an unclear statement, a doubtful source | its teacher. Studium has no tool that sends a remark to the teacher: the learner tells them, with the lesson, the scene's title and the sentence in question. Never the repository: the lesson is not public |
 | A self-study lesson, or a lesson drawn from a conversation | its author is the learner's own assistant: correct the draft and call `create_lesson` again with `overwrite: true` ([studium-self-learner](../studium-self-learner/SKILL.md)) |
 | A contribution a learner proposed to a course | the teacher's decision in the dashboard ([Learner contributions](../../docs/teach/learner-contributions.md)) |

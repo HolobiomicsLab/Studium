@@ -25,6 +25,9 @@ finished installation or overwrite their work.
 
 ## Install and get a first result
 
+- A teacher who only reviews and plays lessons needs no checkout and no Node: the VS Code
+  extension and **Studium: Connect an Assistant…** are enough ([Start without a terminal](../../docs/start/easy-start.md)).
+  The Python teacher tools (`tools/experience_packet.py` and the like) still need a checkout.
 - Follow [Installation](../../docs/start/installation.md) for Node and the Python
   environment (`.venv`). A source clone, a VSIX and a lesson bundle are different
   deliveries.

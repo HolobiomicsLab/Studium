@@ -23,6 +23,7 @@ privé.
 
 | Symptôme | Vérification et correction |
 |---|---|
+| L'assistant n'a pas d'outils Studium après **Studium : Relier un assistant…** | redémarrez l'assistant : rechargez la fenêtre de VS Code pour celui qui tourne dans VS Code, quittez et rouvrez Claude Desktop, Cursor ou OpenCode, ou ouvrez une nouvelle session en ligne de commande. Le canal de sortie **Studium — lesson-mcp** nomme le fichier que la commande a écrit ; relancez la commande : la liste marque l'assistant « relié » quand ce fichier contient l'entrée |
 | Le serveur attend sans afficher de page | normal : il dialogue par stdio avec un client MCP, pas avec un navigateur |
 | Aucun outil Studium dans le chat | lisez le journal MCP du client, vérifiez le chemin absolu de `lesson-mcp.cjs`, redémarrez le serveur et ouvrez une nouvelle conversation |
 | VS Code ignore le JSON | `.vscode/mcp.json` utilise `servers` ; Claude Code et Cursor utilisent `mcpServers` ; OpenCode v2 utilise `mcp.servers` |
@@ -50,6 +51,7 @@ privé.
 
 | Symptôme | Vérification et correction |
 |---|---|
+| « command 'studium.connectAssistant' not found », ou la même chose pour toute commande Studium ; les liens de la vue Studium ne font rien | l'extension n'a pas démarré. La version 0.6.6 avait ce défaut : mettez l'extension à jour en 0.6.8 ou plus récente, puis lancez **Développeur : Recharger la fenêtre**. Si cela persiste, ouvrez le panneau **Sortie**, choisissez **Hôte d'extension** (**Extension Host**) et cherchez une ligne sur `holobiomicslab.studium-vscode` |
 | F5 ne trouve pas de configuration de lancement | ouvrez le dossier `apps/studium-vscode`, qui contient la configuration Extension Host |
 | Le VSIX installé ne trouve aucune leçon | les leçons ne sont pas dans le VSIX : placez-les dans `~/.studium/library`, ou définissez `studium.bundlesRoot` et `studium.bundleRef`, ou utilisez **Studium : Choisir un cours** |
 | Choisir un cours avertit « n'a pas pu être enregistré » (`Unable to write into ... Settings`) | la leçon s'ouvre quand même ; seul le choix n'est pas retenu. Ouvrez le fichier de réglages que le message nomme, corrigez ses erreurs ou enregistrez ses modifications, ou rendez-le modifiable ; jusqu'à la version 0.6.3, ce message empêchait la leçon de s'ouvrir quand aucun dossier n'était ouvert : mettez l'extension à jour |

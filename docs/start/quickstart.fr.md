@@ -5,30 +5,22 @@
 En un quart d'heure environ, vous pouvez demander à un assistant IA de vous enseigner un sujet à partir
 des sources que vous choisissez, répondre à la première question d'une leçon préparée pour vous, puis
 revenir quelques jours plus tard réviser ce que vous êtes sur le point d'oublier. Cette page part d'un
-clone du dépôt, qui vous donne aussi les leçons de démonstration. Pour connecter un assistant avec Node
-seulement, sans clone, voir
+clone du dépôt, qui vous donne aussi les leçons de démonstration. Pour relier un assistant sans terminal, voir
+[Démarrer sans terminal](easy-start.fr.md) ; avec Node seulement, sans clone, voir
 [Ajouter le serveur à votre assistant](installation.fr.md#ajouter-le-serveur-à-votre-assistant). Chaque
 étape renvoie à la page détaillée.
 
 ## Sans terminal
 
-Pour voir comment fonctionne Studium, installez l'extension Studium depuis la vue Extensions et lancez
-**Studium : Essayer la leçon de démonstration** (ou **Essayer la leçon de démonstration** dans sa vue **Leçons**
-vide) : « Découvrir Studium », environ douze minutes, est livrée avec l'extension ; un agent d'IA l'a rédigée
-à partir de la documentation de Studium et le responsable du projet l'a approuvée, sous le nom beta-testeur, sans
-l'avoir lue. Pour jouer une leçon donnée
-par un enseignant, ou les leçons de démonstration du dépôt, VS Code suffit aussi : lancez **Studium : Choisir un cours**, choisissez **Choisir un
-autre dossier de cours…** et sélectionnez le dossier de leçons ; les leçons de démonstration sont le dossier
-`fixtures` de l'[archive du dépôt](https://github.com/HolobiomicsLab/studium/archive/refs/heads/main.zip). Ni Node, ni terminal, ni compte d'assistant IA n'interviennent.
-Détails : [VS Code](vscode.fr.md#obtenir-votre-première-leçon) ; pour une salle d'enseignement,
-[Postes de salle de TP](classroom-workstations.fr.md). Sans VS Code, [Jouer dans votre navigateur](browser.fr.md)
-(expérimental) ouvre une leçon dans un navigateur web ; il demande Node et une commande.
-Pour construire une leçon à partir de vos propres sources sans terminal, utilisez Copilot dans VS Code 1.101
-ou plus récent : l'extension propose son propre serveur Studium au mode agent de Copilot, vous n'installez
-donc ni Node ni rien d'autre, et vous demandez à Copilot Chat « je veux apprendre … avec Studium ». Il vous
-faut un abonnement Copilot. Cette voie n'a pas été essayée dans une vraie session Copilot ; voir
-[Connecter Copilot](copilot.fr.md). La suite de cette page construit une leçon avec n'importe quel
-assistant, depuis un clone, ce qui demande un terminal.
+Apprendre avec Studium ne demande aucun terminal : VS Code, l'extension Studium et **Studium : Relier un
+assistant…** relient Copilot, Claude Code, Codex, Mistral Vibe, Claude Desktop, Cursor ou OpenCode en un clic,
+sans Node. L'extension livre aussi « Découvrir Studium », une leçon de démonstration d'une douzaine de minutes
+qui ne demande aucun compte d'IA. Suivez [Démarrer sans terminal](easy-start.fr.md). Une leçon donnée par un
+enseignant, ou les leçons de démonstration du dépôt (le dossier `fixtures` de
+l'[archive du dépôt](https://github.com/HolobiomicsLab/studium/archive/refs/heads/main.zip)), se joue dans
+VS Code seul avec **Studium : Choisir un cours** ([VS Code](vscode.fr.md#obtenir-votre-première-leçon)) ;
+pour une salle d'enseignement, voir [Postes de salle de TP](classroom-workstations.fr.md). La suite de cette
+page construit une leçon avec n'importe quel assistant, depuis un clone, ce qui demande un terminal.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="../assets/diagrams/self-learner-journey-dark.svg">

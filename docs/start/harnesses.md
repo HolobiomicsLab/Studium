@@ -57,7 +57,7 @@ would list each Studium tool twice, so keep one. It never removes an entry it di
 
 ## Claude Desktop
 
-**From Studium 0.6.7, the simplest way:** download `studium-vX.Y.Z.mcpb` from the
+**From Studium 0.6.8, the simplest way:** download `studium-vX.Y.Z.mcpb` from the
 [latest release](https://github.com/HolobiomicsLab/Studium/releases/latest), double-click it, and choose **Install** in
 Claude Desktop. Claude Desktop runs the server with the Node it ships: no Node, no VS Code, no file to edit. The bundle
 carries « Discover Studium »; ask Claude « I want to learn X with Studium ». Its manifest and the server it starts are

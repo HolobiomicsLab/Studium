@@ -74,14 +74,18 @@ path. Follow [Installation](../../docs/start/installation.md) only for what is m
 For onboarding, read [studium-student](../studium-student/SKILL.md) or
 [studium-teacher](../studium-teacher/SKILL.md).
 
-Demo lessons in `fixtures/` (set `BUNDLES_ROOT` to that folder to play them): `atomistique-l1/lesson.json` (quizzes),
+Lessons shipped with Studium need no checkout: « Discover Studium » (`discover-studium-en`, `discover-studium-fr`, 14 steps, about twelve minutes) comes with the extension, the npm server and the `.mcpb`; `list_lessons` returns it apart, in `shipped_lessons`, and `get_study_plan` proposes it to a learner with no lesson.
+
+Demo lessons in `fixtures/` (checkout only; set `BUNDLES_ROOT` to that folder to play them): `atomistique-l1/lesson.json` (quizzes),
 `capsule-judgment-demo/lesson.json` (judgment, no run), `capsule-run-demo/lesson.json`
 and `capsule-loop-demo/lesson.json` (reproduction runs). Python and capsule
 dependencies are needed only for the operation chosen.
 
 ## 2. Connect the server
 
-Use the recipe for the user's client in [Connect your assistant](../../docs/start/harnesses.md),
+Prefer the routes with no Node and no terminal (see [studium-student](../studium-student/SKILL.md), « Connect with the least setup »): the VS Code extension's **Studium: Connect an Assistant…** (`studium.connectAssistant`; writes one `studium` entry into the file of each ticked assistant, run as the editor's own executable with `ELECTRON_RUN_AS_NODE=1`; reload the window for in-VS-Code assistants, restart Claude Desktop, Cursor or OpenCode), Copilot in VS Code 1.101+ (automatic), or the release's `.mcpb` for Claude Desktop alone (installing it in Claude Desktop itself has not been tried yet). Node 20+ is needed only for `npx -y studium-mcp`, the Claude Code plugin, the browser player and a checkout.
+
+Otherwise use the recipe for the user's client in [Connect your assistant](../../docs/start/harnesses.md),
 or [VS Code](../../docs/start/vscode.md); the examples are in `docs/examples/`
 (`codex.toml`, `mcp.claude.json`, `mcp.vscode.json`, `opencode-v2.json`). The portable
 launch, after `pnpm --filter studium-vscode build`:
@@ -421,6 +425,7 @@ deterministic placeholder unless `--live`, which is paid. See `eval/README.md`.
 
 - The server logs to stderr only; anything printed to stdout corrupts the MCP stream.
 - Use absolute paths in client configurations.
+- Extension 0.6.6 did not start: every `studium.…` command answered « command not found » and the Lessons view links did nothing. Update to 0.6.8 or later, then run Developer: Reload Window.
 - Telemetry is written only with `STUDIUM_TELEMETRY_CONSENT=granted` and a durable
   data folder; class views see consented aggregates only.
 - Do not edit fixtures or tests while a run is in progress. After a bundle change, run

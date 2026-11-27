@@ -16,7 +16,7 @@ Knowing this saves the first ten minutes:
 
 | Part | What it does | What it does not do |
 |---|---|---|
-| **An AI assistant** connected to the Studium server (Copilot in VS Code, which this extension connects for you, Claude Code, Codex, Cursor) | builds a lesson from the sources you name, and can play it with you in the conversation | answer for you |
+| **An AI assistant** connected to the Studium server (Copilot in VS Code, Claude Code, Codex, Mistral Vibe, Claude Desktop, Cursor or OpenCode, which this extension connects for you) | builds a lesson from the sources you name, and can play it with you in the conversation | answer for you |
 | **This extension** | shows a lesson in a pane, keeps your progress, tells you when reviews are due | build a lesson: right after installation its **Lessons** view says "No lesson of your own yet" and offers only the demo lesson it ships with |
 
 So a new lesson starts in an assistant. A lesson someone already made plays here with nothing else.
@@ -55,8 +55,16 @@ already added `studium` yourself, the extension adds no second one. The setting
 otherwise VS Code asks again at each tool. This has not yet been tried in a real Copilot session; see
 [Connect Copilot](https://github.com/HolobiomicsLab/studium/blob/main/docs/start/copilot.md).
 
-**Other assistants.** You need Node 20 or later (`node --version`). Run the line for your assistant once, in
-a terminal, then restart the assistant:
+**Claude Code, Codex, Mistral Vibe, Claude Desktop, Cursor, OpenCode: one click, no Node.** Select **Connect an
+assistant** in the Studium view, or run **Studium: Connect an Assistant…**, tick your assistant, then restart it:
+reload the VS Code window for one that runs inside VS Code (the notification has a **Reload Window** button),
+quit and reopen the others. The command writes one `studium` entry into the assistant's own configuration file,
+with a backup next to it; that entry starts the server inside this extension. If the assistant already had a
+Studium server under another name, the command says so: keep one. Step by step:
+[Start without a terminal](https://github.com/HolobiomicsLab/studium/blob/main/docs/start/easy-start.md).
+
+**From a terminal**, with Node 20 or later (`node --version`), run the line for your assistant once, then
+restart it:
 
 | Assistant | Command |
 |---|---|
@@ -66,10 +74,9 @@ a terminal, then restart the assistant:
 
 The server is the npm package `studium-mcp`; `npx` fetches it the first time. Studium needs no API key of
 its own: the assistant works with the model you already have, a Copilot plan for example. The empty
-`LITELLM_BASE_URL=` keeps Studium from calling any paid model. In Cursor, Claude Desktop or another
-assistant, declare an MCP server named `studium` whose command is `npx` with the arguments `-y` and
-`studium-mcp`; each assistant has its page under [Installation](https://github.com/HolobiomicsLab/studium/blob/main/docs/start/installation.md). Which
-model to use, with a Copilot plan or a model on your machine, is in [Choose your model](https://github.com/HolobiomicsLab/studium/blob/main/docs/start/models.md).
+`LITELLM_BASE_URL=` keeps Studium from calling any paid model. Each assistant has its page under
+[Installation](https://github.com/HolobiomicsLab/studium/blob/main/docs/start/installation.md). Which model to use, with a Copilot plan or a model on your machine, is
+in [Choose your model](https://github.com/HolobiomicsLab/studium/blob/main/docs/start/models.md).
 
 ### 2. Ask for a lesson
 
@@ -109,6 +116,8 @@ For a guided tour in five steps, run **Studium: Getting started**.
 | Command | What it does |
 |---|---|
 | **Studium: Pick a course** | choose a lesson, or another folder of lessons |
+| **Studium: Try the demo lesson** | open « Discover Studium », the demo lesson shipped with the extension |
+| **Studium: Connect an Assistant…** | give Studium's tools to Claude Code, Codex, Mistral Vibe, Claude Desktop, Cursor or OpenCode, with no Node |
 | **Studium: Open lesson** | reopen the current lesson |
 | **Studium: Open this lesson** | on a `lesson.json` file (right-click): open that lesson |
 | **Studium: Getting started** | the guided tour |
@@ -133,8 +142,8 @@ In Copilot Chat, `@studium` plays the current lesson in the conversation.
 ## Requirements
 
 VS Code 1.95 or later. The extension carries its own lesson server and viewer libraries and works offline.
-Offering that server to Copilot needs version 1.101 or newer; elsewhere, connecting an assistant (step 1)
-needs Node 20 or later.
+Offering that server to Copilot needs version 1.101 or newer. **Studium: Connect an Assistant…** needs
+no Node; only the terminal route of step 1 does.
 
 ## Documentation and help
 
@@ -160,7 +169,7 @@ Le savoir épargne les dix premières minutes :
 
 | Partie | Ce qu'elle fait | Ce qu'elle ne fait pas |
 |---|---|---|
-| **Un assistant IA** relié au serveur Studium (Copilot dans VS Code, que cette extension relie pour vous, Claude Code, Codex, Cursor) | construit une leçon à partir des sources que vous nommez, et peut la jouer avec vous dans la conversation | répondre à votre place |
+| **Un assistant IA** relié au serveur Studium (Copilot dans VS Code, Claude Code, Codex, Mistral Vibe, Claude Desktop, Cursor ou OpenCode, que cette extension relie pour vous) | construit une leçon à partir des sources que vous nommez, et peut la jouer avec vous dans la conversation | répondre à votre place |
 | **Cette extension** | affiche une leçon dans un panneau, garde votre progression, vous dit quand des révisions sont dues | construire une leçon : juste après l'installation, sa vue **Leçons** dit « Pas encore de leçon à vous » et ne propose que la leçon de démonstration livrée avec elle |
 
 Une nouvelle leçon commence donc dans un assistant. Une leçon déjà faite se joue ici sans rien d'autre.
@@ -202,8 +211,16 @@ que Copilot appelle un outil Studium, ouvrez la flèche à côté de **Autoriser
 VS Code redemande à chaque outil. Cela n'a pas encore été essayé dans une vraie session Copilot ; voir
 [Connecter Copilot](https://github.com/HolobiomicsLab/studium/blob/main/docs/start/copilot.fr.md).
 
-**Autres assistants.** Il vous faut Node 20 ou plus récent (`node --version`). Lancez une fois, dans un
-terminal, la ligne de votre assistant, puis redémarrez-le :
+**Claude Code, Codex, Mistral Vibe, Claude Desktop, Cursor, OpenCode : un clic, sans Node.** Sélectionnez
+**Relier un assistant** dans la vue Studium, ou lancez **Studium : Relier un assistant…**, cochez votre
+assistant, puis redémarrez-le : rechargez la fenêtre de VS Code pour celui qui tourne dans VS Code (la
+notification a un bouton **Recharger la fenêtre**), quittez et rouvrez les autres. La commande écrit une entrée
+`studium` dans le fichier de configuration de l'assistant, avec une copie de sauvegarde à côté ; cette entrée
+lance le serveur contenu dans cette extension. Si l'assistant avait déjà un serveur Studium sous un autre nom,
+la commande le signale : gardez-en un. Pas à pas : [Démarrer sans terminal](https://github.com/HolobiomicsLab/studium/blob/main/docs/start/easy-start.fr.md).
+
+**Depuis un terminal**, avec Node 20 ou plus récent (`node --version`), lancez une fois la ligne de votre
+assistant, puis redémarrez-le :
 
 | Assistant | Commande |
 |---|---|
@@ -211,13 +228,11 @@ terminal, la ligne de votre assistant, puis redémarrez-le :
 | Claude Code | `claude mcp add --scope user studium -e LITELLM_BASE_URL= -- npx -y studium-mcp` |
 | Codex | `codex mcp add studium --env LITELLM_BASE_URL= -- npx -y studium-mcp` |
 
-Le serveur est le paquet npm `studium-mcp` ; `npx` le télécharge la première fois. Studium n'a besoin
-d'aucune clé d'API : l'assistant travaille avec le modèle que vous avez déjà, un abonnement Copilot par
-exemple. Le `LITELLM_BASE_URL=` vide empêche Studium d'appeler un modèle payant. Dans Cursor, Claude
-Desktop ou un autre assistant, déclarez un serveur MCP nommé `studium` dont la commande est `npx` avec les
-arguments `-y` et `studium-mcp` ; chaque assistant a sa page sous
-[Installation](https://github.com/HolobiomicsLab/studium/blob/main/docs/start/installation.fr.md). Quel modèle utiliser, avec un abonnement Copilot ou un
-modèle sur votre machine, est dit dans [Choisir son modèle](https://github.com/HolobiomicsLab/studium/blob/main/docs/start/models.fr.md).
+Le serveur est le paquet npm `studium-mcp` ; `npx` le télécharge la première fois. Studium n'a besoin
+d'aucune clé d'API : l'assistant travaille avec le modèle que vous avez déjà, un abonnement Copilot par
+exemple. Le `LITELLM_BASE_URL=` vide empêche Studium d'appeler un modèle payant. Chaque assistant a sa page
+sous [Installation](https://github.com/HolobiomicsLab/studium/blob/main/docs/start/installation.fr.md). Quel modèle utiliser, avec un abonnement Copilot ou un modèle
+sur votre machine, est dit dans [Choisir son modèle](https://github.com/HolobiomicsLab/studium/blob/main/docs/start/models.fr.md).
 
 **2. Demandez une leçon.** Dans une nouvelle conversation avec votre assistant (dans Copilot Chat,
 choisissez le mode agent), avec vos mots :
@@ -257,6 +272,8 @@ Pour une visite guidée en cinq étapes, lancez **Studium : Prise en main**.
 | Commande | Ce qu'elle fait |
 |---|---|
 | **Studium : Choisir un cours** | choisir une leçon, ou un autre dossier de leçons |
+| **Studium : Essayer la leçon de démonstration** | ouvrir « Découvrir Studium », la leçon de démonstration livrée avec l'extension |
+| **Studium : Relier un assistant…** | donner les outils de Studium à Claude Code, Codex, Mistral Vibe, Claude Desktop, Cursor ou OpenCode, sans Node |
 | **Studium : Ouvrir une leçon** | rouvrir la leçon courante |
 | **Studium : Ouvrir cette leçon** | sur un fichier `lesson.json` (clic droit) : ouvrir cette leçon |
 | **Studium : Prise en main** | la visite guidée |
@@ -283,7 +300,7 @@ Dans Copilot Chat, `@studium` joue la leçon courante dans la conversation.
 
 VS Code 1.95 ou plus récent. L'extension embarque son propre serveur de leçons et ses bibliothèques
 d'affichage, et fonctionne hors ligne. Proposer ce serveur à Copilot demande la version 1.101 ou plus
-récente ; ailleurs, relier un assistant (étape 1) demande Node 20 ou plus récent.
+récente. **Studium : Relier un assistant…** ne demande pas Node ; seule la voie terminal de l'étape 1 le demande.
 
 ### Documentation et aide
 
