@@ -27,7 +27,7 @@ privé.
 | Le serveur attend sans afficher de page | normal : il dialogue par stdio avec un client MCP, pas avec un navigateur |
 | Aucun outil Studium dans le chat | lisez le journal MCP du client, vérifiez le chemin absolu de `lesson-mcp.cjs`, redémarrez le serveur et ouvrez une nouvelle conversation |
 | VS Code ignore le JSON | `.vscode/mcp.json` utilise `servers` ; Claude Code et Cursor utilisent `mcpServers` ; OpenCode v2 utilise `mcp.servers` |
-| Codex : `MCP tool call requires approval, but approval policy is never` | répondez aux demandes en interactif, ou lancez `codex exec --approve-for-me` |
+| Codex demande avant chaque étape de Studium, ou répond `MCP tool call requires approval, but approval policy is never` | sous `[mcp_servers.studium]` dans `~/.codex/config.toml`, ajoutez `default_tools_approval_mode = "approve"` ; l'entrée écrite par **Studium : Relier un assistant…** l'a depuis Studium 0.6.10. Voir [Connecter Codex](codex.fr.md#limites) |
 | Un outil documenté manque | le build est antérieur à votre clone : reconstruisez avec `pnpm --filter studium-vscode build`, redémarrez le serveur, comparez `get_server_info.build` |
 | `persistence.durable` vaut false | `STUDIUM_EPHEMERAL=1` est défini sans `STUDIUM_DATA_DIR` : la progression est perdue au redémarrage |
 | La leçon demandée est introuvable | le serveur cherche d'abord dans `BUNDLES_ROOT`, puis dans `~/.studium/library` ; demandez à l'assistant d'appeler `list_lessons` |

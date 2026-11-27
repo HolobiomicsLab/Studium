@@ -4,6 +4,14 @@ All notable changes to Studium are recorded here. The format follows [Keep a Cha
 
 ## Unreleased
 
+### Changed
+
+- **Codex no longer asks before each Studium step.** The entry that **Studium: Connect an Assistant…** writes into Codex's `config.toml` now carries `default_tools_approval_mode = "approve"`. Without it, Codex asked before every Studium tool not marked read-only (starting a lesson, each answer, each recall rating), and `codex exec` refused them (« MCP tool call requires approval, but approval policy is never »). Studium's tools write only Studium's own lessons and progress; the owner allowed them for Codex on 27 November 2026. An entry written by an earlier version is rewritten when VS Code next starts the extension. Tried with codex-cli 0.170.0 on macOS: a conversation of 13 turns in `codex exec` with the 0.6.9 entry's server and the approval line, from the demo lesson to a lesson built from a notes file, played and rated. Not tried yet: the Codex app and Codex in VS Code.
+
+### Documentation
+
+- Connect Codex, Troubleshooting, the example `codex.toml` and the `studium-harness` skill give the approval line for a server added by hand, and say that each `codex exec` starts the server again (the lesson resumes where it stopped).
+
 ## 0.6.9 — 2026-11-27
 
 This release changes no behaviour. It brings the new pages of the Visual Studio Marketplace, Open VSX and npm, which lead with the way in that needs no Node and no terminal: the VS Code extension, « Discover Studium », then **Studium: Connect an Assistant…**. The server's instructions also give the demo lesson its current length.

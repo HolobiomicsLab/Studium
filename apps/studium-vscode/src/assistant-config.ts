@@ -194,12 +194,16 @@ const quote = (value: string): string => JSON.stringify(value);
 const BARE_KEY = /^[A-Za-z0-9_-]+$/;
 const CODEX_TABLE = `mcp_servers.${VIBE_SERVER_NAME}`;
 
-/** The TOML of the extension's Codex entry, ending with a newline. */
+/** The TOML of the extension's Codex entry, ending with a newline. `default_tools_approval_mode = "approve"`: Codex
+ *  otherwise asks before every tool not marked read-only (starting a lesson, each answer, each rating), and in
+ *  `codex exec` refuses them ("requires approval, but approval policy is never"). Studium's tools write only
+ *  Studium's own lessons and progress; the owner allowed them for Codex on 27 Nov 2026. */
 export function codexEntryToml(entry: ServerEntry): string {
   return [
     `[${CODEX_TABLE}]`,
     `command = ${quote(entry.command)}`,
     `args = [${entry.args.map(quote).join(", ")}]`,
+    `default_tools_approval_mode = "approve"`,
     "",
     `[${CODEX_TABLE}.env]`,
     ...Object.entries(marked(entry.env)).map(([key, value]) => `${BARE_KEY.test(key) ? key : quote(key)} = ${quote(value)}`),
