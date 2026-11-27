@@ -6,6 +6,18 @@ Journal des unités TDD par milestone. Mis à jour à chaque commit significatif
 
 ---
 
+## 2026-11-27 (nuit) — Codex : les outils Studium approuvés dans l'entrée
+
+Essai d'une conversation Codex (codex-cli 0.170.0, `codex exec` + `exec resume`, 13 tours, serveur du VSIX 0.6.9
+lancé comme l'entrée de « Relier un assistant ») : démo, quiz, carte des notions, leçon construite depuis un fichier
+de notes en 49 s, réponse rédigée, note de rappel ; reprise correcte après redémarrage du serveur. Blocage : Codex
+demande avant chaque outil non marqué en lecture seule, et `codex exec` le refuse (« requires approval, but approval
+policy is never »). Propriétaire, 27 nov. : « J'autorise les outils studium pour codex ». L'entrée Codex porte
+désormais `default_tools_approval_mode = "approve"` ; une entrée plus ancienne n'est plus « courante » et est réécrite
+à l'activation. Pilote `assistant-config` : 3 assertions rouges puis 120/120 ; `codex mcp get` lit
+`default_tools_approval_mode: approve` et `--strict-config` accepte le fichier. Docs Codex, dépannage, exemple
+`codex.toml` et skill `studium-harness` mis à jour.
+
 ## 2026-11-27 (soir) — la voie légère d'abord, docs et skills
 
 Demande du propriétaire : mettre à jour toute la documentation et le site pour mettre en avant une installation

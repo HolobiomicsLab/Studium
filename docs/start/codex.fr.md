@@ -23,7 +23,18 @@ n'est remplacée que si vous dites oui. Chaque mise à jour de Studium réécrit
 assistant…** la retire, et la désinstallation de l'extension aussi, pour autant que VS Code exécute son étape de
 désinstallation.
 
-Vérifié le 26 novembre 2026 sous macOS : Codex (codex-cli 0.170.0) a lu l'entrée (`codex mcp get studium`), et l'entrée a lancé le serveur avec ses 40 outils. Une conversation dans Codex avec cette entrée n'a pas encore été essayée.
+L'entrée indique aussi `default_tools_approval_mode = "approve"` : Codex utilise les outils de Studium sans demander
+avant chacun (lancer une leçon, chaque réponse, chaque note de rappel). Les outils de Studium n'écrivent que les leçons
+et la progression de Studium. Une entrée écrite par Studium 0.6.9 ou antérieur reçoit cette ligne au prochain
+démarrage de l'extension mise à jour par VS Code. Si vous préférez que Codex demande, ajoutez plutôt Studium à la main,
+comme ci-dessous, sans cette ligne.
+
+Vérifié sous macOS avec codex-cli 0.170.0. Le 26 novembre 2026, Codex a lu l'entrée (`codex mcp get studium`) et
+l'entrée a lancé le serveur avec ses 40 outils. Le 27 novembre, une conversation de 13 tours (`codex exec`, puis
+`codex exec resume`, avec le modèle par défaut de Codex) a utilisé cette entrée et sa ligne d'approbation : la leçon
+de démonstration « Découvrir Studium », un quiz, la carte des notions, une leçon de quatre étapes construite à partir
+d'un fichier de notes en moins d'une minute, une réponse rédigée et la note de rappel. Pas encore essayé :
+l'application Codex et Codex dans VS Code.
 
 Les sections ci-dessous installent le serveur à la main.
 
@@ -57,6 +68,7 @@ Les sections ci-dessous installent le serveur à la main.
    [mcp_servers.studium]
    command = "npx"
    args = ["-y", "studium-mcp"]
+   default_tools_approval_mode = "approve"
 
    [mcp_servers.studium.env]
    LITELLM_BASE_URL = ""
@@ -65,15 +77,18 @@ Les sections ci-dessous installent le serveur à la main.
    Depuis un clone, utilisez `command = "node"` et
    `args = ["/path/to/studium/apps/studium-vscode/dist/lesson-mcp.cjs"]`.
 
-3. Répondez aux demandes d'approbation dans une session interactive, ou lancez en mode non interactif avec
-   `codex exec --approve-for-me` (incompatible avec `-s/--sandbox`). Pour un essai ponctuel avec un autre
-   dossier de leçons, passez tout par `-c` :
+3. Laissez Codex utiliser les outils de Studium sans demander à chaque fois : sous `[mcp_servers.studium]`
+   dans `~/.codex/config.toml`, ajoutez `default_tools_approval_mode = "approve"`, comme dans l'exemple
+   ci-dessus (`codex mcp add` ne l'écrit pas). Sans cette ligne, Codex demande avant chaque outil qui
+   enregistre quelque chose (une leçon lancée, une réponse, une note), et `codex exec`, qui ne peut pas
+   demander, le refuse. Pour un essai ponctuel avec un autre dossier de leçons, passez tout par `-c` :
 
    ```bash
-   codex exec --approve-for-me --skip-git-repo-check -C /path/to/workdir \
+   codex exec --skip-git-repo-check -C /path/to/workdir \
      -c 'mcp_servers.studium.command="node"' \
      -c 'mcp_servers.studium.args=["/path/to/studium/apps/studium-vscode/dist/lesson-mcp.cjs"]' \
      -c 'mcp_servers.studium.env={BUNDLES_ROOT="/path/to/lessons",LITELLM_BASE_URL=""}' \
+     -c 'mcp_servers.studium.default_tools_approval_mode="approve"' \
      - < prompt.md
    ```
 
@@ -90,6 +105,11 @@ essayé dans Codex Desktop : tests automatisés seulement.
 
 ## Limites
 
-- Un profil Codex avec `approval_policy = "never"` refuse tout appel à un serveur MCP stdio local
-  (`MCP tool call requires approval, but approval policy is never`).
+- Sans `default_tools_approval_mode = "approve"`, Codex demande avant chaque outil Studium qui n'est pas marqué
+  en lecture seule, et `codex exec`, qui ne peut pas demander, le refuse :
+  `MCP tool call requires approval, but approval policy is never`. Les outils de lecture (le plan d'étude, la
+  liste des leçons) ne font pas l'objet d'une demande.
+- Chaque `codex exec` ou `codex exec resume` relance le serveur : la leçon ouverte à un tour précédent n'est
+  plus ouverte. Studium dit à l'assistant de la relancer, et elle reprend à l'étape où elle s'était arrêtée. Dans
+  une session interactive, le serveur reste lancé.
 - Le serveur Studium n'écrit que dans son dossier de données ; il n'exécute jamais lui-même une capsule.
