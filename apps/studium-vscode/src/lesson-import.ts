@@ -12,15 +12,15 @@ const FINGERPRINT_LENGTH = 12;
 /** The longest title shown; a reviewer is capped at 200 by parseApproval already. */
 const MAX_SHOWN_TITLE = 200;
 
-/** A string from the archive as the modal shows it (review 2026-11-27, item 4): whitespace collapsed to one space, control
- * and invisible formatting characters removed, capped. The archive's author never controls a whole line. */
+/** A string from the archive or the library as the modals show it (reviews of 2026-11-27, item 4 then item 5): every
+ * character of Unicode categories Cc (controls), Cf (invisible formatting, bidi controls, tags), Zl and Zp (line and
+ * paragraph separators), plus U+034F and U+180E, is removed; whitespace is collapsed to one space; the result is capped.
+ * Line breaks become spaces first, so two words on two lines stay two words. The archive's author never controls a
+ * whole line, nor what a reader cannot see. */
+const LINE_BREAKS = /[\r\n\p{Zl}\p{Zp}]/gu;
+const HIDDEN = /[\p{Cc}\p{Cf}\p{Zl}\p{Zp}\u{34F}\u{180E}]/gu;
 export function shownText(text: string, max = MAX_SHOWN_TITLE): string {
-  const kept = [...text.replace(/\s+/gu, " ")].filter((char) => {
-    const code = char.codePointAt(0)!;
-    return !(code < 0x20 || (code >= 0x7f && code <= 0x9f) || (code >= 0x200b && code <= 0x200f) || (code >= 0x202a && code <= 0x202e)
-      || (code >= 0x2060 && code <= 0x2069) || code === 0xfeff);
-  });
-  const cleaned = kept.join("").replace(/ {2,}/g, " ").trim();
+  const cleaned = text.replace(LINE_BREAKS, " ").replace(HIDDEN, "").replace(/\s+/gu, " ").trim();
   const chars = [...cleaned];
   return chars.length > max ? chars.slice(0, max - 1).join("") + "…" : cleaned;
 }
@@ -59,12 +59,16 @@ function approvalLine(summary: LessonArchiveSummary, locale: Locale): string {
  * readable lesson.json): what replacing does to it, to its class contributions (community/, carried over) and to the
  * learner's progress. Learner state is keyed by bundle_id (FileStateStore, the host's per-learner scope), not by the
  * lesson's bytes: replacing keeps it, and the new version takes it up. */
-export function conflictPrompt(summary: LessonArchiveSummary, locale: Locale, existingSha256: string): ConflictPrompt {
+export function conflictPrompt(summary: LessonArchiveSummary, locale: Locale, existingSha256: string, carriesCommunity: boolean): ConflictPrompt {
   const params = { bundle_id: shownText(summary.bundleId), title: shownText(summary.title) };
   const noLesson = existingSha256 === "";
+  // The contributions are promised only when a replace carries them: a real community/ folder in a real lesson folder.
+  const detail = noLesson
+    ? (carriesCommunity ? "import_conflict_detail_no_lesson" : "import_conflict_detail_no_lesson_no_community")
+    : (carriesCommunity ? "import_conflict_detail" : "import_conflict_detail_no_community");
   return {
     message: hostPhrase(noLesson ? "import_conflict_message_no_lesson" : "import_conflict_message", params, locale),
-    detail: hostPhrase(noLesson ? "import_conflict_detail_no_lesson" : "import_conflict_detail", params, locale),
+    detail: hostPhrase(detail, params, locale),
     replace: hostPhrase("import_conflict_replace", {}, locale),
   };
 }
@@ -101,7 +105,7 @@ export function importErrorMessage(error: unknown, locale: Locale): string {
     // that holds the old lesson, on purpose.
     return hostPhrase(ERROR_KEYS[error.code], {
       member: shownText(error.member ?? "?", 300), error: shownText(error.message, 300), code: shownText(error.systemCode ?? "?", 40),
-      path: error.code === "restore_failed" ? (error.member ?? "?") : "?",
+      path: error.code === "restore_failed" ? shownText(error.member ?? "?", 1000) : "?",
     }, locale);
   }
   return hostPhrase("import_failed", { error: shownText(error instanceof Error ? error.message : String(error), 300) }, locale);
