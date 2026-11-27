@@ -16,7 +16,8 @@ dans le workflow de publication :
 |---|---|
 | `studium-vX.Y.Z.vsix` | l'extension VS Code, avec le serveur MCP, les bibliothèques des viewers et l'interface française et anglaise |
 | `lesson-mcp.cjs` | le serveur MCP en un seul fichier Node autonome, celui que le VSIX embarque |
-| `SHA256SUMS.txt` | empreintes des deux fichiers |
+| `studium-vX.Y.Z.mcpb` | le paquet pour Claude Desktop : ce serveur, les leçons livrées et un manifeste, empaquetés par l'outil [`mcpb`](https://github.com/anthropics/mcpb) à partir de ce que prépare [`stage-mcpb.mjs`](../../.github/scripts/stage-mcpb.mjs) ; joint à la version GitHub |
+| `SHA256SUMS.txt` | empreintes des trois fichiers |
 | `npm-stage/` | le paquet npm `studium-mcp` : le même serveur sans dépendance d'exécution, préparé par [`stage-npm-mcp.mjs`](../../.github/scripts/stage-npm-mcp.mjs) |
 
 Chaque fichier porte la licence du dépôt : Apache 2.0, avec `LICENSE` et `NOTICE` dans le VSIX et dans le

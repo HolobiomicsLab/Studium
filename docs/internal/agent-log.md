@@ -6,6 +6,14 @@ Journal des unités TDD par milestone. Mis à jour à chaque commit significatif
 
 ---
 
+## 2026-11-27 — paquet Claude Desktop (.mcpb)
+
+Propriétaire, 27 nov. : « Autorisation donner. Tu travailles sur le paquaet mcpb claude desktop stp, fais le necessaire »
+(après la recommandation d'ajouter `@anthropic-ai/mcpb` en dépendance de développement). `stage-mcpb.mjs` (serveur,
+leçons livrées, icône 512 px tirée de `docs/assets/brand/studium-icon.svg`, manifeste 0.3 de type `node`) ; `build.sh`
+valide, empaquette et l'ajoute aux sommes ; `release.yml` le joint à la version GitHub. Test : manifeste valide, le
+serveur démarre comme Claude Desktop le lance et propose « Découvrir Studium ». Pas encore installé dans Claude Desktop.
+
 ## 2026-11-27 — serveurs Studium en double
 
 Même délégation (jusqu'à 18 h). `otherStudiumServers` (Codex, Claude Code, Claude Desktop, Cursor, OpenCode) : par le nom

@@ -60,7 +60,14 @@ n'a pas écrite.
 
 ## Claude Desktop
 
-Claude Desktop lit `claude_desktop_config.json`, dans `~/Library/Application Support/Claude/` sous macOS et
+**À partir de Studium 0.6.7, le plus simple :** téléchargez `studium-vX.Y.Z.mcpb` depuis la
+[dernière version](https://github.com/HolobiomicsLab/Studium/releases/latest), double-cliquez dessus et choisissez
+**Installer** dans Claude Desktop. Claude Desktop lance le serveur avec le Node qu'il contient : ni Node, ni VS Code, ni
+fichier à modifier. Le paquet contient « Découvrir Studium » ; demandez à Claude « je veux apprendre X avec Studium ».
+Son manifeste et le serveur qu'il lance sont vérifiés à la construction de la version ; l'installer dans Claude Desktop
+n'a pas encore été essayé.
+
+Sinon, Claude Desktop lit `claude_desktop_config.json`, dans `~/Library/Application Support/Claude/` sous macOS et
 dans `%APPDATA%\Claude\` sous Windows. Avec l'extension Studium pour VS Code, **Studium : Relier un assistant…** avec
 **Claude Desktop** coché écrit l'entrée pour vous, sans Node ; quittez puis rouvrez Claude Desktop. Vérifié le
 26 novembre 2026 sous macOS : l'entrée écrite a lancé le serveur avec ses 40 outils ; Claude Desktop lui-même n'a

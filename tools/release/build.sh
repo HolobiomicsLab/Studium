@@ -9,7 +9,9 @@
 # Writes into <out-dir>, which must be new or empty:
 #   studium-vX.Y.Z.vsix   the VS Code extension
 #   lesson-mcp.cjs        the MCP server as one file, the one the VSIX embeds
-#   SHA256SUMS.txt        checksums of the two files
+#   studium-vX.Y.Z.mcpb   the Claude Desktop bundle (that server, the shipped lessons, a manifest)
+#   SHA256SUMS.txt        checksums of the three files
+#   mcpb-stage/           what studium-vX.Y.Z.mcpb was packed from
 #   npm-stage/            the npm package studium-mcp, ready for `npm publish`
 #   BUILD                 what was built: version, tag (or "untagged") and commit; send.sh reads it
 #
@@ -79,7 +81,11 @@ packaged="$(unzip -p apps/studium-vscode/studium.vsix extension/package.json | n
 say "Release files"
 cp apps/studium-vscode/studium.vsix "$out/studium-v$version.vsix"
 cp apps/studium-vscode/dist/lesson-mcp.cjs "$out/lesson-mcp.cjs"
-(cd "$out" && "${sha[@]}" "studium-v$version.vsix" lesson-mcp.cjs > SHA256SUMS.txt)
+# The Claude Desktop bundle: the same server, the shipped lessons and a manifest, installed by a double click.
+node .github/scripts/stage-mcpb.mjs "$version" "$out/mcpb-stage"
+"${pnpm[@]}" exec mcpb validate "$out/mcpb-stage/manifest.json"
+"${pnpm[@]}" exec mcpb pack "$out/mcpb-stage" "$out/studium-v$version.mcpb"
+(cd "$out" && "${sha[@]}" "studium-v$version.vsix" lesson-mcp.cjs "studium-v$version.mcpb" > SHA256SUMS.txt)
 node .github/scripts/stage-npm-mcp.mjs "$version" "$out/npm-stage"
 [ "$("$out/npm-stage/studium-mcp.cjs" --version)" = "$version" ] || { echo "build: the staged server does not answer $version to --version" >&2; exit 1; }
 printf 'version=%s\ntag=%s\ncommit=%s\n' "$version" "$([ "$untagged" -eq 1 ] && echo untagged || echo "$tag")" "$(git rev-parse HEAD)" > "$out/BUILD"
