@@ -89,6 +89,10 @@ For a class:
 - the VS Code package makes the lesson pane easy to install, but it does not distribute or
   validate lessons for you.
 
+To give students the lesson from your course page, in Moodle or any platform that carries a file and a
+text, pack it into one `.studium.zip` file that students import in VS Code: see
+[Share a lesson through your course platform](share-through-your-course-platform.md).
+
 ## Run an experiment session
 
 When a lesson lets students explore with their assistant, set a concrete scope: data, commands,
