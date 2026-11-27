@@ -30,6 +30,7 @@ propres sources. Chaque skill est un dossier contenant un `SKILL.md` ; son en-
 | [`studium-visual-support`](studium-visual-support/SKILL.md) | apprenants | examiner des photographies sources ou demander une image adaptée, une carte Mermaid, une explication audio ou une courte vidéo |
 | [`studium-learner-report`](studium-learner-report/SKILL.md) | apprenants et enseignants | exporter ou examiner une trace d'activité choisie par l'apprenant ou un journal d'expérience sous forme de rapport ASTRA/MySTRA |
 | [`studium-observatory`](studium-observatory/SKILL.md) | opérateurs et relecteurs | lancer et lire l'[Observatory](../services/observatory/README.fr.md) |
+| [`studium-release`](studium-release/SKILL.md) | mainteneurs | publier une version de bout en bout : numéro, changelog, fusions, étiquette, la release GitHub, les quatre registres et le site de documentation, puis vérifier chacun |
 | [`studium-contribute`](studium-contribute/SKILL.md) | tout assistant | quand Studium lui-même échoue ou qu'une fonction manque, le dire, aider la personne à avancer, puis proposer une fois de le signaler ou de proposer la modification ; c'est la personne qui publie |
 
 Les skills de rôle (`studium-student`, `studium-teacher`, `studium-self-learner`,

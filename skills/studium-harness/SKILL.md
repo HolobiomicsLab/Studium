@@ -425,6 +425,7 @@ deterministic placeholder unless `--live`, which is paid. See `eval/README.md`.
 
 - The server logs to stderr only; anything printed to stdout corrupts the MCP stream.
 - Use absolute paths in client configurations.
+- Codex asks before each Studium tool not marked read-only, and `codex exec` refuses it (« MCP tool call requires approval, but approval policy is never »). The entry **Studium: Connect an Assistant…** writes has `default_tools_approval_mode = "approve"` from 0.6.10; a server added by hand needs that line under `[mcp_servers.studium]`.
 - Extension 0.6.6 did not start: every `studium.…` command answered « command not found » and the Lessons view links did nothing. Update to 0.6.8 or later, then run Developer: Reload Window.
 - Telemetry is written only with `STUDIUM_TELEMETRY_CONSENT=granted` and a durable
   data folder; class views see consented aggregates only.

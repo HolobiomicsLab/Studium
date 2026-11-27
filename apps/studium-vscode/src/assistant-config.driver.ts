@@ -61,6 +61,12 @@ for (const id of ASSISTANT_IDS) {
   expect(server.command === HELPER && server.args[0].endsWith("lesson-mcp.cjs"), "codex: command and args");
   expect(server.env[VIBE_MARKER_KEY] === VIBE_MARKER && server.env.ELECTRON_RUN_AS_NODE === "1", "codex: env with the marker");
   expect(!("STUDIUM_TELEMETRY_CONSENT" in server.env) && server.env.LITELLM_BASE_URL === "", "codex: null values dropped, empty kept");
+  // Codex asks before every MCP tool not marked read-only; Studium's tools write only Studium's own data (owner, 27 Nov).
+  expect(server.default_tools_approval_mode === "approve", "codex: Studium's tools approved, Codex does not ask at each one");
+  const before069 = block.replace(/^default_tools_approval_mode = .*\n/m, "");
+  expect(!assistantEntryIsCurrent("codex", before069, entry("0.6.6")), "codex: an entry written before 0.6.10 is not current");
+  const refreshed = textOf(connectAssistant("codex", before069, entry("0.6.6"), { replaceHandWritten: false }));
+  expect((parseToml(refreshed) as any).mcp_servers.studium.default_tools_approval_mode === "approve", "codex: rewriting it adds the approval");
   const user = 'model = "o9"  # mine\n\n[mcp_servers.perspicacite]\nurl = "http://localhost:8000/mcp"\n\n[profiles.fast]\nmodel = "mini"\n';
   const added = textOf(connectAssistant("codex", user, entry("0.6.6"), { replaceHandWritten: false }));
   expect(added.startsWith(user) && added.includes("# mine"), "codex: the file before is kept as it was");

@@ -26,7 +26,7 @@ message without keys, personal data or private lesson content.
 | The server waits and shows no page | normal: it talks over stdio to an MCP client, not to a browser |
 | No Studium tools in the chat | read the client's MCP log, check the absolute path to `lesson-mcp.cjs`, restart the server and open a new conversation |
 | VS Code ignores the JSON | `.vscode/mcp.json` uses `servers`; Claude Code and Cursor use `mcpServers`; OpenCode v2 uses `mcp.servers` |
-| Codex: `MCP tool call requires approval, but approval policy is never` | answer the prompts interactively, or run `codex exec --approve-for-me` |
+| Codex asks before each Studium step, or answers `MCP tool call requires approval, but approval policy is never` | under `[mcp_servers.studium]` in `~/.codex/config.toml`, add `default_tools_approval_mode = "approve"`; the entry written by **Studium: Connect an Assistant…** has it from Studium 0.6.10. See [Connect Codex](codex.md#limits) |
 | A tool you read about is missing | the build predates your checkout: rebuild with `pnpm --filter studium-vscode build`, restart the server, compare `get_server_info.build` |
 | `persistence.durable` is false | `STUDIUM_EPHEMERAL=1` is set and `STUDIUM_DATA_DIR` is not: progress is lost at restart |
 | The lesson you asked for is not found | the server looks in `BUNDLES_ROOT` first, then `~/.studium/library`; ask the assistant to call `list_lessons` |
