@@ -151,7 +151,7 @@ describe('runImportCommand', () => {
   it('cleans what the archive wrote before printing it', async () => {
     const r = rig();
     await runImportCommand(ask(archive({ 'lesson.json': lesson('chem-l1', 'Safe\x1b[2J\u{202E}title\nSecond line') })), r.deps);
-    expect(out(r)).not.toMatch(/[\x1b\u{202E}]/u);
+    expect(out(r).includes('\x1b') || out(r).includes('\u{202E}')).toBe(false);
     expect(out(r)).toContain('Safe[2Jtitle Second line');
   });
   it('reports the same lesson again as already present', async () => {
