@@ -40,7 +40,9 @@ them into your client's file; never overwrite other servers already configured t
 With the Studium extension for VS Code, **Studium: Connect an Assistant…** connects Mistral Vibe, Codex, Claude Code,
 Claude Desktop, Cursor and OpenCode in one click, with no Node and no terminal: it writes one `studium` entry into each
 assistant's own file, running the server the extension carries. Copilot in VS Code has the server already. Each page
-below starts with that route, then gives the manual one.
+below starts with that route, then gives the manual one. When the assistant already runs Studium under another
+name (a development entry, an older hand-written one), the command says so after writing its own entry: the assistant
+would list each Studium tool twice, so keep one. It never removes an entry it did not write.
 
 | Client | Where its configuration lives | Page |
 |---|---|---|
