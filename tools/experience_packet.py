@@ -2770,6 +2770,8 @@ PACK_TEXT = {
         "exists": "{path} already exists; use --force to replace it",
         "not_a_lesson": "{path} is not a lesson bundle (no metadata.title)",
         "same_name": "assets/{member} and assets/{other} are one file on a student's computer (same name but for case or accents): rename one, then pack again",
+        "lesson_big": "lesson.json is {size}, over the limit of {limit}: shorten the lesson or move media into assets/",
+        "approval_big": "approval.json is {size}, over the limit of {limit}; the record is abnormal: run approve again",
         "bad_name": "assets/{member} has a name that some students' systems refuse: rename or remove it, then pack again",
         "too_many": "{count} members in the archive, over the limit of {limit}: remove files from assets/",
         "asset_big": "assets/{member} is {size}, over the limit of {limit} for one asset: shrink or remove it",
@@ -2800,6 +2802,8 @@ PACK_TEXT = {
         "exists": "{path} existe déjà ; utilisez --force pour le remplacer",
         "not_a_lesson": "{path} n'est pas une leçon (pas de metadata.title)",
         "same_name": "assets/{member} et assets/{other} sont un seul fichier sur l'ordinateur d'un étudiant (même nom à la casse ou aux accents près) : renommez-en un, puis relancez pack",
+        "lesson_big": "lesson.json pèse {size}, au-delà de la limite de {limit} : raccourcissez la leçon ou déplacez les médias dans assets/",
+        "approval_big": "approval.json pèse {size}, au-delà de la limite de {limit} ; l'enregistrement est anormal : relancez approve",
         "bad_name": "assets/{member} a un nom que certains systèmes d'étudiants refusent : renommez ou retirez ce fichier, puis relancez pack",
         "too_many": "{count} membres dans l'archive, au-delà de la limite de {limit} : retirez des fichiers de assets/",
         "asset_big": "assets/{member} pèse {size}, au-delà de la limite de {limit} par fichier : réduisez-le ou retirez-le",
@@ -2820,6 +2824,8 @@ def _pack_refusal(language: str, key: str, **values: Any) -> PackRefusal:
 PACK_MAX_MEMBERS = 2000
 PACK_MAX_ASSET_BYTES = 50 * 1024 * 1024
 PACK_MAX_TOTAL_BYTES = 200 * 1024 * 1024
+PACK_MAX_LESSON_BYTES = 8 * 1024 * 1024  # the importer's cap on lesson.json
+PACK_MAX_APPROVAL_BYTES = 64 * 1024  # over this the importer ignores approval.json
 PACK_MAX_SEGMENT_BYTES = 255
 PACK_MAX_MEMBER_BYTES = 1024
 # The importer applies the same rules; an archive the packer writes must be one it accepts.
@@ -2845,9 +2851,11 @@ def _pack_segment_problem(segment: str) -> bool:
 
 def _pack_member_problem(member: str) -> bool:
     """True when an asset path (relative to assets/) breaks the shared name rules."""
-    return len(f"assets/{member}".encode("utf-8")) > PACK_MAX_MEMBER_BYTES or any(
-        _pack_segment_problem(segment) for segment in member.split("/")
-    )
+    try:
+        too_long = len(f"assets/{member}".encode("utf-8")) > PACK_MAX_MEMBER_BYTES
+        return too_long or any(_pack_segment_problem(segment) for segment in member.split("/"))
+    except UnicodeEncodeError:  # a name that is not valid UTF-8 (lone surrogate from the file system)
+        return True
 
 
 def _pack_bundle_id_problem(bundle_id: Any) -> bool:
@@ -2867,12 +2875,21 @@ def _pack_folded(member: str) -> str:
 
 def _pack_duplicate(members: list[str]) -> tuple[str, str] | None:
     """The first two asset paths that a student's file system would take for one file, or None."""
-    seen: dict[str, str] = {}
+    files: dict[str, str] = {}
+    folders: dict[str, str] = {}  # folded folder path -> a member inside it
     for member in members:
         key = _pack_folded(member)
-        if key in seen:
-            return seen[key], member
-        seen[key] = member
+        if key in files:
+            return files[key], member
+        if key in folders:  # a file named like a folder that already holds another member
+            return member, folders[key]
+        parts = key.split("/")
+        for depth in range(1, len(parts)):
+            parent = "/".join(parts[:depth])
+            if parent in files:  # a folder named like a file already seen
+                return files[parent], member
+            folders.setdefault(parent, member)
+        files[key] = member
     return None
 
 
@@ -2905,7 +2922,7 @@ def _pack_assets(lesson_dir: Path, language: str) -> list[tuple[str, Path, int]]
             if not path.is_file():
                 continue
             if _pack_member_problem(member):
-                raise _pack_refusal(language, "bad_name", member=member)
+                raise _pack_refusal(language, "bad_name", member=member.encode("utf-8", "backslashreplace").decode())
             size = path.stat().st_size
             if size > PACK_MAX_ASSET_BYTES:
                 raise _pack_refusal(
@@ -2924,8 +2941,14 @@ def _pack_skipped_directory(name: str) -> bool:
 
 
 def _plain_line(value: Any) -> str:
-    """One line for the text a teacher pastes: control characters dropped, whitespace collapsed."""
-    text = "".join(c for c in str(value) if c.isspace() or unicodedata.category(c) != "Cc")
+    """One line for the text a teacher pastes: invisible, bidirectional and control characters dropped
+    (tab and newline become spaces), whitespace collapsed."""
+    dropped = {0x034F, 0x180E}
+    text = "".join(
+        c for c in str(value)
+        if ord(c) not in dropped and unicodedata.category(c) not in ("Cf", "Zl", "Zp")
+        and (c.isspace() or unicodedata.category(c) != "Cc")
+    )
     return " ".join(text.split())
 
 
@@ -2941,10 +2964,18 @@ def pack_lesson(
     text_language = language or _locale(str(metadata.get("language", "en")))
     if not isinstance(metadata.get("title"), str):
         raise _pack_refusal(text_language, "not_a_lesson", path=bundle_path)
+    if len(lesson_bytes) > PACK_MAX_LESSON_BYTES:
+        raise _pack_refusal(
+            text_language, "lesson_big", size=_pack_size(len(lesson_bytes)), limit=_pack_size(PACK_MAX_LESSON_BYTES)
+        )
     approval_path = bundle_path.parent / "approval.json"
     if not approval_path.is_file():
         raise _pack_refusal(text_language, "no_approval", path=bundle_path)
     approval, approval_bytes = _load_json(approval_path, "approval record")
+    if len(approval_bytes) > PACK_MAX_APPROVAL_BYTES:
+        raise _pack_refusal(
+            text_language, "approval_big", size=_pack_size(len(approval_bytes)), limit=_pack_size(PACK_MAX_APPROVAL_BYTES)
+        )
     if (
         not isinstance(approval, dict)
         or approval.get("schema") != APPROVAL_SCHEMA
