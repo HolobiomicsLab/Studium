@@ -32,6 +32,8 @@ import { discoverCoursesInRoot, needsLessonPicker, toLessonPickerChoices, type L
 import { browserPhrases, localeFromLanguage, phrase, type Locale } from "./phrases.js";
 import { inlineImageAsset } from "./asset-path.js";
 import { hostPhrase, lessonReadyMessage } from "./host-phrases.js";
+import { inspectLessonArchive, installLessonArchive, type InstallOutcome } from "@studium/lesson-panel/lesson-archive";
+import { alreadyPresentMessage, conflictPrompt, importConfirmation, importDialogOptions, importErrorMessage } from "./lesson-import.js";
 import { defaultBundlesRoot, demoLessonRef, shippedLessonsRoot, studiumHome } from "./data-paths.js";
 import { isTrusted, runConsent, runFingerprint, withTrusted } from "./run-trust.js";
 import { checkLessonPath, parseOpenLessonLink, type OpenLessonResult } from "./lesson-uri.js";
@@ -214,6 +216,8 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand("studium.refreshLessons", () => { treeProvider?.refresh(); void refreshStudyStatus(context); }),
     vscode.commands.registerCommand("studium.openThisLesson", (resource?: unknown) => openThisLesson(context, resource)),
     vscode.commands.registerCommand("studium.forgetMyData", () => forgetMyData(context)),
+    // Route A, lot 1: a lesson file (.studium.zip) downloaded from a course page, from the explorer menu or a dialog.
+    vscode.commands.registerCommand("studium.importLesson", (resource?: unknown) => importLesson(context, resource)),
     // A harness (Codex, Claude Code) hands a lesson over with `code --open-url vscode://<id>/open?bundle=…`.
     vscode.window.registerUriHandler({ handleUri: (uri) => handleLessonUri(context, uri) }),
     // After a window reload VS Code gives the pane back to us; reopen its lesson and resume (VSC-7).
@@ -506,6 +510,46 @@ async function openThisLesson(context: vscode.ExtensionContext, resource?: unkno
   const result = checkLessonPath(uri.fsPath, existsSync);
   if (!result.ok) { reportLessonPathError(result); return; }
   await openLesson(context, result.bundleRef, "lesson", { bundlesRoot: result.bundlesRoot });
+}
+
+/**
+ * « Studium: Import a lesson… » (route A, lot 1): a lesson file a teacher packed, given as the explorer's file or chosen
+ * in a dialog that starts in Downloads. The archive is checked first (nothing written), the learner confirms from what
+ * it holds, then it is installed into the library and opened. A different lesson under the same identifier is replaced
+ * only on a second confirmation, which says what happens to the learner's progress.
+ */
+async function importLesson(context: vscode.ExtensionContext, resource?: unknown): Promise<void> {
+  const locale = extensionLocale;
+  let archive = resource instanceof vscode.Uri && resource.scheme === "file" ? resource.fsPath : undefined;
+  if (!archive) {
+    const { defaultPath, ...dialog } = importDialogOptions(homedir(), existsSync, locale);
+    const picked = await vscode.window.showOpenDialog({ ...dialog, ...(defaultPath ? { defaultUri: vscode.Uri.file(defaultPath) } : {}) });
+    archive = picked?.[0]?.fsPath;
+    if (!archive) return;
+  }
+  const library = libraryRoot;
+  if (!library) return;
+  try {
+    const summary = await inspectLessonArchive(archive);
+    const confirmation = importConfirmation(summary, locale);
+    const confirmed = await vscode.window.showInformationMessage(confirmation.message, { modal: true, detail: confirmation.detail }, confirmation.action);
+    if (confirmed !== confirmation.action) return;
+    // BN-1: the lesson the learner imports here is not announced as ready a moment later.
+    libraryWatch?.markOwn(join(library, summary.bundleId, "lesson.json"));
+    let outcome: InstallOutcome = await installLessonArchive(archive, library);
+    if (outcome.status === "conflict") {
+      const conflict = conflictPrompt(outcome.summary, locale);
+      const replace = await vscode.window.showWarningMessage(conflict.message, { modal: true, detail: conflict.detail }, conflict.replace);
+      if (replace !== conflict.replace) return;
+      outcome = await installLessonArchive(archive, library, { replace: true });
+    }
+    if (outcome.status === "conflict") return; // replace: true never answers a conflict
+    treeProvider?.refresh();
+    if (outcome.status === "already_present") void vscode.window.showInformationMessage(alreadyPresentMessage(outcome.summary, locale));
+    await openLesson(context, outcome.bundleRef, "lesson", { bundlesRoot: library });
+  } catch (error) {
+    vscode.window.showErrorMessage(importErrorMessage(error, locale));
+  }
 }
 
 /** Reopen the lesson a restored pane was showing and resume it (the learner id picks the saved progress up). */
@@ -876,6 +920,7 @@ async function pickLesson(context: vscode.ExtensionContext) {
     const chosen = await showLessonChoices(bundlesRoot, shippedRootOf(context) !== null);
     if (!chosen) return;
     if (chosen.action === "demo") { await openDemoLesson(context); return; }
+    if (chosen.action === "import") { await importLesson(context); return; }
     if (chosen.action === "folder") {
       const selected = await chooseBundlesRoot();
       if (!selected) return;
@@ -890,7 +935,7 @@ async function pickLesson(context: vscode.ExtensionContext) {
 
 async function showLessonChoices(bundlesRoot: string, demo: boolean): Promise<LessonPickerChoice | undefined> {
   const courses = discoverCoursesInRoot(bundlesRoot);
-  const choices = toLessonPickerChoices(courses, bundlesRoot, extensionLocale, { demo });
+  const choices = toLessonPickerChoices(courses, bundlesRoot, extensionLocale, { demo, importFile: true });
   return vscode.window.showQuickPick(choices, {
     title: phrase("picker_title", {}, extensionLocale),
     // BN-3: no course in the folder (the demo and the folder action are always listed): say where the learner's lesson
