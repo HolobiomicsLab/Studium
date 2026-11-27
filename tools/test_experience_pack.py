@@ -354,3 +354,63 @@ def test_two_assets_one_name_on_a_student_computer_are_found():
     assert _pack_duplicate(["fig/a.png", "FIG/A.PNG"]) == ("fig/a.png", "FIG/A.PNG")
     assert _pack_duplicate([sharp_s, "STRASSE.png"]) == (sharp_s, "STRASSE.png")
     assert _pack_duplicate([decomposed, composed]) == (decomposed, composed)
+
+
+# --- second follow-up ---------------------------------------------------------------------------
+
+
+def test_a_file_and_a_folder_of_one_folded_name_are_found():
+    """A case-sensitive disk can hold assets/Img (a file) next to assets/img/x.png; the importer refuses it."""
+    from experience_packet import _pack_duplicate
+
+    assert _pack_duplicate(["Img", "img/x.png"]) == ("Img", "img/x.png")
+    assert _pack_duplicate(["img/x.png", "IMG"]) == ("IMG", "img/x.png") or _pack_duplicate(["img/x.png", "IMG"]) == ("img/x.png", "IMG")
+    assert _pack_duplicate(["a/B", "a/b/c/d.png"]) is not None
+    assert _pack_duplicate(["img/x.png", "img/y.png", "imgs"]) is None
+
+
+def test_lesson_over_the_importer_cap_is_refused_with_size_and_limit(approved, tmp_path, monkeypatch, capsys):
+    monkeypatch.setattr(ep, "PACK_MAX_LESSON_BYTES", 100)
+    out = tmp_path / "out"
+    out.mkdir()
+    assert _pack(approved, out) == 1
+    err = capsys.readouterr().err
+    assert "lesson.json" in err and "100 bytes" in err
+    assert list(out.iterdir()) == []
+
+
+def test_approval_over_the_importer_cap_is_refused(approved, tmp_path, monkeypatch, capsys):
+    monkeypatch.setattr(ep, "PACK_MAX_APPROVAL_BYTES", 50)
+    out = tmp_path / "out"
+    out.mkdir()
+    assert _pack(approved, out) == 1
+    err = capsys.readouterr().err
+    assert "approval.json" in err and "50 bytes" in err and "approve again" in err
+    assert list(out.iterdir()) == []
+
+
+def test_importer_caps_match_the_contract():
+    assert ep.PACK_MAX_LESSON_BYTES == 8388608 and ep.PACK_MAX_APPROVAL_BYTES == 65536
+
+
+def test_a_name_that_is_not_utf8_is_a_bad_name_not_a_crash():
+    broken = "fig" + chr(0xDC80) + ".png"
+    assert ep._pack_member_problem(broken)
+    assert ep._pack_member_problem("dir/" + broken)
+
+
+def test_invisible_and_bidirectional_characters_are_dropped_from_the_text():
+    marks = chr(0x202E) + chr(0x200B) + chr(0x2066) + chr(0x034F) + chr(0x180E) + chr(0x2028) + chr(0x2029)
+    assert ep._plain_line("Pro" + marks + "f  X") == "Prof X"
+    assert ep._plain_line("a" + chr(0x0A) + "b" + chr(0x07) + "c") == "a bc"
+
+
+def test_reviewer_with_bidi_characters_gives_a_clean_instruction(approved, tmp_path, capsys):
+    _approve(approved, "Prof" + chr(0x202E) + chr(0x200B) + chr(0x2066) + " X")
+    out = tmp_path / "out"
+    out.mkdir()
+    capsys.readouterr()
+    assert _pack(approved, out) == 0
+    text = capsys.readouterr().out
+    assert "Approved by Prof X on " in text
+    assert not any(c in text for c in (chr(0x202E), chr(0x200B), chr(0x2066)))
