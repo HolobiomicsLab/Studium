@@ -27,7 +27,8 @@ The extension shows lessons; it does not build them. Right after installation th
 | Nothing yet, and you want to see how Studium works | **Try the demo lesson** in the empty **Lessons** view, or **Studium: Try the demo lesson**: « Discover Studium », about twelve minutes, in VS Code's display language (English or French). It ships with the extension; an AI agent drafted it from Studium's documentation and the project's owner approved it, under the name beta-testeur, without reading it. It is not saved as your course and never replaces a lesson of yours |
 | Copilot in VS Code 1.101 or later | Nothing to connect: the extension offers its own Studium server to Copilot (see [Connect Copilot](copilot.md)). In Copilot Chat's agent mode, ask "I want to learn … with Studium" and name your sources. Building the lesson takes a few minutes: the status bar says **Studium · preparing a lesson…**, then VS Code tells you the lesson is ready, with **Open**, and it appears in the **Lessons** view. At the first Studium tool, allow Studium's tools for the session (see [Connect Copilot](copilot.md)) |
 | Another AI assistant (Claude Code, Codex, Mistral Vibe, Claude Desktop, Cursor, OpenCode) | Connect it with **Studium: Connect an Assistant…** (a link in the **Lessons** view; no Node, see [Start without a terminal](easy-start.md)) or from a terminal with [one command](installation.md#add-the-server-to-your-assistant), then ask "I want to learn … with Studium" and name your sources. The lesson is written to your personal library, `~/.studium/library`; VS Code tells you when it is ready, and it appears in the **Lessons** view |
-| A lesson a teacher gave you | **Studium: Pick a course**, **Choose another course folder…**, then choose its folder; or right-click its `lesson.json` and choose **Studium: Open this lesson** |
+| A lesson a teacher gave you as a folder | **Studium: Pick a course**, **Choose another course folder…**, then choose its folder; or right-click its `lesson.json` and choose **Studium: Open this lesson** |
+| A lesson file (`.studium.zip`) a teacher put on a course page | download it, then **Studium: Import a lesson…**: Studium checks the file, shows what it holds and asks you to confirm, copies the lesson into your library and opens it (see [Share a lesson through your course platform](../teach/share-through-your-course-platform.md)) |
 | The demo lessons, without a checkout | download the [repository archive](https://github.com/HolobiomicsLab/studium/archive/refs/heads/main.zip) and unzip it, then **Studium: Pick a course**, **Choose another course folder…**, and choose its `fixtures` folder |
 | A checkout of the repository | **Studium: Pick a course**, then choose `fixtures` for the demo lessons |
 
@@ -43,6 +44,7 @@ assistant does, step by step, is in [Learn with your assistant](../learn/learn-w
 | **Studium: Pick a course** | choose a course, or another folder of lessons; the choice is saved in the open folder's settings, or in your user settings when no folder is open. The list also offers the demo lesson shipped with Studium, labelled as such |
 | **Studium: Open lesson** | reopen the current course (offers the picker if none is set) |
 | Right-click a `lesson.json`, **Studium: Open this lesson** | open that file directly, in the explorer or on the editor tab, without changing settings |
+| **Studium: Import a lesson…** | import a `.studium.zip` lesson file a teacher gave you; also offered in the empty **Lessons** view, in the course picker and on a right-click on a `.studium.zip` file |
 | A `vscode://` link from your assistant | open the lesson your assistant has just built (below) |
 | **Studium: Getting started** | a five-step walkthrough: open a lesson, learn with your assistant, judge AI output, run a reproduction, review |
 
@@ -220,6 +222,7 @@ faulty lesson cannot freeze the editor. **Studium: Run reproduction** starts the
 | Studium: Try the demo lesson | open « Discover Studium », the demo lesson shipped with the extension |
 | Studium: Open lesson | open the current course in the pane |
 | Studium: Open this lesson | open the selected `lesson.json` |
+| Studium: Import a lesson… | import a `.studium.zip` lesson file into your library and open it, after a confirmation |
 | Studium: Open lesson as notebook | play the course in a notebook |
 | Studium: Community contributions | open an approved learner-written lesson |
 | Studium: Run reproduction (current scene's capsule) | run the current step's capsule, after confirmation |

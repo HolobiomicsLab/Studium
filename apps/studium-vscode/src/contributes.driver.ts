@@ -292,6 +292,26 @@ const hasCmd = (id: string) => commandIds.includes(id);
   }
 }
 
+// 15) Route A, lot 1 (plan 2026-11-27-moodle-etagere, task 3): a student imports a lesson file downloaded from a course
+//     page. A declared command titled in both languages, with its activation event; a link in the empty Lessons view;
+//     « Import » on a *.studium.zip in the explorer.
+{
+  const id = "studium.importLesson";
+  expect(hasCmd(id), `command ${id} is declared`);
+  expect((pkg.activationEvents ?? []).includes(`onCommand:${id}`), `command ${id} has an activation event`);
+  const command = (c.commands ?? []).find((x: any) => x.command === id);
+  expect(command?.title === "%command.importLesson.title%", `its title is localized (got ${command?.title})`);
+  const titles = { "package.nls.json": "Studium: Import a lesson…", "package.nls.fr.json": "Studium : Importer une leçon…" } as const;
+  for (const [file, title] of Object.entries(titles)) {
+    const nls = JSON.parse(readFileSync(resolve(root, file), "utf8"));
+    expect(nls["command.importLesson.title"] === title, `${file} titles it « ${title} » (got ${nls["command.importLesson.title"]})`);
+    expect(String(nls["viewsWelcome.empty"]).includes(`(command:${id})`), `${file}: the empty Lessons view offers to import a lesson file`);
+  }
+  const explorer = c.menus?.["explorer/context"] ?? [];
+  expect(explorer.some((m: any) => m.command === id && String(m.when ?? "").includes("resourceFilename =~ /\\.studium\\.zip$/")),
+    `the explorer context menu offers the import on a *.studium.zip (got ${JSON.stringify(explorer.filter((m: any) => m.command === id))})`);
+}
+
 if (failures.length) {
   console.error(`FAIL — ${failures.length}/${checks} contributes assertions failed:`);
   for (const f of failures) console.error("  - " + f);

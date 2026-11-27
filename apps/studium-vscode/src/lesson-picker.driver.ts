@@ -44,6 +44,31 @@ const bundle = (title: string, target: string, language: string, validatedBy: st
     "an empty folder still offers the demo first (fr)");
   expect(/^Rédigée par l'IA à partir de la documentation de Studium\./.test(demoFr[0]?.detail ?? "") && !/enseignant/.test(demoFr[0]?.detail ?? ""),
     `the demo choice says who drafted it and claims nothing about a teacher (fr; got ${demoFr[0]?.detail})`);
+  // Route A, lot 1: « Import a lesson file… » (a .studium.zip from a course page), after the courses, before the demo
+  // (which stays just before the folder action).
+  const withImport = toLessonPickerChoices(courses, "/courses", "en", { demo: true, importFile: true });
+  const importChoice = withImport.at(-3);
+  expect(withImport.map((c) => c.action).join(",") === "course,course,import,demo,folder",
+    `the import action sits after the courses and before the demo (got ${withImport.map((c) => c.action).join(",")})`);
+  expect(/Import a lesson file…/.test(importChoice?.label ?? "") && /\.studium\.zip/.test(importChoice?.description ?? ""), `the import choice is named and says which file (en; got ${importChoice?.label} / ${importChoice?.description})`);
+  const importFr = toLessonPickerChoices([], "/courses", "fr", { importFile: true }).find((c) => c.action === "import");
+  expect(/Importer un fichier de leçon…/.test(importFr?.label ?? ""), `and in French (got ${importFr?.label})`);
+}
+
+// Review 2026-11-27, item 3: a dot folder (a leftover .studium-import-* of an interrupted import) is never entered, as
+// the server's catalog does not.
+{
+  const root = mkdtempSync(join(tmpdir(), "studium-picker-dot-"));
+  try {
+    for (const dir of ["visible", ".studium-import-abc/new", ".hidden"]) mkdirSync(join(root, dir), { recursive: true });
+    writeFileSync(join(root, "visible", "lesson.json"), bundle("Visible", "L1", "fr", "T"));
+    writeFileSync(join(root, ".studium-import-abc", "new", "lesson.json"), bundle("Leftover", "L1", "fr", "T"));
+    writeFileSync(join(root, ".hidden", "lesson.json"), bundle("Hidden", "L1", "fr", "T"));
+    const refs = discoverCoursesInRoot(root).map((course) => course.ref);
+    expect(JSON.stringify(refs) === JSON.stringify(["visible/lesson.json"]), `dot folders are not listed (got ${JSON.stringify(refs)})`);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 }
 
 // Approval state comes from approval.json bound to the bytes of the lesson; validated_by text never shows.

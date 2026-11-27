@@ -21,7 +21,10 @@ Infer whether a teacher supplied a lesson, whether the student prefers the VS Co
 pane or a chat assistant, and what is already installed. Ask only for what is
 missing next.
 
-- A teacher's lesson: a course folder holding `lesson.json` (or a `.zip` bundle).
+- A teacher's lesson: a course folder holding `lesson.json` (or a `.zip` bundle). A
+  `.studium.zip` file downloaded from a course page is imported in VS Code with
+  **Studium: Import a lesson…**, which shows who approved it before copying it into the
+  library.
 - No lesson, but a topic and sources of their own: use
   [studium-self-learner](../studium-self-learner/SKILL.md).
 - Neither: use « Discover Studium » (refs `discover-studium-en` and `discover-studium-fr`, 14 steps,

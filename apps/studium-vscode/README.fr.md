@@ -68,6 +68,7 @@ jamais.
 | Studium : Ouvrir une leçon | `studium.openLesson` | le panneau de leçon |
 | Studium : Ouvrir la leçon en notebook | `studium.openLessonNotebook` | la surface notebook |
 | Studium : Ouvrir cette leçon | `studium.openThisLesson` | aussi dans les menus de l'explorateur et de l'onglet sur un `lesson.json` ; l'ouvre sans toucher aux paramètres |
+| Studium : Importer une leçon… | `studium.importLesson` | aussi dans le menu de l'explorateur sur un `*.studium.zip`, et depuis un lien `vscode://holobiomicslab.studium-vscode/import` sur une page de cours (il ouvre la fenêtre de choix de fichier ; un lien ne nomme jamais le fichier) ; vérifie un fichier de leçon préparé par un enseignant, demande confirmation, le copie dans la bibliothèque et l'ouvre |
 | Studium : Contributions de la classe | `studium.communityContributions` | ouvrir les bundles rédigés par des pairs et approuvés par l'enseignant, dans le dossier `community/` du cours |
 | Studium : Exécuter la reproduction (capsule de la scène courante) | `studium.runReproduction` | exécuter la capsule de la scène courante, après confirmation |
 | Studium : Rafraîchir la vue des leçons | `studium.refreshLessons` | relire les cours et les révisions |
