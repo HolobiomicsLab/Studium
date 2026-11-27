@@ -6,6 +6,32 @@ Journal des unités TDD par milestone. Mis à jour à chaque commit significatif
 
 ---
 
+## 2026-11-28 (nuit) — une leçon approuvée dans la page d'un cours : empaqueter, importer (INT-STUDIUM-065, route A)
+
+Propriétaire, 27 nov. : « Ok pour travailler sur A », puis « La spec est approuve comme tu me l'a proposes » et
+délégation jusqu'au 28 nov. 09:00. La plateforme de cours (Moodle ou autre) porte un fichier et une consigne ; la
+leçon se joue sur l'ordinateur de l'étudiant ; rien n'est installé dans la plateforme et aucun appel réseau n'est
+ajouté. `tools/experience_packet.py pack` écrit `<bundle_id>.studium.zip` (`lesson.json`, `approval.json`,
+`assets/`, rien d'autre) et refuse une leçon sans approbation complète et correspondante ; il affiche la consigne à
+coller. `packages/lesson-session-host/src/lesson-archive.ts` contrôle l'archive (rien n'est écrit avant la fin des
+contrôles, jamais hors de `<bibliothèque>/<bundle_id>/`) et l'installe ; l'extension l'appelle par « Studium :
+Importer une leçon… » (vue Leçons vide, sélecteur, clic droit sur un `.studium.zip`, lien
+`vscode://holobiomicslab.studium-vscode/import` qui n'ouvre que la boîte de dialogue). Pages
+`docs/teach/share-through-your-course-platform(.fr).md` et `docs/start/for-it-and-data-protection(.fr).md`.
+
+Sous-agents : empaquetage (Sonnet 5.5), import (Opus 5.5), pages (Sonnet 5.5), relecture indépendante (Opus 5.5,
+lecture seule). La relecture n'a trouvé aucune écriture hors du dossier de la leçon ; elle a reproduit, entre autres,
+une installation différente de la leçon confirmée (l'archive était lue trois fois) : l'installation est désormais liée
+au SHA-256 de l'archive confirmée, et un remplacement à l'empreinte de la leçon qu'il remplace. Mêmes règles de noms
+et mêmes limites des deux côtés (2000 membres, 50 Mio par fichier, 200 Mio en tout). La progression est gardée au
+remplacement : elle est enregistrée sous le `bundle_id`.
+
+Vérifié depuis le worktree d'intégration (pas depuis les arbres de développement) : voir la PR. Aller-retour
+`pack` → `installLessonArchive` par script : même empreinte, approbation reconnue, figure identique. Sur un Moodle
+5.3.1 local jetable (réglages par défaut, zip fait à la main) : dépôt par un enseignant, téléchargement identique par
+un étudiant, refus sans session, lien `vscode://` conservé. Non essayé : une vraie fenêtre VS Code, un clic réel sur
+le lien, le Moodle d'une université, Windows, une classe.
+
 ## 2026-11-27 (nuit) — Codex : les outils Studium approuvés dans l'entrée
 
 Essai d'une conversation Codex (codex-cli 0.170.0, `codex exec` + `exec resume`, 13 tours, serveur du VSIX 0.6.9

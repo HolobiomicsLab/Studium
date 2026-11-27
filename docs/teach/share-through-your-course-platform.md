@@ -16,7 +16,7 @@ You can give students an approved lesson from your course page, in Moodle or in 
 .venv/bin/python tools/experience_packet.py pack --bundle work/library/my-course/lesson.json --out .
 ```
 
-`pack` writes `<bundle_id>.studium.zip`: `lesson.json`, `approval.json`, then the files under `assets/`, and nothing else (not `reviews/`, not `community/`, no hidden file such as `.DS_Store`). It refuses a lesson whose `approval.json` is missing or does not match the exact `lesson.json`: approve again after any edit. It refuses an existing output file unless you add `--force`. `--language en|fr` sets the language of the instruction, which defaults to the lesson's; `--json` prints the report as JSON.
+`pack` writes `<bundle_id>.studium.zip`: `lesson.json`, `approval.json`, then the files under `assets/`, and nothing else (not `reviews/`, not `community/`, no hidden file such as `.DS_Store`). It refuses a lesson whose `approval.json` is missing, incomplete or does not match the exact `lesson.json`: approve again after any edit. It also refuses a file under `assets/` that a student's computer could not store (a name with `: * ? " < > |`, a Windows device name such as `NUL`, two names that differ only by case or accents), a symbolic link, more than 2000 files, a file over 50 MiB or more than 200 MiB in all; each refusal names the file. System files such as `Thumbs.db` are left out like hidden files. It refuses an existing output file unless you add `--force`. `--language en|fr` sets the language of the instruction, which defaults to the lesson's; `--json` prints the report as JSON.
 
 It prints the file, the title, who approved and when, the first 12 characters of the lesson fingerprint, then the text to paste:
 
@@ -59,7 +59,7 @@ On confirmation the lesson is copied into the student's library and opens. The f
 Approve again, pack again, and replace the file in the course. When a student imports the new file:
 
 - the same lesson already in the library is opened, and its approval record and figures are updated when they differ;
-- a different lesson under the same identifier (`bundle_id`) is replaced only after a second confirmation. Progress is kept, because it is saved under the lesson's identifier.
+- a different lesson under the same identifier (`bundle_id`) is replaced only after a second confirmation. Progress is kept, because it is saved under the lesson's identifier, and so are the class contributions in the lesson's `community/` folder.
 
 ## In a classroom
 

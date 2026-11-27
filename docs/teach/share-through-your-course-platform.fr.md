@@ -16,7 +16,7 @@ Vous pouvez donner à vos étudiants une leçon approuvée depuis la page de vot
 .venv/bin/python tools/experience_packet.py pack --bundle work/library/my-course/lesson.json --out .
 ```
 
-`pack` écrit `<bundle_id>.studium.zip` : `lesson.json`, `approval.json`, puis les fichiers de `assets/`, et rien d'autre (ni `reviews/`, ni `community/`, ni fichier caché comme `.DS_Store`). Il refuse une leçon dont `approval.json` manque ou ne correspond pas au `lesson.json` exact : approuvez de nouveau après toute modification. Il refuse un fichier de sortie existant sauf avec `--force`. `--language en|fr` fixe la langue de la consigne, par défaut celle de la leçon ; `--json` affiche le rapport en JSON.
+`pack` écrit `<bundle_id>.studium.zip` : `lesson.json`, `approval.json`, puis les fichiers de `assets/`, et rien d'autre (ni `reviews/`, ni `community/`, ni fichier caché comme `.DS_Store`). Il refuse une leçon dont `approval.json` manque, est incomplet ou ne correspond pas au `lesson.json` exact : approuvez de nouveau après toute modification. Il refuse aussi, sous `assets/`, un fichier que l'ordinateur d'un étudiant ne pourrait pas enregistrer (un nom avec `: * ? " < > |`, un nom de périphérique Windows comme `NUL`, deux noms qui ne diffèrent que par la casse ou les accents), un lien symbolique, plus de 2000 fichiers, un fichier de plus de 50 Mio ou plus de 200 Mio en tout ; chaque refus nomme le fichier. Les fichiers système comme `Thumbs.db` sont écartés comme les fichiers cachés. Il refuse un fichier de sortie existant sauf avec `--force`. `--language en|fr` fixe la langue de la consigne, par défaut celle de la leçon ; `--json` affiche le rapport en JSON.
 
 Il affiche le fichier, le titre, qui a approuvé et quand, les 12 premiers caractères de l'empreinte de la leçon, puis le texte à coller :
 
@@ -58,8 +58,8 @@ L'étudiant télécharge le fichier, puis lance **Studium : Importer une leçon�
 
 Approuvez de nouveau, empaquetez de nouveau, et remplacez le fichier dans le cours. Quand un étudiant importe le nouveau fichier :
 
-- la même leçon déjà présente dans la bibliothèque est ouverte, et son enregistrement d'approbation et ses chiffres sont mis à jour s'ils diffèrent ;
-- une leçon différente sous le même identifiant (`bundle_id`) n'est remplacée qu'après une seconde confirmation. La progression est conservée, car elle est enregistrée sous l'identifiant de la leçon.
+- la même leçon déjà présente dans la bibliothèque est ouverte, et son enregistrement d'approbation et ses figures sont mis à jour s'ils diffèrent ;
+- une leçon différente sous le même identifiant (`bundle_id`) n'est remplacée qu'après une seconde confirmation. La progression est conservée, car elle est enregistrée sous l'identifiant de la leçon, de même que les contributions de la classe du dossier `community/` de la leçon.
 
 ## En salle
 
