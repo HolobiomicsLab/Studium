@@ -5,7 +5,7 @@
 // contract is tested here, each with the library folder compared byte for byte before and after. The zips are built
 // in the test, including the malformed ones a zip library would refuse to write.
 import { describe, it, expect, afterEach } from "vitest";
-import { chmodSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, readlinkSync, rmSync, symlinkSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createHash } from "node:crypto";
@@ -126,7 +126,8 @@ function snapshot(dir: string): string {
     for (const name of readdirSync(join(dir, rel)).sort()) {
       const relPath = rel ? rel + "/" + name : name;
       const st = lstatSync(join(dir, relPath));
-      if (st.isDirectory()) { out.push("d " + relPath + " " + st.mode); walk(relPath); }
+      if (st.isSymbolicLink()) out.push("l " + relPath + " -> " + readlinkSync(join(dir, relPath)));
+      else if (st.isDirectory()) { out.push("d " + relPath + " " + st.mode); walk(relPath); }
       else out.push("f " + relPath + " " + st.mode + " " + sha(readFileSync(join(dir, relPath))));
     }
   };
@@ -143,14 +144,16 @@ function library(): string {
 }
 
 /** The archive is refused with `code` by inspect and by install (even with replace), and the library is unchanged. */
-async function refusal(bytes: Buffer, code: LessonArchiveErrorCode): Promise<LessonArchiveError> {
-  const lib = library();
+async function refusal(bytes: Buffer, code: LessonArchiveErrorCode, lib = library()): Promise<LessonArchiveError> {
   const before = snapshot(lib);
   const path = writeArchive(bytes);
-  let inspected: unknown;
-  try { await inspectLessonArchive(path); } catch (e) { inspected = e; }
-  expect(inspected).toBeInstanceOf(LessonArchiveError);
-  expect((inspected as LessonArchiveError).code).toBe(code);
+  // The library is not read by inspect: a folder that is taken is found at install.
+  if (code !== "folder_taken") {
+    let inspected: unknown;
+    try { await inspectLessonArchive(path); } catch (e) { inspected = e; }
+    expect(inspected).toBeInstanceOf(LessonArchiveError);
+    expect((inspected as LessonArchiveError).code).toBe(code);
+  }
   let installed: unknown;
   try { await installLessonArchive(path, lib, { replace: true }); } catch (e) { installed = e; }
   expect(installed).toBeInstanceOf(LessonArchiveError);
@@ -236,6 +239,7 @@ describe("what the archive holds", () => {
     const before = snapshot(join(path, ".."));
     const summary = await inspectLessonArchive(path);
     expect(summary).toEqual({
+      archiveSha256: sha(bytes),
       bundleId: "chem-l1", title: "Les orbitales", language: "fr", sceneCount: 2, lessonSha256: sha(lessonBytes),
       approval: { recorded: true, matches: true, reviewer: "Élise Dumont", reviewed_at: "2026-11-27T09:00:00Z" },
       assetCount: 2, ignoredMembers: 0, totalBytes: lessonBytes.length + Buffer.byteLength(approvalFor(lessonBytes)) + 3 + 3,
@@ -364,5 +368,141 @@ describe("installLessonArchive", () => {
     writeFileSync(join(lib, IMPORT_TEMP_PREFIX + "probe", "new", "lesson.json"), JSON.stringify(lesson("probe", "Probe")));
     const catalog = await scanCatalog([{ kind: "library", dir: lib }]);
     expect(catalog.lessons.map((l) => l.bundle_id)).toEqual(["other"]);
+  });
+});
+
+describe("review 2026-11-27: the shared name rules", () => {
+  it.each([
+    "assets/a*b.png", "assets/a?b.png", 'assets/a"b.png', "assets/a<b.png", "assets/a>b.png", "assets/a|b.png",
+    "assets/dir./x.png", "assets/x.png ", "assets/x\x1f.png", "assets/x\x7f.png",
+    "assets/CON", "assets/con.txt", "assets/sub/LPT9.png", "assets/Com1.tar.gz", "assets/nul",
+    "assets/" + "é".repeat(128),
+    "assets/" + ("a".repeat(200) + "/").repeat(6) + "x",
+  ])("an asset name the rules refuse: %s", async (name) => {
+    await refusal(lessonZip({ extra: [{ name, content: "x" }] }).bytes, "unsafe_member");
+  });
+  it("names the rules allow are kept: COM10, console, a 255-byte segment", async () => {
+    const lib = library();
+    const long = "a".repeat(255);
+    const outcome = await installLessonArchive(writeArchive(lessonZip({ assets: { "COM10.png": "1", "console.png": "2", [long]: "3" } }).bytes), lib);
+    expect(outcome.summary.assetCount).toBe(3);
+    expect(readdirSync(join(lib, "chem-l1", "assets")).sort()).toEqual(["COM10.png", "console.png", long].sort());
+  });
+  it.each(["demo.", "CON", "nul.txt", "Lesson.JSON", "approval.json", "assets", "Reviews", "Dist", "DATA", "community"])(
+    "a bundle_id the rules refuse: %s", async (id) => {
+      await refusal(lessonZip({ data: lesson(id) }).bytes, "bad_bundle_id");
+    });
+  it("two asset names one folding of case makes equal (straße, STRASSE) are a duplicate", async () => {
+    await refusal(lessonZip({ assets: { "straße.png": "a", "STRASSE.png": "b" } }).bytes, "duplicate_member");
+  });
+});
+
+describe("review 2026-11-27: the install is the lesson the student confirmed", () => {
+  it("the summary carries the sha256 of the whole archive file", async () => {
+    const { bytes } = lessonZip();
+    expect((await inspectLessonArchive(writeArchive(bytes))).archiveSha256).toBe(sha(bytes));
+  });
+  it("a file swapped after the check is refused (changed_since_check), nothing written", async () => {
+    const lib = library();
+    const path = writeArchive(lessonZip().bytes);
+    const checked = await inspectLessonArchive(path);
+    writeFileSync(path, lessonZip({ data: lesson("other-lesson", "Other") }).bytes);
+    const before = snapshot(lib);
+    const error = await installLessonArchive(path, lib, { expectedArchiveSha256: checked.archiveSha256 }).catch((e) => e);
+    expect(error).toBeInstanceOf(LessonArchiveError);
+    expect(error.code).toBe("changed_since_check");
+    expect(snapshot(lib)).toBe(before);
+    expect((await installLessonArchive(path, lib, { expectedArchiveSha256: sha(readFileSync(path)) })).status).toBe("installed");
+  });
+  it("replace answers conflict again, writing nothing, when the library no longer holds the lesson the prompt showed", async () => {
+    const lib = library();
+    await installLessonArchive(writeArchive(lessonZip({ data: lesson("chem-l1", "v1") }).bytes), lib);
+    const v2 = writeArchive(lessonZip({ data: lesson("chem-l1", "v2") }).bytes);
+    const first = await installLessonArchive(v2, lib);
+    if (first.status !== "conflict") throw new Error("expected a conflict");
+    // Meanwhile another import put v3 there.
+    const v3 = await installLessonArchive(writeArchive(lessonZip({ data: lesson("chem-l1", "v3") }).bytes), lib, { replace: true });
+    const before = snapshot(lib);
+    const again = await installLessonArchive(v2, lib, { replace: true, expectedExistingSha256: first.existingSha256 });
+    expect(again.status).toBe("conflict");
+    if (again.status !== "conflict") throw new Error("expected a conflict");
+    expect(again.existingSha256).toBe(v3.summary.lessonSha256);
+    expect(snapshot(lib)).toBe(before);
+    const done = await installLessonArchive(v2, lib, { replace: true, expectedExistingSha256: again.existingSha256 });
+    expect(done.status).toBe("replaced");
+  });
+});
+
+describe("review 2026-11-27: the same lesson.json, another approval or other figures", () => {
+  it("writes the archive's approval.json into the folder that lacks it: refreshed, nothing else touched", async () => {
+    const lib = library();
+    await installLessonArchive(writeArchive(lessonZip({ approval: false, assets: { "fig.png": "fig" } }).bytes), lib);
+    writeFileSync(join(lib, "chem-l1", "notes.txt"), "mine");
+    const { bytes, lessonBytes } = lessonZip({ assets: { "fig.png": "fig" } });
+    const outcome = await installLessonArchive(writeArchive(bytes), lib);
+    expect(outcome.status).toBe("refreshed");
+    expect(readFileSync(join(lib, "chem-l1", "approval.json"), "utf8")).toBe(approvalFor(lessonBytes));
+    expect(readFileSync(join(lib, "chem-l1", "notes.txt"), "utf8")).toBe("mine");
+    expect(readdirSync(join(lib, "chem-l1")).sort()).toEqual(["approval.json", "assets", "lesson.json", "notes.txt"]);
+    const catalog = await scanCatalog([{ kind: "library", dir: lib }]);
+    expect(catalog.lessons.find((l) => l.bundle_id === "chem-l1")?.validated).toBe(true);
+  });
+  it("updates a changed asset and writes a missing one; keeps an approval when the archive carries none", async () => {
+    const lib = library();
+    await installLessonArchive(writeArchive(lessonZip({ assets: { "fig.png": "old", "keep.png": "keep" } }).bytes), lib);
+    const approvalBefore = readFileSync(join(lib, "chem-l1", "approval.json"));
+    const outcome = await installLessonArchive(writeArchive(lessonZip({ approval: false, assets: { "fig.png": "new", "sub/more.png": "more" } }).bytes), lib);
+    expect(outcome.status).toBe("refreshed");
+    expect(readFileSync(join(lib, "chem-l1", "assets", "fig.png"), "utf8")).toBe("new");
+    expect(readFileSync(join(lib, "chem-l1", "assets", "sub", "more.png"), "utf8")).toBe("more");
+    expect(readFileSync(join(lib, "chem-l1", "assets", "keep.png"), "utf8")).toBe("keep");
+    expect(readFileSync(join(lib, "chem-l1", "approval.json")).equals(approvalBefore)).toBe(true);
+    expect(readdirSync(join(lib, "chem-l1")).filter((n) => n.startsWith("."))).toEqual([]);
+  });
+  it("never writes through a link the lesson folder holds in place of assets/", async () => {
+    const lib = library();
+    await installLessonArchive(writeArchive(lessonZip({ approval: false }).bytes), lib);
+    const elsewhere = tempDir("elsewhere");
+    symlinkSync(elsewhere, join(lib, "chem-l1", "assets"));
+    const before = snapshot(lib);
+    const error = await installLessonArchive(writeArchive(lessonZip({ assets: { "fig.png": "fig" } }).bytes), lib).catch((e) => e);
+    expect(error).toBeInstanceOf(LessonArchiveError);
+    expect(error.code).toBe("write_failed");
+    expect(readdirSync(elsewhere)).toEqual([]);
+    expect(snapshot(lib)).toBe(before);
+  });
+});
+
+describe("review 2026-11-27: the library around the install", () => {
+  it("removes leftover temporary folders older than an hour, except one that holds a previous lesson", async () => {
+    const lib = library();
+    const old = join(lib, IMPORT_TEMP_PREFIX + "old");
+    const recent = join(lib, IMPORT_TEMP_PREFIX + "recent");
+    const kept = join(lib, IMPORT_TEMP_PREFIX + "kept");
+    mkdirSync(join(old, "new"), { recursive: true });
+    mkdirSync(recent, { recursive: true });
+    mkdirSync(join(kept, "previous"), { recursive: true });
+    writeFileSync(join(kept, "previous", "lesson.json"), "{}");
+    const twoHoursAgo = new Date(Date.now() - 2 * 3600 * 1000);
+    for (const dir of [old, kept]) utimesSync(dir, twoHoursAgo, twoHoursAgo);
+    await installLessonArchive(writeArchive(lessonZip().bytes), lib);
+    expect(readdirSync(lib).sort()).toEqual([IMPORT_TEMP_PREFIX + "kept", IMPORT_TEMP_PREFIX + "recent", "chem-l1", "other"].sort());
+  });
+  it("replace carries the old folder's community/ into the new one", async () => {
+    const lib = library();
+    await installLessonArchive(writeArchive(lessonZip({ data: lesson("chem-l1", "v1") }).bytes), lib);
+    mkdirSync(join(lib, "chem-l1", "community"));
+    writeFileSync(join(lib, "chem-l1", "community", "community-item1.zip"), "contribution");
+    const outcome = await installLessonArchive(writeArchive(lessonZip({ data: lesson("chem-l1", "v2") }).bytes), lib, { replace: true });
+    expect(outcome.status).toBe("replaced");
+    expect(readFileSync(join(lib, "chem-l1", "community", "community-item1.zip"), "utf8")).toBe("contribution");
+    expect(readdirSync(lib).sort()).toEqual(["chem-l1", "other"]);
+  });
+  it("a folder whose name differs from the bundle_id only by case is taken (folder_taken), nothing written", async () => {
+    const lib = library();
+    mkdirSync(join(lib, "demo"));
+    writeFileSync(join(lib, "demo", "lesson.json"), JSON.stringify(lesson("demo", "Demo")));
+    const error = await refusal(lessonZip({ data: lesson("Demo") }).bytes, "folder_taken", lib);
+    expect(error.member).toBe("demo");
   });
 });
