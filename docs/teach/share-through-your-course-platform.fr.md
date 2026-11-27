@@ -58,7 +58,7 @@ L'étudiant télécharge le fichier, puis lance **Studium : Importer une leçon�
 
 Approuvez de nouveau, empaquetez de nouveau, et remplacez le fichier dans le cours. Quand un étudiant importe le nouveau fichier :
 
-- la même leçon déjà présente dans la bibliothèque est ouverte, et son enregistrement d'approbation et ses figures sont mis à jour s'ils diffèrent ;
+- la même leçon déjà présente dans la bibliothèque est ouverte ; si le fichier porte une approbation qui correspond à la leçon, son enregistrement d'approbation et ses figures sont mis à jour s'ils diffèrent, et sinon rien n'est écrit ;
 - une leçon différente sous le même identifiant (`bundle_id`) n'est remplacée qu'après une seconde confirmation. La progression est conservée, car elle est enregistrée sous l'identifiant de la leçon, de même que les contributions de la classe du dossier `community/` de la leçon.
 
 ## En salle
@@ -75,7 +75,7 @@ Le `lesson.json` entier, clés de réponse comprises. N'importe quel étudiant p
 
 ## Ce qu'est et n'est pas `approval.json`
 
-C'est un enregistrement de votre approbation, lié aux octets exacts de `lesson.json`. Ce n'est pas une signature : n'importe qui peut écrire un fichier qui prétend à une approbation. Ce qui dit aux étudiants d'où vient le fichier, c'est la page de votre cours.
+C'est un enregistrement de votre approbation, lié aux octets exacts de `lesson.json`. Ce n'est pas une signature : n'importe qui peut écrire un fichier qui prétend à une approbation. Ce qui dit aux étudiants d'où vient le fichier, c'est la page de votre cours. Il ne couvre que `lesson.json` : les figures de `assets/` ne font pas partie de l'empreinte.
 
 ## Ce que la plateforme enregistre
 

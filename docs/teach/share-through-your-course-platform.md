@@ -58,7 +58,7 @@ On confirmation the lesson is copied into the student's library and opens. The f
 
 Approve again, pack again, and replace the file in the course. When a student imports the new file:
 
-- the same lesson already in the library is opened, and its approval record and figures are updated when they differ;
+- the same lesson already in the library is opened; when the file carries an approval that matches the lesson, its approval record and figures are updated if they differ, and otherwise nothing is written;
 - a different lesson under the same identifier (`bundle_id`) is replaced only after a second confirmation. Progress is kept, because it is saved under the lesson's identifier, and so are the class contributions in the lesson's `community/` folder.
 
 ## In a classroom
@@ -75,7 +75,7 @@ The whole `lesson.json`, answer keys included. Any student can open the file and
 
 ## What `approval.json` is and is not
 
-It is a record of your approval, bound to the exact bytes of `lesson.json`. It is not a signature: anyone can write a file that claims an approval. What tells students where the file comes from is your course page.
+It is a record of your approval, bound to the exact bytes of `lesson.json`. It is not a signature: anyone can write a file that claims an approval. What tells students where the file comes from is your course page. It covers `lesson.json` only: the figures under `assets/` are not part of the fingerprint.
 
 ## What the platform records
 
