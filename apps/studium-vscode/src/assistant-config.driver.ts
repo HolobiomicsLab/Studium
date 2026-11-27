@@ -6,6 +6,7 @@ import { parse as parseJsonc } from "jsonc-parser";
 import {
   ASSISTANT_IDS, assistantConfigPath, assistantEntryIsCurrent, codexEntryToml, connectAssistant, disconnectAssistant, studiumState,
   type AssistantId, type ConnectResult,
+  otherStudiumServers,
 } from "./assistant-config.js";
 import { VIBE_MARKER, VIBE_MARKER_KEY } from "./vibe-config.js";
 
@@ -122,6 +123,19 @@ for (const id of ["claude-code", "claude-desktop", "cursor"] as AssistantId[]) {
   const hand = '{"mcp": {"studium": {"type": "local", "command": ["npx", "-y", "studium-mcp"]}}}';
   const asked = connectAssistant("opencode", hand, entry("0.6.6"), { replaceHandWritten: false });
   expect("refused" in asked && asked.refused === "hand-written" && asked.command === "npx -y studium-mcp", "opencode: asks before replacing");
+}
+
+// 2026-11-27: another server that runs Studium under another name (a development entry, a hand-written one) would show
+// every Studium tool twice; the extension names it, never removes it.
+{
+  const codex = '[mcp_servers.studium-lesson]\ncommand = "node"\nargs = ["/src/studium/apps/lesson-mcp/dist/index.js"]\n\n[mcp_servers.github]\ncommand = "gh-mcp"\n';
+  const withOurs = connectAssistant("codex", codex, entry("0.6.6"), { replaceHandWritten: false });
+  expect("text" in withOurs && JSON.stringify(otherStudiumServers("codex", withOurs.text)) === '["studium-lesson"]', "codex: names the development server, not github, not ours");
+  const claude = JSON.stringify({ mcpServers: { "my-studium": { command: "npx", args: ["-y", "studium-mcp"] }, fs: { command: "fs-mcp" }, studium: { command: "x" } } });
+  expect(JSON.stringify(otherStudiumServers("claude-code", claude)) === '["my-studium"]', "claude-code: names a hand-written npx studium-mcp under another name");
+  expect(JSON.stringify(otherStudiumServers("cursor", '{"mcpServers": {"lessons": {"command": "node", "args": ["/x/lesson-mcp.cjs"]}}}')) === '["lessons"]', "cursor: the bundled server under another name");
+  expect(JSON.stringify(otherStudiumServers("opencode", '{"mcp": {"servers": {"studium-dev": {"type": "local", "command": ["node", "a.js"]}, "studium": {"type": "local", "command": ["x"]}}}}')) === '["studium-dev"]', "opencode 2: by its name");
+  expect(otherStudiumServers("claude-desktop", undefined).length === 0 && otherStudiumServers("codex", "not toml [[[").length === 0, "none for an absent or unreadable file");
 }
 
 console.log(failures.length === 0

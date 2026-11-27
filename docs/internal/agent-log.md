@@ -6,6 +6,13 @@ Journal des unités TDD par milestone. Mis à jour à chaque commit significatif
 
 ---
 
+## 2026-11-27 — serveurs Studium en double
+
+Même délégation (jusqu'à 18 h). `otherStudiumServers` (Codex, Claude Code, Claude Desktop, Cursor, OpenCode) : par le nom
+ou la ligne de commande (`studium-mcp`, `lesson-mcp`, `apps/lesson-mcp`, `studium-vscode`) ; avertissement après
+l'écriture, avec « Ouvrir le fichier ». Lu sans écrire sur le `~/.codex/config.toml` du propriétaire : `studium-lesson`
+trouvé. Pilote 117 assertions.
+
 ## 2026-11-27 — « pour commencer » dans le lecteur navigateur
 
 Délégation du propriétaire jusqu'à 18 h le 27 nov. (« faire le necessaire (y compris merge) pour avancer sur le projet »).

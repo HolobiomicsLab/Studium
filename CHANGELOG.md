@@ -4,6 +4,10 @@ All notable changes to Studium are recorded here. The format follows [Keep a Cha
 
 ## Unreleased
 
+### Added
+
+- **Studium: Connect an Assistant…** names any other server that runs Studium in the same assistant (a development or hand-written entry under another name), which would show each Studium tool twice, and offers to open the file; it removes nothing it did not write.
+
 ### Changed
 
 - The browser player lists « Discover Studium » first, marked « start here », until the learner finishes it; a lesson shipped with Studium no longer reads « approved by a teacher » there, since its own record says who approved it.
