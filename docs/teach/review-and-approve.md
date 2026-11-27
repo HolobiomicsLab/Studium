@@ -138,7 +138,8 @@ since its approval, or « Aucune approbation enregistrée pour cette leçon. » 
 recorded for this lesson." Any edit after approval, even whitespace, means
 you review and approve again. Free-form `validated_by` text never grants the Approved status, and
 approval does not send the lesson to anyone: distribution is a separate step
-([teacher guide](teacher-guide.md#distribute-a-lesson)).
+([teacher guide](teacher-guide.md#distribute-a-lesson)). To put an approved lesson in a course
+page, see [Share a lesson through your course platform](share-through-your-course-platform.md).
 
 `approve` also writes a review receipt, `reviews/<date>-<first 12 hex of the SHA-256>.json` next to
 `lesson.json`: one item per scene with its fingerprint, its consequence (`grading`, `media`,
