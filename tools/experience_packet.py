@@ -2769,6 +2769,15 @@ PACK_TEXT = {
         "symlink": "assets/{member} is a symbolic link: replace it with the real file before packing",
         "exists": "{path} already exists; use --force to replace it",
         "not_a_lesson": "{path} is not a lesson bundle (no metadata.title)",
+        "bad_name": "assets/{member} has a name that some students' systems refuse: rename or remove it, then pack again",
+        "too_many": "{count} members in the archive, over the limit of {limit}: remove files from assets/",
+        "asset_big": "assets/{member} is {size}, over the limit of {limit} for one asset: shrink or remove it",
+        "total_big": "{size} in total once unpacked, over the limit of {limit}: remove or shrink assets",
+        "incomplete_approval": "the approval record next to {path} is incomplete (reviewer or reviewed_at missing): run approve again",
+        "approved_line": "Approved by {reviewer} on {date}",
+        "fingerprint_line": "Lesson fingerprint: {fingerprint}",
+        "assets_line": "Figures and other assets: {count}",
+        "paste_line": "Text to paste next to the file in your course page:",
     },
     "fr": {
         "instruction": (
@@ -2789,6 +2798,15 @@ PACK_TEXT = {
         "symlink": "assets/{member} est un lien symbolique : remplacez-le par le vrai fichier avant d'empaqueter",
         "exists": "{path} existe déjà ; utilisez --force pour le remplacer",
         "not_a_lesson": "{path} n'est pas une leçon (pas de metadata.title)",
+        "bad_name": "assets/{member} a un nom que certains systèmes d'étudiants refusent : renommez ou retirez ce fichier, puis relancez pack",
+        "too_many": "{count} membres dans l'archive, au-delà de la limite de {limit} : retirez des fichiers de assets/",
+        "asset_big": "assets/{member} pèse {size}, au-delà de la limite de {limit} par fichier : réduisez-le ou retirez-le",
+        "total_big": "{size} au total une fois décompressé, au-delà de la limite de {limit} : retirez ou réduisez des fichiers",
+        "incomplete_approval": "l'enregistrement d'approbation à côté de {path} est incomplet (reviewer ou reviewed_at manquant) : relancez approve",
+        "approved_line": "Approuvée par {reviewer} le {date}",
+        "fingerprint_line": "Empreinte de la leçon : {fingerprint}",
+        "assets_line": "Figures et autres fichiers : {count}",
+        "paste_line": "Texte à coller à côté du fichier dans votre page de cours :",
     },
 }
 
@@ -2797,27 +2815,96 @@ def _pack_refusal(language: str, key: str, **values: Any) -> PackRefusal:
     return PackRefusal(PACK_TEXT[language][key].format(**values))
 
 
-def _pack_assets(lesson_dir: Path, language: str) -> list[tuple[str, Path]]:
-    """Regular files under assets/, sorted by path, as (member name, path). Hidden names are skipped;
-    a symbolic link anywhere refuses, so nothing outside the folder can be packed."""
+PACK_MAX_MEMBERS = 2000
+PACK_MAX_ASSET_BYTES = 50 * 1024 * 1024
+PACK_MAX_TOTAL_BYTES = 200 * 1024 * 1024
+PACK_MAX_SEGMENT_BYTES = 255
+PACK_MAX_MEMBER_BYTES = 1024
+# The importer applies the same rules; an archive the packer writes must be one it accepts.
+PACK_WINDOWS_DEVICES = frozenset({"CON", "PRN", "AUX", "NUL", *(f"COM{n}" for n in range(1, 10)), *(f"LPT{n}" for n in range(1, 10))})
+PACK_RESERVED_IDS = frozenset({"lesson.json", "approval.json", "assets", "reviews", "community", "data", "node_modules", "dist"})
+PACK_OS_JUNK = frozenset({"icon\r", "thumbs.db", "desktop.ini"})
+_PACK_FORBIDDEN_CHARACTERS = set('\\:*?"<>|')
+
+
+def _is_windows_device(name: str) -> bool:
+    return name.split(".", 1)[0].upper() in PACK_WINDOWS_DEVICES
+
+
+def _pack_segment_problem(segment: str) -> bool:
+    return (
+        segment in ("", ".", "..")
+        or any(c in _PACK_FORBIDDEN_CHARACTERS or ord(c) < 0x20 or ord(c) == 0x7F for c in segment)
+        or segment.endswith((".", " "))
+        or _is_windows_device(segment)
+        or len(segment.encode("utf-8")) > PACK_MAX_SEGMENT_BYTES
+    )
+
+
+def _pack_member_problem(member: str) -> bool:
+    """True when an asset path (relative to assets/) breaks the shared name rules."""
+    return len(f"assets/{member}".encode("utf-8")) > PACK_MAX_MEMBER_BYTES or any(
+        _pack_segment_problem(segment) for segment in member.split("/")
+    )
+
+
+def _pack_bundle_id_problem(bundle_id: Any) -> bool:
+    return (
+        not isinstance(bundle_id, str)
+        or not PACK_BUNDLE_ID.fullmatch(bundle_id)
+        or bundle_id.endswith(".")
+        or _is_windows_device(bundle_id)
+        or bundle_id.lower() in PACK_RESERVED_IDS
+    )
+
+
+def _pack_is_skipped(name: str) -> bool:
+    return name.startswith(".") or name.lower() in PACK_OS_JUNK
+
+
+def _pack_size(count: int) -> str:
+    return f"{count / (1024 * 1024):.1f} MiB" if count >= 1024 * 1024 else f"{count} bytes"
+
+
+def _pack_assets(lesson_dir: Path, language: str) -> list[tuple[str, Path, int]]:
+    """Regular files under assets/, sorted by path, as (member name, path, size). Hidden files and OS
+    junk are skipped; a symbolic link or a name the importer would refuse stops the pack."""
     root = lesson_dir / "assets"
     if root.is_symlink():
         raise _pack_refusal(language, "symlink", member="")
-    found: list[tuple[str, Path]] = []
+    found: list[tuple[str, Path, int]] = []
     if not root.is_dir():
         return found
     for current, directories, files in os.walk(root, followlinks=False):
-        directories[:] = sorted(name for name in directories if not name.startswith("."))
+        directories[:] = sorted(name for name in directories if not _pack_skipped_directory(name))
         for name in sorted(files + [d for d in directories if (Path(current) / d).is_symlink()]):
             path = Path(current) / name
-            if name.startswith("."):
+            if _pack_is_skipped(name):
                 continue
             member = path.relative_to(root).as_posix()
             if path.is_symlink():
                 raise _pack_refusal(language, "symlink", member=member)
-            if path.is_file():
-                found.append((member, path))
+            if not path.is_file():
+                continue
+            if _pack_member_problem(member):
+                raise _pack_refusal(language, "bad_name", member=member)
+            size = path.stat().st_size
+            if size > PACK_MAX_ASSET_BYTES:
+                raise _pack_refusal(
+                    language, "asset_big", member=member, size=_pack_size(size), limit=_pack_size(PACK_MAX_ASSET_BYTES)
+                )
+            found.append((member, path, size))
     return sorted(found)
+
+
+def _pack_skipped_directory(name: str) -> bool:
+    return _pack_is_skipped(name)
+
+
+def _plain_line(value: Any) -> str:
+    """One line for the text a teacher pastes: control characters dropped, whitespace collapsed."""
+    text = "".join(c for c in str(value) if c.isspace() or unicodedata.category(c) != "Cc")
+    return " ".join(text.split())
 
 
 def pack_lesson(
@@ -2842,10 +2929,20 @@ def pack_lesson(
         or approval.get("bundle_sha256") != _sha256(lesson_bytes)
     ):
         raise _pack_refusal(text_language, "stale_approval", path=bundle_path)
+    reviewer, reviewed_at = approval.get("reviewer"), approval.get("reviewed_at")
+    if not (isinstance(reviewer, str) and reviewer.strip() and isinstance(reviewed_at, str) and reviewed_at.strip()):
+        raise _pack_refusal(text_language, "incomplete_approval", path=bundle_path)
     bundle_id = lesson.get("bundle_id")
-    if not isinstance(bundle_id, str) or not PACK_BUNDLE_ID.fullmatch(bundle_id):
+    if _pack_bundle_id_problem(bundle_id):
         raise _pack_refusal(text_language, "bad_bundle_id", bundle_id=bundle_id)
     assets = _pack_assets(bundle_path.parent, text_language)
+    if 2 + len(assets) > PACK_MAX_MEMBERS:
+        raise _pack_refusal(text_language, "too_many", count=2 + len(assets), limit=PACK_MAX_MEMBERS)
+    total = len(lesson_bytes) + len(approval_bytes) + sum(size for _, _, size in assets)
+    if total > PACK_MAX_TOTAL_BYTES:
+        raise _pack_refusal(
+            text_language, "total_big", size=_pack_size(total), limit=_pack_size(PACK_MAX_TOTAL_BYTES)
+        )
     name = f"{bundle_id}.studium.zip"
     target = Path(out or Path.cwd())
     target = (target if not target.is_dir() else target / name).resolve()
@@ -2856,7 +2953,7 @@ def pack_lesson(
         with zipfile.ZipFile(partial, "w", zipfile.ZIP_DEFLATED, allowZip64=False) as archive:
             archive.writestr(zipfile.ZipInfo("lesson.json", (2020, 1, 1, 0, 0, 0)), lesson_bytes, zipfile.ZIP_DEFLATED)
             archive.writestr(zipfile.ZipInfo("approval.json", (2020, 1, 1, 0, 0, 0)), approval_bytes, zipfile.ZIP_DEFLATED)
-            for member, path in assets:
+            for member, path, _size in assets:
                 info = zipfile.ZipInfo(f"assets/{member}", (2020, 1, 1, 0, 0, 0))
                 info.compress_type = zipfile.ZIP_DEFLATED
                 archive.writestr(info, path.read_bytes())
@@ -2865,15 +2962,15 @@ def pack_lesson(
         partial.unlink(missing_ok=True)
         raise PacketError(f"cannot write {target}: {exc}") from exc
     sha = _sha256(lesson_bytes)
-    reviewer = str(approval.get("reviewer", ""))
-    date = str(approval.get("reviewed_at", ""))[:10]
+    reviewer = reviewer.strip()
+    date = reviewed_at.strip()[:10]
     instruction = PACK_TEXT[text_language]["instruction"].format(
-        title=metadata["title"], reviewer=reviewer, date=date, fingerprint=sha[:12],
+        title=_plain_line(metadata["title"]), reviewer=_plain_line(reviewer), date=_plain_line(date), fingerprint=sha[:12],
         marketplace=MARKETPLACE_URL, file=name,
     )
     return {
         "path": str(target), "bundle_id": bundle_id, "title": metadata["title"], "sha256": sha,
-        "reviewer": reviewer, "reviewed_at": approval.get("reviewed_at"), "assets": len(assets),
+        "reviewer": reviewer, "reviewed_at": reviewed_at, "assets": len(assets),
         "language": text_language, "instruction": instruction,
     }
 
@@ -3279,12 +3376,17 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if args.command == "pack":
         if args.json:
-            print(json.dumps({k: v for k, v in output.items() if k != "instruction"}, ensure_ascii=False, indent=2, sort_keys=True))
+            print(json.dumps(output, ensure_ascii=False, indent=2, sort_keys=True))
         else:
+            words = PACK_TEXT[output["language"]]
             print(output["path"])
-            print(f"{output['title']}")
-            print(f"{output['reviewer']} {output['reviewed_at']}  {output['sha256'][:12]}  assets: {output['assets']}")
+            print(_plain_line(output["title"]))
+            print(words["approved_line"].format(
+                reviewer=_plain_line(output["reviewer"]), date=_plain_line(output["reviewed_at"][:10])))
+            print(words["fingerprint_line"].format(fingerprint=output["sha256"][:12]))
+            print(words["assets_line"].format(count=output["assets"]))
             print()
+            print(words["paste_line"])
             print(output["instruction"])
         return 0
     if args.command == "bundle":
