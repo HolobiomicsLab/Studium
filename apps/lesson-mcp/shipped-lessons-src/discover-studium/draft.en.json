@@ -4,7 +4,7 @@
   "goal": "Understand how Studium works and find my way around its interface by using it",
   "target": "Newcomers to Studium",
   "discipline": "Studium",
-  "duration_minutes": 10,
+  "duration_minutes": 12,
   "concepts": [
     {
       "id": "studium.relay",
@@ -51,7 +51,7 @@
         "studium.relay"
       ],
       "estimated_seconds": 40,
-      "markdown": "This lesson ships with Studium and takes about ten minutes. It shows how Studium works by making you use it: each mechanism is explained on the step where you meet it.\n\n**Look at the top of the screen first.** Studium says there whether someone validated this exact version of the lesson, and who: a chip above the step or, when an assistant shows you the lesson, the first lines of this step. This lesson was drafted by an AI agent from Studium's own documentation.\n\n**You answer, the assistant relays.** Studium asks the questions and keeps the answer keys. When you play through an assistant (Copilot, Claude Code, Codex or another), it shows each step as Studium wrote it, waits for your answer and passes your own words on. It must never answer, choose or rate for you.\n\nContinue when you are ready.",
+      "markdown": "This lesson ships with Studium and takes about twelve minutes. It shows how Studium works by making you use it: each mechanism is explained on the step where you meet it.\n\n**Look at the top of the screen first.** Studium says there whether someone validated this exact version of the lesson, and who: a chip above the step or, when an assistant shows you the lesson, the first lines of this step. This lesson was drafted by an AI agent from Studium's own documentation.\n\n**You answer, the assistant relays.** Studium asks the questions and keeps the answer keys. When you play through an assistant (Copilot, Claude Code, Codex or another), it shows each step as Studium wrote it, waits for your answer and passes your own words on. It must never answer, choose or rate for you.\n\nContinue when you are ready.",
       "quotes": [
         {
           "passage_id": "doc:assistant",
@@ -391,6 +391,44 @@
         {
           "passage_id": "doc:map",
           "text": "Each concept says its state in words and what it needs first."
+        }
+      ]
+    },
+    {
+      "type": "concept",
+      "title": "Where to play Studium",
+      "concept_refs": [
+        "studium.relay"
+      ],
+      "estimated_seconds": 60,
+      "markdown": "Studium is not one more app: it is a server your assistant starts on your computer. You find it where you already work.\n\n- **In VS Code**: the Studium pane, and Copilot, which has the server already.\n- **With your assistant**: Mistral Vibe, Codex, Claude Code, Claude Desktop, Cursor or OpenCode. In VS Code, the command **Studium: Connect an Assistant…** connects them in one click, with no terminal.\n- **In your browser**: a lesson that is ready also plays without an assistant.\n\nEverywhere, the same rules: the assistant relays, you answer, and your progress stays on your computer.\n\n**Small challenge:** count the assistants already installed on your computer. Each one can become a way into Studium.",
+      "quotes": [
+        {
+          "passage_id": "doc:harnesses",
+          "text": "Studium runs as an MCP server that your AI assistant starts on your computer."
+        },
+        {
+          "passage_id": "doc:harnesses",
+          "text": "Copilot in VS Code has the server already."
+        }
+      ]
+    },
+    {
+      "type": "concept",
+      "title": "What next: learning, teaching",
+      "concept_refs": [
+        "studium.provenance"
+      ],
+      "estimated_seconds": 60,
+      "markdown": "Studium serves both sides of a course.\n\n**If you are learning**, ask your assistant: \"I want to learn X with Studium\": it builds a lesson from sources you trust (a course, your notes, a paper), plays it with you and schedules your reviews.\n\n**If you are teaching**, you turn your sources into a lesson where every graded question points to a passage you can check. You decide what is taught, and no lesson reaches students before you approve it. You can then follow where your class stands.\n\nStudium is a research prototype: try it for yourself first, or with a colleague.\n\n**Last challenge:** close this lesson, open your assistant and ask it for a lesson on a topic you care about.",
+      "quotes": [
+        {
+          "passage_id": "doc:harnesses",
+          "text": "the assistant builds, plays and schedules your lessons through Studium's tools."
+        },
+        {
+          "passage_id": "doc:teacher",
+          "text": "You decide what is taught, what the sources allow you to claim, and when a lesson reaches students."
         }
       ]
     }

@@ -32,7 +32,7 @@ terminal and no AI account.
 1. In VS Code, open the Extensions view, search for **Studium** and install the extension published by
    HolobiomicsLab.
 2. To see how Studium works first, select the **Studium** icon in the activity bar, then **Try the demo
-   lesson**: « Discover Studium » (about ten minutes, English or French) ships with the extension. An AI agent
+   lesson**: « Discover Studium » (about twelve minutes, English or French) ships with the extension. An AI agent
    drafted it from Studium's documentation; the project's owner approved it, under the name beta-testeur,
    without reading it.
 3. For other lessons, have a folder of lessons: the one your teacher gave you, or the demo lessons, which are the `fixtures`

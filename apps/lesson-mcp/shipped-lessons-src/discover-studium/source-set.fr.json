@@ -1,6 +1,6 @@
 {
   "schema": "studium-source-set/1",
-  "source_set_id": "ss-0d2511ac255dac49",
+  "source_set_id": "ss-9a1ae47987968244",
   "goal": "Comprendre comment fonctionne Studium et me repérer dans son interface en l'utilisant",
   "language": "fr",
   "min_chars": 200,
@@ -29,8 +29,8 @@
       "title": "Documentation de Studium — Apprendre un sujet avec votre assistant",
       "url": "https://github.com/HolobiomicsLab/studium/blob/main/docs/learn/learn-with-your-assistant.fr.md",
       "license": "CC-BY-4.0",
-      "sha256": "00d0497501de43fbf671d03f0319f7b82ee4c5f0613a790593697373be246c3a",
-      "chars": 14400,
+      "sha256": "5441acccf3f003077579e8f1084405caa5a38e9f018d83b8b023073c779db337",
+      "chars": 14404,
       "passages": 25
     },
     {
@@ -38,8 +38,8 @@
       "title": "Documentation de Studium — Réviser dans la durée",
       "url": "https://github.com/HolobiomicsLab/studium/blob/main/docs/learn/review-over-time.fr.md",
       "license": "CC-BY-4.0",
-      "sha256": "c9da656e9fc947c09d799925dd2594f53e2250068f5b1111d7f248bd209c55b2",
-      "chars": 8106,
+      "sha256": "51aee9756acd5a0c7583a057d02dcbe3f514a04bbcff565aa3f7d78ccfa6a6f1",
+      "chars": 8113,
       "passages": 17
     },
     {
@@ -47,8 +47,8 @@
       "title": "Documentation de Studium — Confidentialité et limites",
       "url": "https://github.com/HolobiomicsLab/studium/blob/main/docs/concepts/privacy-and-limits.fr.md",
       "license": "CC-BY-4.0",
-      "sha256": "40cb0b58fa69630e5ac2d65a3d64758c07f4bb3cf7c9ca2c34406a66d68aedf1",
-      "chars": 13469,
+      "sha256": "a0a044cd6af3e984bd75af3fd6a10c2d17ac087d572222ab466ee3ccb0d85218",
+      "chars": 13754,
       "passages": 22
     },
     {
@@ -65,9 +65,27 @@
       "title": "Documentation de Studium — Guide étudiant",
       "url": "https://github.com/HolobiomicsLab/studium/blob/main/docs/learn/student-guide.fr.md",
       "license": "CC-BY-4.0",
-      "sha256": "e8ebff810eea9606f78143e83d98e3a768f5a5ef0fa58665bb05c17c184b04fc",
-      "chars": 8262,
-      "passages": 19
+      "sha256": "81eafa748c6de4666b2fd9a23e5ff9af83cbdc1dbb1595529fecb1021ee121ac",
+      "chars": 8894,
+      "passages": 20
+    },
+    {
+      "source_id": "documentation-de-studium-connecter-votre",
+      "title": "Documentation de Studium — Connecter votre assistant",
+      "url": "https://github.com/HolobiomicsLab/studium/blob/main/docs/start/harnesses.fr.md",
+      "license": "CC-BY-4.0",
+      "sha256": "676dc69e8eb1df0bf319a66dfcc94490e9679b7b11110d5fb2d7812c2df91b72",
+      "chars": 6475,
+      "passages": 13
+    },
+    {
+      "source_id": "documentation-de-studium-guide-enseignan",
+      "title": "Documentation de Studium — Guide enseignant",
+      "url": "https://github.com/HolobiomicsLab/studium/blob/main/docs/teach/teacher-guide.fr.md",
+      "license": "CC-BY-4.0",
+      "sha256": "9ef57b1e8023746724525e2463f84e26d2934cf5f5e40b2bbfcdf993feb05926",
+      "chars": 8565,
+      "passages": 18
     }
   ],
   "passages": [
@@ -294,7 +312,7 @@
     {
       "id": "p:documentation-de-studium-apprendre-un-su:3",
       "source_id": "documentation-de-studium-apprendre-un-su",
-      "text": "## 1. Demander\n\nFormulez-le simplement, par exemple :\n\n> Je veux apprendre le cycle de l'eau avec Studium. Voici deux pages auxquelles je fais confiance : <liens>.\n\nL'assistant commence par `get_study_plan`, dans votre langue. Si une de vos leçons couvre déjà le sujet, il vous la propose ; sinon il en prépare une. Sans aucune leçon, le plan propose d'abord « Découvrir Studium », une démonstration d'une dizaine de minutes livrée avec Studium, qui montre comment il fonctionne ; dites que vous préférez apprendre votre sujet et l'assistant prépare votre leçon à la place. Indiquez ce que vous savez déjà, le temps dont vous disposez par jour ou une date visée : l'assistant est alors invité à ouvrir la leçon par deux courtes questions sur vos acquis. Ces deux questions sont jouées une fois et ne reviennent jamais en révision. Ce que vous savez et ce qui vous intéresse orientent le brouillon mais ne sont pas conservés ; la leçon ne garde que vos minutes par jour et votre date visée, et le plan d'étude se sert des minutes pour dimensionner chaque étape."
+      "text": "## 1. Demander\n\nFormulez-le simplement, par exemple :\n\n> Je veux apprendre le cycle de l'eau avec Studium. Voici deux pages auxquelles je fais confiance : <liens>.\n\nL'assistant commence par `get_study_plan`, dans votre langue. Si une de vos leçons couvre déjà le sujet, il vous la propose ; sinon il en prépare une. Sans aucune leçon, le plan propose d'abord « Découvrir Studium », une démonstration d'environ douze minutes livrée avec Studium, qui montre comment il fonctionne ; dites que vous préférez apprendre votre sujet et l'assistant prépare votre leçon à la place. Indiquez ce que vous savez déjà, le temps dont vous disposez par jour ou une date visée : l'assistant est alors invité à ouvrir la leçon par deux courtes questions sur vos acquis. Ces deux questions sont jouées une fois et ne reviennent jamais en révision. Ce que vous savez et ce qui vous intéresse orientent le brouillon mais ne sont pas conservés ; la leçon ne garde que vos minutes par jour et votre date visée, et le plan d'étude se sert des minutes pour dimensionner chaque étape."
     },
     {
       "id": "p:documentation-de-studium-apprendre-un-su:4",
@@ -369,7 +387,7 @@
     {
       "id": "p:documentation-de-studium-apprendre-un-su:18",
       "source_id": "documentation-de-studium-apprendre-un-su",
-      "text": "## 6. Revenir quelques jours plus tard\n\nOuvrez une nouvelle conversation et demandez « Qu'est-ce que je révise avec Studium aujourd'hui ? ». L'assistant appelle `get_study_plan` dans votre langue, qui liste les révisions dues, les leçons en cours et la leçon suivante, et nomme la seule étape à faire maintenant. `start_review_session` joue ensuite toutes les révisions dues, toutes leçons confondues. Voir [réviser dans la durée](review-over-time.fr.md). Si Studium a refusé un brouillon de votre leçon et qu'aucune leçon n'a été écrite pour vous depuis, le plan propose de la terminer, après une leçon en cours, pendant 14 jours, et à vous seulement (l'assistant passe votre identifiant d'apprenant) ; dites que vous n'en voulez plus et elle ne vous est plus proposée."
+      "text": "## 6. Revenir quelques jours plus tard\n\nOuvrez une nouvelle conversation et demandez « Qu'est-ce que je révise avec Studium aujourd'hui ? ». L'assistant appelle `get_study_plan` dans votre langue, qui liste les révisions dues, les leçons en cours et la leçon suivante, et nomme la seule étape à faire maintenant. `start_review_session` joue ensuite toutes les révisions dues, toutes leçons confondues. Voir [réviser dans la durée](review-over-time.fr.md). Si Studium a refusé un brouillon de votre leçon et qu'aucune leçon n'a été écrite pour vous depuis, le plan propose de la terminer, après une leçon en cours, pendant 14 jours, et à vous seulement (le serveur ne joue que vous) ; dites que vous n'en voulez plus et elle ne vous est plus proposée."
     },
     {
       "id": "p:documentation-de-studium-apprendre-un-su:19",
@@ -384,7 +402,7 @@
     {
       "id": "p:documentation-de-studium-apprendre-un-su:21",
       "source_id": "documentation-de-studium-apprendre-un-su",
-      "text": "Votre progression survit par défaut aux redémarrages, dans `~/.studium`. Pour la retrouver depuis un autre assistant, gardez le même dossier de données et le même identifiant : demandez à l'assistant de transmettre un `learner_id` stable (votre prénom, par exemple) à chaque appel."
+      "text": "Votre progression survit par défaut aux redémarrages, dans `~/.studium`. Pour la retrouver depuis un autre assistant, gardez le même dossier de données et fixez le même `STUDIUM_LEARNER_ID` dans les réglages du serveur de chaque assistant. L'assistant ne vous nomme pas : le serveur joue un seul apprenant."
     },
     {
       "id": "p:documentation-de-studium-apprendre-un-su:22",
@@ -479,7 +497,7 @@
     {
       "id": "p:documentation-de-studium-reviser-dans-la:15",
       "source_id": "documentation-de-studium-reviser-dans-la",
-      "text": "Les dossiers sur disque portent un pseudonyme calculé à partir de votre identifiant et du secret, jamais l'identifiant lui-même. Pour déplacer vos données vers une autre machine, copiez le dossier de données entier, secret compris : sans lui, vos dossiers ne peuvent plus être rattachés à votre identifiant. Gardez le même `learner_id` dans tous vos assistants pour n'avoir qu'un historique."
+      "text": "Les dossiers sur disque portent un pseudonyme calculé à partir de votre identifiant et du secret, jamais l'identifiant lui-même. Pour déplacer vos données vers une autre machine, copiez le dossier de données entier, secret compris : sans lui, vos dossiers ne peuvent plus être rattachés à votre identifiant. Fixez le même `STUDIUM_LEARNER_ID` dans tous vos assistants pour n'avoir qu'un historique."
     },
     {
       "id": "p:documentation-de-studium-reviser-dans-la:16",
@@ -504,7 +522,7 @@
     {
       "id": "p:documentation-de-studium-confidentialite:3",
       "source_id": "documentation-de-studium-confidentialite",
-      "text": "| Quoi | Emplacement par défaut | À modifier avec | |---|---|---| | Racine de votre bibliothèque et de vos données | `~/.studium` | `STUDIUM_HOME` | | Leçons écrites pour vous | `<STUDIUM_HOME>/library/<cours>/lesson.json`, quel que soit `BUNDLES_ROOT` | `STUDIUM_HOME` ; `BUNDLES_ROOT` ne fait qu'ajouter un dossier consulté en premier | | Sources préparées pour ces leçons (leurs passages, et pour un fichier lu par son chemin, son chemin complet, sa taille et son SHA-256) | `<STUDIUM_HOME>/library/_sources/` | `STUDIUM_HOME` | | Un brouillon refusé par Studium, gardé pour que l'assistant ne renvoie que les scènes fautives (voir *Un brouillon gardé* plus bas) | `<STUDIUM_HOME>/library/_drafts/` | `STUDIUM_HOME` | | Votre progression | `<STUDIUM_HOME>/data` | `STUDIUM_DATA_DIR` | | Rien sur disque, mémoire seulement | désactivé | `STUDIUM_EPHEMERAL=1` | | Identifiant d'apprenant quand l'assistant n'en donne pas | `anonymous` | `STUDIUM_LEARNER_ID` |"
+      "text": "| Quoi | Emplacement par défaut | À modifier avec | |---|---|---| | Racine de votre bibliothèque et de vos données | `~/.studium` | `STUDIUM_HOME` | | Leçons écrites pour vous | `<STUDIUM_HOME>/library/<cours>/lesson.json`, quel que soit `BUNDLES_ROOT` | `STUDIUM_HOME` ; `BUNDLES_ROOT` ne fait qu'ajouter un dossier consulté en premier | | Sources préparées pour ces leçons (leurs passages, et pour un fichier lu par son chemin, son chemin complet, sa taille et son SHA-256) | `<STUDIUM_HOME>/library/_sources/` | `STUDIUM_HOME` | | Un brouillon refusé par Studium, gardé pour que l'assistant ne renvoie que les scènes fautives (voir *Un brouillon gardé* plus bas) | `<STUDIUM_HOME>/library/_drafts/` | `STUDIUM_HOME` | | Votre progression | `<STUDIUM_HOME>/data` | `STUDIUM_DATA_DIR` | | Rien sur disque, mémoire seulement | désactivé | `STUDIUM_EPHEMERAL=1` | | L'unique apprenant que joue le serveur (un identifiant passé par l'assistant est ignoré) | `anonymous` | `STUDIUM_LEARNER_ID` | | Jouer le `learner_id` de chaque appel (ordinateur partagé, évaluations) | désactivé | `STUDIUM_LEARNERS=several` |"
     },
     {
       "id": "p:documentation-de-studium-confidentialite:4",
@@ -524,7 +542,7 @@
     {
       "id": "p:documentation-de-studium-confidentialite:7",
       "source_id": "documentation-de-studium-confidentialite",
-      "text": "Le plan d'étude propose de le terminer seulement à l'apprenant pour qui il a été refusé, après une leçon qu'il a en cours. Quand l'assistant n'a pas donné de `learner_id` et que `STUDIUM_LEARNER_ID` n'est pas défini, aucun apprenant n'est connu : le brouillon sert seulement au renvoi dans la même conversation et n'est proposé à personne, si bien qu'un ordinateur partagé par plusieurs apprenants ne montre jamais l'objectif ou le fichier de l'un à un autre."
+      "text": "Le plan d'étude propose de le terminer seulement à l'apprenant pour qui il a été refusé, après une leçon qu'il a en cours. Le serveur joue un seul apprenant : le brouillon est donc gardé pour lui, même s'il s'appelle `anonymous`. Avec `STUDIUM_LEARNERS=several`, quand un appel ne donne pas de `learner_id` et que `STUDIUM_LEARNER_ID` n'est pas défini, aucun apprenant n'est connu : le brouillon sert seulement au renvoi dans la même conversation et n'est proposé à personne, si bien qu'un ordinateur partagé par plusieurs apprenants ne montre jamais l'objectif ou le fichier de l'un à un autre."
     },
     {
       "id": "p:documentation-de-studium-confidentialite:8",
@@ -739,52 +757,212 @@
     {
       "id": "p:documentation-de-studium-guide-etudiant:10",
       "source_id": "documentation-de-studium-guide-etudiant",
-      "text": "## Voir votre carte des notions\n\nLa carte des notions montre l'état de chaque notion, ses prérequis, le chemin parcouru et les réponses évaluées qui le fondent. Ouvrez-la dans le panneau ou le volet de leçon, dans les formulaires, ou demandez dans la conversation la carte rendue par `get_workflow_graph`. Sur une notion atteinte, vous pouvez dire que vous la connaissez ou avez un doute : Studium pose une ou deux questions de contrôle et donne leur résultat ; votre déclaration seule n'augmente jamais la maîtrise et ne saute aucune scène. Voir [Carte des notions](concept-map.fr.md)."
+      "text": "## Revoir une étape déjà faite\n\nDans le panneau de VS Code et dans le lecteur du navigateur, chaque étape du parcours principal de la leçon que vous avez déjà faite est un bouton numéroté sous la barre de progression. Il remontre cette étape telle qu'elle était, avec votre réponse et le retour reçu, en lecture seule : revenir en arrière ne rembobine jamais la leçon, et rien de ce que vous y faites ne change votre progression, votre maîtrise ni vos révisions. **Reprendre où j'en étais** ramène à l'étape en cours, telle que vous l'avez laissée. Voir [Ce que vous voyez](../start/vscode.fr.md#ce-que-vous-voyez) pour le détail."
     },
     {
       "id": "p:documentation-de-studium-guide-etudiant:11",
       "source_id": "documentation-de-studium-guide-etudiant",
-      "text": "## Se servir de l'assistant sans lui céder l'activité\n\nDes demandes qui vous laissent la main :\n\n> Donne-moi un indice sur la démarche, puis attends mon essai.\n\n> Affiche ces données avec leurs unités. Demande-moi d'abord ce que je prédis quand on change le seuil. Garde > la référence visible à côté de la variante."
+      "text": "## Voir votre carte des notions\n\nLa carte des notions montre l'état de chaque notion, ses prérequis, le chemin parcouru et les réponses évaluées qui le fondent. Ouvrez-la dans le panneau ou le volet de leçon, dans les formulaires, ou demandez dans la conversation la carte rendue par `get_workflow_graph`. Sur une notion atteinte, vous pouvez dire que vous la connaissez ou avez un doute : Studium pose une ou deux questions de contrôle et donne leur résultat ; votre déclaration seule n'augmente jamais la maîtrise et ne saute aucune scène. Voir [Carte des notions](concept-map.fr.md)."
     },
     {
       "id": "p:documentation-de-studium-guide-etudiant:12",
       "source_id": "documentation-de-studium-guide-etudiant",
-      "text": "> Voici mon explication : […]. Pose-moi une question qui teste sa limite, sans remplacer mon texte avant que je > le soumette.\n\n> Explique la dernière adaptation avec l'outil Studium. Distingue ce qu'il rapporte de ton interprétation."
+      "text": "## Se servir de l'assistant sans lui céder l'activité\n\nDes demandes qui vous laissent la main :\n\n> Donne-moi un indice sur la démarche, puis attends mon essai.\n\n> Affiche ces données avec leurs unités. Demande-moi d'abord ce que je prédis quand on change le seuil. Garde > la référence visible à côté de la variante."
     },
     {
       "id": "p:documentation-de-studium-guide-etudiant:13",
       "source_id": "documentation-de-studium-guide-etudiant",
-      "text": "Un indice réduit le crédit de maîtrise de la réponse qui suit ; il reste utile quand vous bloquez. Un détour vous envoie vers un prérequis, puis vous ramène. Les indicateurs de maîtrise aident à apprendre ; ce ne sont ni une note officielle ni un diagnostic. Voir [le modèle de l'apprenant](../concepts/learner-model.fr.md)."
+      "text": "> Voici mon explication : […]. Pose-moi une question qui teste sa limite, sans remplacer mon texte avant que je > le soumette.\n\n> Explique la dernière adaptation avec l'outil Studium. Distingue ce qu'il rapporte de ton interprétation."
     },
     {
       "id": "p:documentation-de-studium-guide-etudiant:14",
       "source_id": "documentation-de-studium-guide-etudiant",
-      "text": "## Expérimenter avec un article ou une capsule\n\nSuivez le [tutoriel d'expérience agentique](../tutorials/agentic-experiment.fr.md) : choisissez une question, prédisez un effet, exécutez une référence, changez un facteur et jugez la différence. Notez votre prédiction avant de voir un résultat, dans le [journal d'expérience](experiment-journal.fr.md)."
+      "text": "Un indice réduit le crédit de maîtrise de la réponse qui suit ; il reste utile quand vous bloquez. Un détour vous envoie vers un prérequis, puis vous ramène. Les indicateurs de maîtrise aident à apprendre ; ce ne sont ni une note officielle ni un diagnostic. Voir [le modèle de l'apprenant](../concepts/learner-model.fr.md)."
     },
     {
       "id": "p:documentation-de-studium-guide-etudiant:15",
       "source_id": "documentation-de-studium-guide-etudiant",
-      "text": "L'assistant peut chercher une documentation ou lire un skill, mais il doit dire ce qu'il a réellement consulté et exécuté. Vérifiez unités, données, cas limites et provenance : un graphique produit par une IA peut être faux. Gardez les sorties dans votre dossier d'expérience. Une capsule marquée `type-checked` n'est pas une exécution réussie. Si une dépendance manque ou qu'un calcul échoue, gardez cet échec ; ne demandez jamais à l'assistant d'inventer un résultat. Dans VS Code, une reproduction vous demande de confirmer la commande exacte avant que rien ne s'exécute."
+      "text": "## Expérimenter avec un article ou une capsule\n\nSuivez le [tutoriel d'expérience agentique](../tutorials/agentic-experiment.fr.md) : choisissez une question, prédisez un effet, exécutez une référence, changez un facteur et jugez la différence. Notez votre prédiction avant de voir un résultat, dans le [journal d'expérience](experiment-journal.fr.md)."
     },
     {
       "id": "p:documentation-de-studium-guide-etudiant:16",
       "source_id": "documentation-de-studium-guide-etudiant",
-      "text": "## Langue, représentations et rapports\n\nDemandez une autre langue à tout moment (« Continue en français ») ; vos réponses et les sources originales restent telles quelles. Vous pouvez demander une équation lisible, un schéma, une structure chimique ou une explication en texte. Voir [langue et supports](language-and-supports.fr.md)."
+      "text": "L'assistant peut chercher une documentation ou lire un skill, mais il doit dire ce qu'il a réellement consulté et exécuté. Vérifiez unités, données, cas limites et provenance : un graphique produit par une IA peut être faux. Gardez les sorties dans votre dossier d'expérience. Une capsule marquée `type-checked` n'est pas une exécution réussie. Si une dépendance manque ou qu'un calcul échoue, gardez cet échec ; ne demandez jamais à l'assistant d'inventer un résultat. Dans VS Code, une reproduction vous demande de confirmer la commande exacte avant que rien ne s'exécute."
     },
     {
       "id": "p:documentation-de-studium-guide-etudiant:17",
       "source_id": "documentation-de-studium-guide-etudiant",
-      "text": "Pour garder une trace de vos propres actions, voir le [rapport d'activité](learner-report.fr.md) et le [tutoriel activité → rapport](../tutorials/activity-to-report.fr.md). Vous choisissez ce qui y figure ; produire un rapport ne l'envoie pas à l'enseignant."
+      "text": "## Langue, représentations et rapports\n\nDemandez une autre langue à tout moment (« Continue en français ») ; vos réponses et les sources originales restent telles quelles. Vous pouvez demander une équation lisible, un schéma, une structure chimique ou une explication en texte. Voir [langue et supports](language-and-supports.fr.md)."
     },
     {
       "id": "p:documentation-de-studium-guide-etudiant:18",
       "source_id": "documentation-de-studium-guide-etudiant",
-      "text": "## Interrompre et reprendre\n\n- **Pause.** Dites « on s'arrête là » : l'assistant appelle `end_session`, qui ferme la séance et garde votre progression. Fermer une fenêtre n'efface rien. - **Reprise.** Relancez la même leçon avec le même identifiant : Studium reprend à la première étape inachevée. Une leçon terminée recommence au début, comme une reprise. - **Plusieurs endroits.** Le panneau VS Code et un assistant gardent des progressions distinctes, sauf Copilot avec le serveur que propose l'extension Studium, qui partage celle du panneau : même dossier, même apprenant. Deux assistants la partagent s'ils utilisent le même dossier de données et le même identifiant. - **Effacement.** Demandez à l'assistant d'oublier vos données pour une leçon, ou toutes vos données (`forget_session`) ; il vous dit ensuite ce qui reste sur le disque. Voir [apprendre avec votre assistant](learn-with-your-assistant.fr.md#7-fermer-ou-oublier). Dans VS Code, **Studium : Oublier mes données** efface ce que garde l'extension, pas les données d'un assistant. Les dossiers d'expérience et l'historique de l'assistant suivent leurs propres règles de conservation."
+      "text": "Pour garder une trace de vos propres actions, voir le [rapport d'activité](learner-report.fr.md) et le [tutoriel activité → rapport](../tutorials/activity-to-report.fr.md). Vous choisissez ce qui y figure ; produire un rapport ne l'envoie pas à l'enseignant."
     },
     {
       "id": "p:documentation-de-studium-guide-etudiant:19",
       "source_id": "documentation-de-studium-guide-etudiant",
+      "text": "## Interrompre et reprendre\n\n- **Pause.** Dites « on s'arrête là » : l'assistant appelle `end_session`, qui ferme la séance et garde votre progression. Fermer une fenêtre n'efface rien. - **Reprise.** Relancez la même leçon avec le même identifiant : Studium reprend à la première étape inachevée. Une leçon terminée recommence au début, comme une reprise. - **Plusieurs endroits.** Le panneau VS Code et un assistant gardent des progressions distinctes, sauf Copilot avec le serveur que propose l'extension Studium, qui partage celle du panneau : même dossier, même apprenant. Deux assistants la partagent s'ils utilisent le même dossier de données et le même identifiant. - **Effacement.** Demandez à l'assistant d'oublier vos données pour une leçon, ou toutes vos données (`forget_session`) ; il vous dit ensuite ce qui reste sur le disque. Voir [apprendre avec votre assistant](learn-with-your-assistant.fr.md#7-fermer-ou-oublier). Dans VS Code, **Studium : Oublier mes données** efface ce que garde l'extension, pas les données d'un assistant. Les dossiers d'expérience et l'historique de l'assistant suivent leurs propres règles de conservation."
+    },
+    {
+      "id": "p:documentation-de-studium-guide-etudiant:20",
+      "source_id": "documentation-de-studium-guide-etudiant",
       "text": "Les révisions espacées font revenir les notions les jours suivants : voir [réviser dans la durée](review-over-time.fr.md). En cas de souci, voir le [dépannage](../start/troubleshooting.fr.md) et n'envoyez à l'enseignant qu'un petit exemple anonymisé. Détails sur les données : [confidentialité et limites](../concepts/privacy-and-limits.fr.md)."
+    },
+    {
+      "id": "p:documentation-de-studium-connecter-votre:1",
+      "source_id": "documentation-de-studium-connecter-votre",
+      "text": "[English](harnesses.md) · Français\n\n# Connecter votre assistant\n\nStudium fonctionne comme un serveur MCP que votre assistant IA lance sur votre ordinateur. Une fois la connexion faite, vous pouvez dire « je veux apprendre X avec Studium » : l'assistant prépare, joue et planifie vos leçons avec les outils de Studium. Cette page vous aide à choisir la page de votre client, puis montre comment vérifier la connexion."
+    },
+    {
+      "id": "p:documentation-de-studium-connecter-votre:2",
+      "source_id": "documentation-de-studium-connecter-votre",
+      "text": "## Avant de commencer\n\nLe client de l'assistant est appelé *harnais* (voir le [glossaire](../concepts/glossary.fr.md)). Le serveur dialogue par stdio : il n'ouvre aucun port et n'affiche aucune page web. Une configuration le lance de l'une de deux façons :"
+    },
+    {
+      "id": "p:documentation-de-studium-connecter-votre:3",
+      "source_id": "documentation-de-studium-connecter-votre",
+      "text": "| Façon | Commande | Quand | |---|---|---| | Depuis npm | `npx -y studium-mcp` | la façon habituelle ; ne demande que Node 20 ou plus (voir [Installation](installation.fr.md#ajouter-le-serveur-à-votre-assistant)) | | Depuis un fichier | `node /path/to/studium/apps/studium-vscode/dist/lesson-mcp.cjs` | depuis un clone après `pnpm --filter studium-vscode build`, ou avec un `lesson-mcp.cjs` téléchargé depuis une release (avec son propre chemin) |"
+    },
+    {
+      "id": "p:documentation-de-studium-connecter-votre:4",
+      "source_id": "documentation-de-studium-connecter-votre",
+      "text": "Chaque page de client donne d'abord la forme `npx`, puis la forme clone. Remplacez `/path/to/studium` par le chemin absolu de votre clone. Si `npx` ne peut pas joindre npm, voir [Où sont les paquets](installation.fr.md#où-sont-les-paquets)."
+    },
+    {
+      "id": "p:documentation-de-studium-connecter-votre:5",
+      "source_id": "documentation-de-studium-connecter-votre",
+      "text": "Vous rencontrez d'abord deux variables d'environnement :\n\n| Réglage | Effet | |---|---| | `BUNDLES_ROOT` | Laissez-la absente (recommandé) : les leçons vivent dans `~/.studium/library`, la progression dans `~/.studium/data`. Avec `BUNDLES_ROOT=/path/to/studium/fixtures`, vous jouez les leçons de démonstration du dépôt ; les leçons que votre assistant prépare vont toujours dans `~/.studium/library`. | | `LITELLM_BASE_URL=\"\"` | Aucun modèle juge, même si votre shell en définit un (voir [Modèle juge](../reference/configuration.fr.md#modèle-juge-facultatif)). |"
+    },
+    {
+      "id": "p:documentation-de-studium-connecter-votre:6",
+      "source_id": "documentation-de-studium-connecter-votre",
+      "text": "`STUDIUM_EPHEMERAL=1` garde la progression en mémoire seulement, pour une démonstration ou un test. Toutes les variables sont décrites dans [Configuration](../reference/configuration.fr.md).\n\nLes fichiers de [docs/examples](../examples/) sont des exemples complets, sous la forme clone, qui ajoutent `BUNDLES_ROOT` pour les leçons de démonstration : [codex.toml](../examples/codex.toml), [mcp.claude.json](../examples/mcp.claude.json), [mcp.vscode.json](../examples/mcp.vscode.json) et [opencode-v2.json](../examples/opencode-v2.json). Fusionnez-les dans le fichier de votre client, sans écraser les autres serveurs déjà déclarés."
+    },
+    {
+      "id": "p:documentation-de-studium-connecter-votre:7",
+      "source_id": "documentation-de-studium-connecter-votre",
+      "text": "## Choisir votre client\n\nAvec l'extension Studium pour VS Code, **Studium : Relier un assistant…** relie Mistral Vibe, Codex, Claude Code, Claude Desktop, Cursor et OpenCode en un clic, sans Node ni terminal : elle écrit une entrée `studium` dans le fichier de chaque assistant, qui lance le serveur que l'extension contient. Copilot dans VS Code a déjà le serveur. Chaque page ci-dessous commence par cette voie, puis donne la voie manuelle."
+    },
+    {
+      "id": "p:documentation-de-studium-connecter-votre:8",
+      "source_id": "documentation-de-studium-connecter-votre",
+      "text": "| Client | Où vit sa configuration | Page | |---|---|---| | Codex | **Studium : Relier un assistant…** dans VS Code (sans Node), ou `~/.codex/config.toml`, ou `codex mcp add` | [Connecter Codex](codex.fr.md) | | Claude Code | **Studium : Relier un assistant…** dans VS Code (sans Node), le plugin `studium`, `claude mcp add`, ou `.mcp.json` à la racine du projet | [Connecter Claude Code](claude-code.fr.md) | | Copilot dans VS Code | `.vscode/mcp.json` | [Connecter Copilot dans VS Code](copilot.fr.md) | | OpenCode | **Studium : Relier un assistant…** dans VS Code (sans Node), ou `opencode.jsonc` à la racine du projet | [Connecter OpenCode](opencode.fr.md) | | Cursor | **Studium : Relier un assistant…** dans VS Code (sans Node), ou `.cursor/mcp.json` ou `~/.cursor/mcp.json` | [Connecter Cursor](cursor.fr.md) | | Mistral Vibe | **Studium : Relier un assistant…** ou **Studium : Relier Mistral Vibe** dans VS Code (sans Node), ou `~/.vibe/config.toml`, ou `vibe mcp add` | [Connecter Mistral Vibe](vibe.fr.md) | | Claude Desktop | **Studium : Relier un assistant…** dans VS Code (sans Node), ou `claude_desktop_config.json` | [ci-dessous](#claude-desktop) | | Un script ou un client sur mesure"
+    },
+    {
+      "id": "p:documentation-de-studium-connecter-votre:9",
+      "source_id": "documentation-de-studium-connecter-votre",
+      "text": "| aucune configuration MCP | [API HTTP](../reference/http-api.fr.md) et [canal fichiers](../reference/agentic-session-protocol.fr.md) |\n\n## Claude Desktop\n\nClaude Desktop lit `claude_desktop_config.json`, dans `~/Library/Application Support/Claude/` sous macOS et dans `%APPDATA%\\Claude\\` sous Windows. Avec l'extension Studium pour VS Code, **Studium : Relier un assistant…** avec **Claude Desktop** coché écrit l'entrée pour vous, sans Node ; quittez puis rouvrez Claude Desktop. Vérifié le 26 novembre 2026 sous macOS : l'entrée écrite a lancé le serveur avec ses 40 outils ; Claude Desktop lui-même n'a pas encore été essayé. À la main, fusionnez ceci dans le fichier, puis redémarrez l'application :"
+    },
+    {
+      "id": "p:documentation-de-studium-connecter-votre:10",
+      "source_id": "documentation-de-studium-connecter-votre",
+      "text": "```json { \"mcpServers\": { \"studium\": { \"command\": \"npx\", \"args\": [\"-y\", \"studium-mcp\"], \"env\": { \"LITELLM_BASE_URL\": \"\" } } } } ```\n\nDepuis un clone, utilisez `\"command\": \"node\"` et `\"args\": [\"/path/to/studium/apps/studium-vscode/dist/lesson-mcp.cjs\"]`."
+    },
+    {
+      "id": "p:documentation-de-studium-connecter-votre:11",
+      "source_id": "documentation-de-studium-connecter-votre",
+      "text": "## Vérifier la connexion\n\nUne entrée de configuration, ou un skill découvert par le client, ne prouve pas que le serveur est connecté. Demandez :\n\n```text Appelle l'outil Studium get_server_info et donne-moi la version, la date du build, le nombre d'outils et si ma progression est durable. Appelle ensuite get_study_plan. ```"
+    },
+    {
+      "id": "p:documentation-de-studium-connecter-votre:12",
+      "source_id": "documentation-de-studium-connecter-votre",
+      "text": "La réponse doit annoncer 40 outils (25 de leçon, 5 d'étude, 3 de rédaction, 2 pour l'enseignant, 1 de formulaires, 3 de panneau, 1 d'accompagnement ; voir [Outils MCP](../reference/mcp-tools.fr.md)) et `persistence.durable: true`. Si `durable` vaut false, la progression est perdue à l'arrêt du serveur. À la connexion, l'assistant reçoit aussi les instructions de Studium (montrer chaque `display_markdown` tel quel, attendre votre propre réponse, ne jamais répondre ni noter à votre place) et deux prompts, `learn` et `review`, dans les clients qui prennent en charge les prompts MCP."
+    },
+    {
+      "id": "p:documentation-de-studium-connecter-votre:13",
+      "source_id": "documentation-de-studium-connecter-votre",
+      "text": "## Pour aller plus loin\n\n- [Garder des réponses rapides](fast-answers.fr.md) : les choix qui décident du temps d'attente à chaque écran. - [Skills](skills.fr.md) et [panneaux de leçon](harness-panels.fr.md) pour votre assistant. - [VS Code](vscode.fr.md) pour le panneau de leçon de l'extension. - [Dépannage](troubleshooting.fr.md) si la vérification échoue."
+    },
+    {
+      "id": "p:documentation-de-studium-guide-enseignan:1",
+      "source_id": "documentation-de-studium-guide-enseignan",
+      "text": "[English](teacher-guide.md) · Français\n\n# Guide enseignant\n\nStudium vous aide à transformer des sources de confiance en une leçon que vos étudiants peuvent suivre, chaque item noté étant rattaché à un passage vérifiable. C'est vous qui décidez de ce qui est enseigné, de ce que les sources permettent d'affirmer et du moment où une leçon parvient aux étudiants. Une leçon qui passe tous les contrôles techniques reste un brouillon tant que vous ne l'avez pas approuvée : cette décision humaine avant toute diffusion est la règle 003 du projet."
+    },
+    {
+      "id": "p:documentation-de-studium-guide-enseignan:2",
+      "source_id": "documentation-de-studium-guide-enseignan",
+      "text": "Cette page décrit l'ensemble du parcours et renvoie à la page de chaque étape. Pour que votre assistant vous y accompagne, chargez le skill `studium-teacher` (voir [skills](../start/skills.fr.md)).\n\n## Le parcours en un coup d'œil"
+    },
+    {
+      "id": "p:documentation-de-studium-guide-enseignan:3",
+      "source_id": "documentation-de-studium-guide-enseignan",
+      "text": "<picture> <source media=\"(prefers-color-scheme: dark)\" srcset=\"../assets/diagrams/teacher-journey-dark.svg\"> <img src=\"../assets/diagrams/teacher-journey-light.svg\" alt=\"Parcours enseignant en sept étapes : sources, dossier de preuves, brouillon sourcé, contrôle et lint, revue MySTRA, approbation humaine, classe ; en dessous, la boucle des contributions des apprenants : soumission, relecture au tableau de bord, décision, bundle communautaire.\"> </picture>"
+    },
+    {
+      "id": "p:documentation-de-studium-guide-enseignan:4",
+      "source_id": "documentation-de-studium-guide-enseignan",
+      "text": "| Étape | Ce que vous faites | Résultat | Page | |---|---|---|---| | Préparer | Choisir une question, un public et les sources autorisées | Un plan de pilote | [ci-dessous](#préparer-lactivité) | | Rédiger | Faire rédiger la leçon par votre assistant à partir de passages capturés | Un brouillon contrôlé | [Rédiger une leçon](author-a-lesson.fr.md) | | Relire | Lire le plan, les citations, les clés et la provenance | Vos corrections | [Relire et approuver](review-and-approve.fr.md) | | Approuver | Enregistrer votre décision pour le fichier exact | `approval.json` | [Relire et approuver](review-and-approve.fr.md#approuver-le-fichier-exact) | | Diffuser | Remettre le dossier de la leçon aux étudiants | Des leçons dans leur bibliothèque | [ci-dessous](#diffuser-une-leçon) | | Suivre une classe | Lire des agrégats de classe, jamais un étudiant isolé | Un rapport de classe | [Suivre une classe](follow-a-class.fr.md) | | Modérer | Relire ce que les apprenants proposent d'ajouter | Des items communautaires | [Contributions des apprenants](learner-contributions.fr.md) |"
+    },
+    {
+      "id": "p:documentation-de-studium-guide-enseignan:5",
+      "source_id": "documentation-de-studium-guide-enseignan",
+      "text": "L'approbation écrit aussi un reçu des items que vous avez ouverts et de votre verdict sur chaque item évalué. Pour renvoyer une leçon sans l'approuver, enregistrez plutôt un reçu de retour ; voir [Relire et approuver](review-and-approve.fr.md#approuver-le-fichier-exact)."
+    },
+    {
+      "id": "p:documentation-de-studium-guide-enseignan:6",
+      "source_id": "documentation-de-studium-guide-enseignan",
+      "text": "<picture> <source media=\"(prefers-color-scheme: dark)\" srcset=\"../assets/screenshots/teacher-library-dark.png\"> <img src=\"../assets/screenshots/teacher-library-light.png\" width=\"720\" alt=\"La bibliothèque du tableau de bord enseignant : le nombre de cours, de leçons vérifiées et approuvées, puis chaque leçon avec sa langue, son auteur, ses nombres de scènes et de notions, sa durée, des badges pour ses classes de clé, un statut Vérifié et un bouton Relire.\"> </picture>"
+    },
+    {
+      "id": "p:documentation-de-studium-guide-enseignan:7",
+      "source_id": "documentation-de-studium-guide-enseignan",
+      "text": "<em>La bibliothèque du tableau de bord enseignant : chaque leçon, qui détient ses clés de correction et son statut de relecture.</em>\n\n## Avant de commencer\n\n1. Installez Studium : [installation](../start/installation.fr.md). 2. Suivez vous-même une leçon pour voir ce que reçoit un étudiant : [première leçon](../tutorials/first-lesson.fr.md). 3. Connectez votre assistant (Codex, Claude Code, Copilot, OpenCode ou un autre client MCP) : [harnais](../start/harnesses.fr.md). Aucun fournisseur de modèle supplémentaire n'est nécessaire pour rédiger par ce biais. 4. Faites une fois le [tutoriel de la littérature au cours](../tutorials/literature-to-course.fr.md) sur l'exemple fourni, avant d'utiliser vos propres matériaux."
+    },
+    {
+      "id": "p:documentation-de-studium-guide-enseignan:8",
+      "source_id": "documentation-de-studium-guide-enseignan",
+      "text": "## Préparer l'activité\n\nPartez d'une question qui demande plus qu'un résultat calculé, par exemple « Une similarité spectrale élevée suffit-elle à identifier une molécule ? ». Puis distinguez :\n\n- le concept à comprendre et la tâche à réaliser ; - l'observation attendue et la limite à discuter ; - un cas nouveau pour vérifier le transfert."
+    },
+    {
+      "id": "p:documentation-de-studium-guide-enseignan:9",
+      "source_id": "documentation-de-studium-guide-enseignan",
+      "text": "Fixez le pilote : public, prérequis, durée, question de jugement, ce que les étudiants peuvent explorer, les matériaux autorisés et le mode de restitution. Une consigne de cadrage pour votre assistant peut ressembler à ceci :"
+    },
+    {
+      "id": "p:documentation-de-studium-guide-enseignan:10",
+      "source_id": "documentation-de-studium-guide-enseignan",
+      "text": "> Prépare un brouillon Studium pour [public], en [durée], sur [question]. Utilise seulement les > passages et matériaux du dossier. Sépare résultats de l'article, hypothèses et données > synthétiques. Demande une prédiction avant toute exécution, une comparaison et une question de > transfert. Signale les preuves manquantes. Ne marque rien comme approuvé et n'invente aucun > résultat de capsule."
+    },
+    {
+      "id": "p:documentation-de-studium-guide-enseignan:11",
+      "source_id": "documentation-de-studium-guide-enseignan",
+      "text": "Les [cas d'usage](../tutorials/use-cases.fr.md) donnent des exemples complets (annotation spectrale, diagnostic d'une analyse, robustesse, photographies en archéologie). Des activités interactives prêtes à adapter se trouvent dans [modèles d'activités](activity-templates.fr.md) ; figures, équations et médias dans [médias et supports visuels](media-and-visual-support.fr.md)."
+    },
+    {
+      "id": "p:documentation-de-studium-guide-enseignan:12",
+      "source_id": "documentation-de-studium-guide-enseignan",
+      "text": "## Diffuser une leçon\n\nUne leçon est un dossier : `lesson.json`, ses `assets/` et, une fois approuvée, `approval.json`. Gardez les trois ensemble et à la même révision. Une leçon livrée en `.zip` porte l'enregistrement dans son membre `approval.json` (les scripts de construction des démos l'ajoutent quand il correspond à `lesson.json`) ; sans lui, la leçon se lit « Aucune approbation enregistrée pour cette leçon. » Les étudiants placent le dossier dans leur bibliothèque Studium (par défaut `~/.studium/library/<course_id>/`, ou le dossier que désigne `BUNDLES_ROOT`) et l'ouvrent depuis leur assistant ou depuis VS Code (voir [VS Code](../start/vscode.fr.md)). Au démarrage de la leçon, la session indique si un enregistrement d'approbation correspond au fichier exact."
+    },
+    {
+      "id": "p:documentation-de-studium-guide-enseignan:13",
+      "source_id": "documentation-de-studium-guide-enseignan",
+      "text": "Pour une classe :\n\n- commencez par quelques étudiants et vérifiez la séance sur leurs machines (accès au bundle, affichage, langue, comportement si le modèle ou le réseau est indisponible, export) ; - donnez des consignes écrites et une solution de repli si le compte de l'assistant ou Internet fait défaut ; - le paquet VS Code simplifie l'installation du panneau de leçon, mais ne diffuse ni ne valide les leçons à votre place."
+    },
+    {
+      "id": "p:documentation-de-studium-guide-enseignan:14",
+      "source_id": "documentation-de-studium-guide-enseignan",
+      "text": "## Organiser une séance d'expérimentation\n\nQuand une leçon laisse les étudiants explorer avec leur assistant, fixez un périmètre concret : données, commandes, dépendances, accès web, contrôles interactifs et durée. Réafficher les matériaux approuvés peut rester dans l'activité ; une affirmation, un exercice ou une scène générés au-delà de ce périmètre sont des brouillons à relire avant usage. Studium ne fait pas encore respecter cette frontière à votre place."
+    },
+    {
+      "id": "p:documentation-de-studium-guide-enseignan:15",
+      "source_id": "documentation-de-studium-guide-enseignan",
+      "text": "Demandez aux étudiants leur prédiction, les différences observées, une limite et un test de transfert. Une sortie de l'agent ne prouve pas que l'étudiant a compris. Le [tutoriel d'expérience agentique](../tutorials/agentic-experiment.fr.md) déroule une séance complète, et [littérature et preuves](literature-and-evidence.fr.md) présente le reçu d'exploration portable."
+    },
+    {
+      "id": "p:documentation-de-studium-guide-enseignan:16",
+      "source_id": "documentation-de-studium-guide-enseignan",
+      "text": "## Ce que les étudiants peuvent vous transmettre\n\nUn étudiant peut choisir d'exporter un [rapport d'apprenant](../learn/learner-report.fr.md) de ses actions enregistrées, et tient un [journal d'expérience](../learn/experiment-journal.fr.md) privé. Discutez avec lui de ce qui sera partagé et de la façon dont vous le lirez : une trace incomplète ne mesure pas l'autonomie. Le rapport par défaut exclut les textes personnels et ne donne accès ni au journal complet ni à l'historique de l'assistant. Voir [confidentialité et limites](../concepts/privacy-and-limits.fr.md)."
+    },
+    {
+      "id": "p:documentation-de-studium-guide-enseignan:17",
+      "source_id": "documentation-de-studium-guide-enseignan",
+      "text": "Le [rapport d'interaction](follow-a-class.fr.md#comment-linterface-a-été-utilisée) montre comment une classe consentante a utilisé l'interface. Pour superposer ses chiffres aux notions de la leçon, utilisez `tools/concept_map_report.py` et le [point de vue enseignant de la carte des notions](../learn/concept-map.fr.md#le-point-de-vue-enseignant-et-les-chiffres-de-la-classe)."
+    },
+    {
+      "id": "p:documentation-de-studium-guide-enseignan:18",
+      "source_id": "documentation-de-studium-guide-enseignan",
+      "text": "## Limites\n\n- Les contrôles techniques (schéma, citations exactes, lint) ne remplacent pas une relecture pédagogique ; une citation exacte peut encore être mal interprétée. - L'enregistrement d'approbation porte le nom que vous saisissez ; Studium ne l'authentifie pas. - Le tableau de bord, l'Observatoire et les services d'analyse sont des outils locaux sans connexion ; ne les exposez pas sur Internet."
     }
   ],
   "dropped_short": 0

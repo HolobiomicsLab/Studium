@@ -32,7 +32,7 @@ d'autre : ni Node, ni terminal, ni compte d'assistant IA.
 1. Dans VS Code, ouvrez la vue Extensions, cherchez **Studium** et installez l'extension publiée par
    HolobiomicsLab.
 2. Pour voir d'abord comment fonctionne Studium, sélectionnez l'icône **Studium** dans la barre d'activité,
-   puis **Essayer la leçon de démonstration** : « Découvrir Studium » (une dizaine de minutes, en français ou en
+   puis **Essayer la leçon de démonstration** : « Découvrir Studium » (environ douze minutes, en français ou en
    anglais) est livrée avec l'extension. Un agent d'IA l'a rédigée à partir de la documentation de Studium ; le
    responsable du projet l'a approuvée, sous le nom beta-testeur, sans l'avoir lue.
 3. Pour d'autres leçons, munissez-vous d'un dossier de leçons : celui que votre enseignant vous a donné, ou les leçons de

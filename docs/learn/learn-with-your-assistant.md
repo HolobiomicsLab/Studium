@@ -23,7 +23,7 @@ Say it in your own words, for example:
 
 The assistant starts with `get_study_plan`, in your language. If a lesson you already have covers the topic,
 it offers that lesson; otherwise it builds one. With no lesson at all, the plan first proposes « Discover
-Studium », a ten-minute demo shipped with Studium that shows how it works; say you would rather learn your topic
+Studium », a twelve-minute demo shipped with Studium that shows how it works; say you would rather learn your topic
 and the assistant builds your lesson instead. Say what you already know, how much time you have a day, or a
 target date: the assistant is asked to open the lesson with two short questions on what you already know.
 Those two questions are played once and never come back as reviews. What you know and what interests you shape
