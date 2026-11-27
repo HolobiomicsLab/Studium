@@ -6,6 +6,15 @@ Journal des unités TDD par milestone. Mis à jour à chaque commit significatif
 
 ---
 
+## 2026-11-27 — « Découvrir Studium » : où jouer Studium, apprendre et enseigner
+
+Propriétaire, 27 nov. : « on travaille vite fait sur la lecon de demarrage. Incluons brievement dedans les moyens
+d'integration studium et perspective grand ligne usage enseignants/etudiants ». Deux scènes `concept` ajoutées à la fin
+(s13 « Où jouer Studium », s14 « Et après : apprendre, enseigner »), citant `docs/start/harnesses` et
+`docs/teach/teacher-guide` ; durée 12 min partout ; la vue Leçons vide commence par la leçon. L'approbation
+précédente est périmée (nouveaux octets) : `shipped-lessons.test.ts` échoue sur 3 tests tant que le propriétaire n'a pas
+approuvé ces octets (règle 003).
+
 ## 2026-11-27 — Cursor dans « Relier un assistant… »
 
 Même délégation. `cursor` : `~/.cursor/mcp.json`, `mcpServers.studium` avec `type: "stdio"` (forme de

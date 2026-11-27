@@ -79,7 +79,7 @@ par défaut.
 Un étudiant qui choisit un autre dossier avec **Studium : Choisir un cours** ne change que ses propres
 réglages utilisateur, ou ceux du dossier qu'il a ouvert.
 
-L'extension contient aussi « Découvrir Studium », une leçon de démonstration d'une dizaine de minutes sur le
+L'extension contient aussi « Découvrir Studium », une leçon de démonstration d'environ douze minutes sur le
 fonctionnement de Studium et de son panneau (**Studium : Essayer la leçon de démonstration**, proposée aussi dans
 la liste des cours, dans la langue d'affichage de VS Code). Elle sert pour une première séance en salle, avant le
 cours. Un agent d'IA l'a rédigée à partir de la documentation de Studium ; le responsable du projet l'a approuvée,

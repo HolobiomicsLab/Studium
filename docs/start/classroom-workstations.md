@@ -74,7 +74,7 @@ settings files. Keep `studium.assets` on `vendor`, `studium.telemetryConsent` of
 A student who picks another folder with **Studium: Pick a course** changes only their own user settings,
 or the settings of the folder they opened.
 
-The extension also ships « Discover Studium », a demo lesson of about ten minutes on how Studium and its pane
+The extension also ships « Discover Studium », a demo lesson of about twelve minutes on how Studium and its pane
 work (**Studium: Try the demo lesson**, also offered in the course list, in VS Code's display language). It
 is useful for a first session in the room, before the course. An AI agent drafted it from Studium's
 documentation; the project's owner approved it, under the name beta-testeur, without reading it:

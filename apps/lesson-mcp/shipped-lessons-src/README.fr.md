@@ -14,9 +14,9 @@ n'a encore aucune leçon à lui. Ce dossier contient ce à partir de quoi elles 
 | | |
 |---|---|
 | Leçons | `discover-studium-fr/lesson.json` (français), `discover-studium-en/lesson.json` (anglais) |
-| Contenu | 12 scènes, une dizaine de minutes, 5 notions : l'assistant relaie et l'apprenant répond ; un cours est un graphe de notions (avec un détour par un prérequis) ; qui détient la clé et d'où elle vient ; les révisions espacées ; local d'abord |
-| Sources | sept pages de la documentation de Studium, dans la langue de la leçon (`sources.json`), CC BY 4.0 |
-| Rédigées par | un agent d'IA (Claude Opus 5.5 dans Claude Code), le 25 novembre 2026 ; réécrites par un agent d'IA le 26 novembre 2026 (décision D7 : chaque consigne nomme la commande à l'écran, pas une surface, et une seule durée, dix minutes) |
+| Contenu | 14 scènes, environ douze minutes, 5 notions : l'assistant relaie et l'apprenant répond ; un cours est un graphe de notions (avec un détour par un prérequis) ; qui détient la clé et d'où elle vient ; les révisions espacées ; local d'abord ; où jouer Studium (VS Code, un assistant, le navigateur) ; ce qu'il apporte aux apprenants et aux enseignants |
+| Sources | neuf pages de la documentation de Studium, dans la langue de la leçon (`sources.json`), CC BY 4.0 |
+| Rédigées par | un agent d'IA (Claude Opus 5.5 dans Claude Code), le 25 novembre 2026 ; réécrites par un agent d'IA le 26 novembre 2026 (décision D7 : chaque consigne nomme la commande à l'écran, pas une surface, et une seule durée, dix minutes) ; complétée par un agent d'IA le 27 novembre 2026 de deux scènes, où jouer Studium et ce qu'il apporte aux apprenants et aux enseignants (douze minutes) |
 | Statut | mode enseignant (`authoring_mode` dans `sources.json`), `drafted_by: agent` ; le responsable du projet les a approuvées le 25 novembre 2026, sous le nom beta-testeur, sans les avoir lues (aucune scène ouverte, aucune liste de contrôle déclarée) ; la réécriture du 26 novembre 2026 a été approuvée de nouveau sous le même nom, enregistrée par l'agent sur la délégation du responsable, sans qu'aucune scène soit lue ; `approval.json` est lié aux octets exacts de `lesson.json` (règle 003) |
 
 | Fichier | Ce que c'est |
