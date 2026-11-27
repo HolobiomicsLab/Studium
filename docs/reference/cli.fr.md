@@ -15,6 +15,7 @@ après l'[installation](../start/installation.fr.md) (`pnpm install` et un `.ven
 | [`class_report.py`](#class_reportpy) | Rapport de classe agrégé à partir de la télémétrie consentie. |
 | [`interaction_report.py`](#interaction_reportpy) | Rapport d'usage agrégé de l'interface à deux voies à partir de la télémétrie consentie. |
 | [`pytest_all.py`](#pytest_allpy) | Toutes les suites de tests Python, un processus chacune. |
+| [`studium-mcp import`](#studium-mcp-import) | Mettre un fichier de leçon venu d'une page de cours dans votre bibliothèque, sans VS Code. |
 
 ## experience_packet.py
 
@@ -179,3 +180,29 @@ un processus pytest par suite, et échoue si un fichier de test n'est atteint pa
 Il se termine par `N suites, M failing` et sort avec `1` si une suite échoue ou si un fichier de
 test n'est pas couvert. `--root DIR` le dirige vers un autre checkout. Les autres commandes de test
 sont dans [Tests](../develop/testing.fr.md).
+
+## studium-mcp import
+
+La seule commande de cette page qui ne se lance pas depuis le dépôt : `studium-mcp` vient de npm et n'a besoin que de Node.js 20 ou plus récent. `import` met dans votre bibliothèque un fichier de leçon qu'un enseignant a empaqueté (`<bundle_id>.studium.zip`, voir [Partager une leçon par votre plateforme de cours](../teach/share-through-your-course-platform.fr.md)), puis `play` le joue ([Jouer une leçon dans votre navigateur](../start/browser.fr.md#jouer-une-leçon-venue-dune-page-de-cours)).
+
+```bash
+npx -y studium-mcp import <fichier> [--yes] [--replace]
+npx -y studium-mcp import --help
+```
+
+| Option | Effet |
+|---|---|
+| `fichier` | le fichier de leçon que vous avez téléchargé |
+| `--yes` | ne pas demander : importer après avoir montré ce que contient le fichier ; nécessaire quand l'entrée standard n'est pas un terminal |
+| `--replace` | remplacer une leçon différente qui a le même identifiant (`bundle_id`) dans votre bibliothèque |
+
+À quoi s'attendre :
+
+- Le fichier est d'abord vérifié et rien n'est écrit. La commande affiche le titre, le nombre d'étapes, l'approbation que le fichier enregistre (un enregistrement, pas une signature ; ou qu'aucune n'est enregistrée ; ou que la leçon a changé depuis son approbation), les 12 premiers caractères de l'empreinte de la leçon, le nombre de fichiers de l'archive qu'elle ignore quand il y en a, et le dossier de la bibliothèque où elle écrira. Elle demande ensuite `[y/N]`.
+- Sans terminal sur l'entrée standard et sans `--yes`, elle n'écrit rien et le dit.
+- Le résultat tient en une ligne : installée, déjà dans votre bibliothèque (rien n'a changé), ou mise à jour (l'enregistrement d'approbation ou les figures ont été mis à jour), puis `To play it: studium-mcp play`.
+- En cas de conflit, elle dit ce que remplacer fait : les fichiers de l'ancienne version sont supprimés, votre progression est conservée parce qu'elle est enregistrée sous l'identifiant de la leçon, et les contributions de la classe du dossier `community/` sont conservées quand le dossier en a. Elle n'écrit rien sans `--replace`, puis redemande sauf avec `--yes`.
+- Chaque refus du fichier tient en une ligne qui dit quoi faire. La commande n'affiche que de l'anglais, comme `play`. Le fichier est lu sur votre ordinateur ; aucun appel réseau n'est fait.
+- La bibliothèque est `<STUDIUM_HOME>/library` (`~/.studium/library` par défaut), le dossier que lit `play` : voir [Configuration](configuration.fr.md).
+
+Code de sortie : `0` importée ou déjà présente, `1` rien n'a été importé (refusée, déclinée ou personne à qui demander), `2` une erreur d'usage.

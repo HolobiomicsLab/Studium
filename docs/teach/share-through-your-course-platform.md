@@ -8,7 +8,7 @@ You can give students an approved lesson from your course page, in Moodle or in 
 
 - A lesson you have approved, with `approval.json` next to `lesson.json`: see [Review and approve](review-and-approve.md#approve-the-exact-file).
 - The Python environment of the repository, where `tools/experience_packet.py` runs (see [Installation](../start/installation.md)).
-- What each student needs: VS Code and the Studium extension. No AI account and no terminal: the pane plays the lesson without a model ([VS Code](../start/vscode.md)).
+- What each student needs: VS Code and the Studium extension. No AI account and no terminal: the pane plays the lesson without a model ([VS Code](../start/vscode.md)). A student without VS Code needs Node.js 20 or later and two commands in a terminal: see [Without VS Code](#without-vs-code).
 
 ## 1. Pack the lesson
 
@@ -54,12 +54,23 @@ The student downloads the file, then runs **Studium: Import a lesson…** (also 
 
 On confirmation the lesson is copied into the student's library and opens. The file is read on the computer; Studium makes no network call for it.
 
+## Without VS Code
+
+A student who does not use VS Code needs [Node.js](https://nodejs.org) 20 or later and a terminal. After downloading the file from the course page, two commands:
+
+```bash
+npx -y studium-mcp import ~/Downloads/my-course.studium.zip
+npx -y studium-mcp play
+```
+
+`import` checks the file, writes nothing yet, and shows the same facts as the VS Code dialog: the lesson's title and its number of steps, the approval the file records (a record, not a signature, or that none is recorded, or that the lesson changed since its approval), the first 12 characters of the lesson fingerprint, how many files of the archive it will not copy, and the library folder it will write into. It then asks for a yes or no. Without a terminal it writes nothing unless you add `--yes`, and says so. A different lesson under the same identifier is replaced only with `--replace` and a second confirmation, which says what replacing does. `play` opens the lesson in the browser ([Play a lesson in your browser](../start/browser.md#play-a-lesson-from-a-course-page)). The options are in [Command-line tools](../reference/cli.md#studium-mcp-import).
+
 ## Update a lesson
 
 Approve again, pack again, and replace the file in the course. When a student imports the new file:
 
 - the same lesson already in the library is opened; when the file carries an approval that matches the lesson, its approval record and figures are updated if they differ, and otherwise nothing is written;
-- a different lesson under the same identifier (`bundle_id`) is replaced only after a second confirmation. Progress is kept, because it is saved under the lesson's identifier, and so are the class contributions in the lesson's `community/` folder.
+- a different lesson under the same identifier (`bundle_id`) is replaced only after a second confirmation (in a terminal, with `--replace`). Progress is kept, because it is saved under the lesson's identifier, and so are the class contributions in the lesson's `community/` folder.
 
 ## In a classroom
 
@@ -83,5 +94,5 @@ Moodle logs that a student viewed the resource. Studium sends it nothing.
 
 ## Limits
 
-- Tried: automated tests of the packer and the importer; a scripted round trip from pack to install with identical fingerprint; on a disposable local Moodle 5.3.1 with default settings and a hand-made zip (not one made by `pack`): upload as a File resource by an editing teacher, download by a student with identical bytes, refusal without a session, a `vscode://` link kept in a Label and a Page.
-- Not tried: a real VS Code window (the command was exercised by drivers with a fake VS Code), a click on a `vscode://` link in a real browser, a university's Moodle or another Moodle version or a site that restricts file types, an ENT or Teams, Windows, a class.
+- Tried: automated tests of the packer, the importer and `studium-mcp import`; `studium-mcp import` run in a terminal on macOS, with a temporary `STUDIUM_HOME`, on a file made by `pack`, until `studium-mcp play` listed the lesson; a scripted round trip from pack to install with identical fingerprint; on a disposable local Moodle 5.3.1 with default settings and a hand-made zip (not one made by `pack`): upload as a File resource by an editing teacher, download by a student with identical bytes, refusal without a session, a `vscode://` link kept in a Label and a Page.
+- Not tried: a real VS Code window (the command was exercised by drivers with a fake VS Code), a click on a `vscode://` link in a real browser, a university's Moodle or another Moodle version or a site that restricts file types, an ENT or Teams, `studium-mcp import` on Windows or Linux and on a file downloaded from a Moodle, Windows, a class.
