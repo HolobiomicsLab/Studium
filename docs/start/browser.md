@@ -55,6 +55,8 @@ npx -y studium-mcp play
 
 `import` checks the file and shows its title, its number of steps, the approval it records (a record, not a signature), the first 12 characters of its fingerprint and the library folder it will write into, then asks you to confirm; nothing is written before. Without a terminal it writes nothing unless you add `--yes`. If a different lesson with the same identifier is already in your library, it says what replacing does and writes nothing unless you add `--replace`. Your progress is kept either way. The lesson is then in your library, which `play` lists. See [Command-line tools](../reference/cli.md#studium-mcp-import) and, for the teacher's side, [Share a lesson through your course platform](../teach/share-through-your-course-platform.md).
 
+A browser may rename a second download (`<name>.studium (1).zip`): it imports the same. If it unpacked the zip into a folder, there is no file to import: see [Share a lesson through your course platform](../teach/share-through-your-course-platform.md).
+
 ## From your assistant
 
 When an assistant runs Studium without the Studium VS Code extension (OpenCode, Mistral Vibe, Copilot

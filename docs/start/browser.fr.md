@@ -57,6 +57,8 @@ npx -y studium-mcp play
 
 `import` vérifie le fichier et montre son titre, son nombre d'étapes, l'approbation qu'il enregistre (un enregistrement, pas une signature), les 12 premiers caractères de son empreinte et le dossier de la bibliothèque où il écrira, puis vous demande de confirmer ; rien n'est écrit avant. Sans terminal, il n'écrit rien à moins que vous n'ajoutiez `--yes`. Si une leçon différente portant le même identifiant est déjà dans votre bibliothèque, il dit ce que remplacer fait et n'écrit rien à moins que vous n'ajoutiez `--replace`. Votre progression est conservée dans les deux cas. La leçon est ensuite dans votre bibliothèque, que `play` liste. Voir [Outils en ligne de commande](../reference/cli.fr.md#studium-mcp-import) et, pour le côté enseignant, [Partager une leçon par votre plateforme de cours](../teach/share-through-your-course-platform.fr.md).
 
+Un navigateur peut renommer un second téléchargement (`<nom>.studium (1).zip`) : il s'importe de la même façon. S'il a décompressé le zip en un dossier, il n'y a pas de fichier à importer : voir [Partager une leçon par votre plateforme de cours](../teach/share-through-your-course-platform.fr.md).
+
 ## Depuis votre assistant
 
 Quand un assistant fait tourner Studium sans l'extension Studium de VS Code (OpenCode, Mistral Vibe, Copilot

@@ -65,6 +65,11 @@ npx -y studium-mcp play
 
 `import` vérifie le fichier, n'écrit encore rien, et montre les mêmes informations que la boîte de dialogue de VS Code : le titre de la leçon et son nombre d'étapes, l'approbation que le fichier enregistre (un enregistrement, pas une signature, ou qu'aucune n'est enregistrée, ou que la leçon a changé depuis son approbation), les 12 premiers caractères de l'empreinte de la leçon, le nombre de fichiers de l'archive qu'il ne copiera pas, et le dossier de la bibliothèque où il écrira. Il demande ensuite oui ou non. Sans terminal, il n'écrit rien à moins que vous n'ajoutiez `--yes`, et le dit. Une leçon différente sous le même identifiant n'est remplacée qu'avec `--replace` et une seconde confirmation, qui dit ce que remplacer fait. `play` ouvre la leçon dans le navigateur ([Jouer une leçon dans votre navigateur](../start/browser.fr.md#jouer-une-leçon-venue-dune-page-de-cours)). Les options sont dans [Outils en ligne de commande](../reference/cli.fr.md#studium-mcp-import).
 
+## Si le téléchargement ne s'importe pas
+
+- **Le navigateur a renommé le fichier** (`mon-cours.studium (1).zip`, après un second téléchargement) : il s'importe de la même façon. Studium propose l'import sur tout fichier `.zip` dont le nom contient `.studium`, et `studium-mcp import` prend le nom que vous lui donnez.
+- **Il n'y a pas de fichier, seulement un dossier** : le navigateur a décompressé le zip. Safari le fait avec son réglage par défaut **Ouvrir automatiquement les fichiers fiables** (réglages Général). Décochez-le et téléchargez de nouveau, ou utilisez un autre navigateur. Studium importe un fichier, pas un dossier.
+
 ## Mettre à jour une leçon
 
 Approuvez de nouveau, empaquetez de nouveau, et remplacez le fichier dans le cours. Quand un étudiant importe le nouveau fichier :
