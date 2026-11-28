@@ -3,8 +3,9 @@
 import { existsSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { dirname, resolve } from "node:path";
-// The MCP SDK builds its Zod schemas when it loads, so connectLessonMcp imports it when a server is first connected, not
-// when the extension starts (dist-load.driver.ts: no navigator read at load).
+// Type-only: the SDK builds its Zod schemas when it loads, so it is imported by connectLessonMcp when a server is first
+// connected, not when the extension starts (dist-load.driver.ts: no navigator read at load).
+import type { Client } from "@modelcontextprotocol/sdk/client/index.js";
 
 /** Shown to the learner when a tool fails without saying anything at all — never "undefined". */
 const UNKNOWN_TOOL_ERROR = "l'outil lesson-mcp a échoué sans message";
