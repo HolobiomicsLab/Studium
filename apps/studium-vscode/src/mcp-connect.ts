@@ -3,9 +3,8 @@
 import { existsSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { dirname, resolve } from "node:path";
-// Type-only: the SDK builds its Zod schemas when it loads, so it is imported by connectLessonMcp when a server is first
-// connected, not when the extension starts (dist-load.driver.ts: no navigator read at load).
-import type { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 
 /** Shown to the learner when a tool fails without saying anything at all — never "undefined". */
 const UNKNOWN_TOOL_ERROR = "l'outil lesson-mcp a échoué sans message";
@@ -229,9 +228,6 @@ export async function connectLessonMcp(opts: { launch: ServerLaunch; env: Record
   while (paused) await paused.catch(() => {}); // the learner's data is being erased: start after it is gone
   const log = resolveLogSink(opts.log);
   const { launch } = opts;
-  const [{ Client }, { StdioClientTransport }] = await Promise.all([
-    import("@modelcontextprotocol/sdk/client/index.js"), import("@modelcontextprotocol/sdk/client/stdio.js"),
-  ]);
   const transport = new StdioClientTransport({ command: launch.command, args: launch.args, cwd: launch.cwd,
     env: { ...launch.env, ...opts.env }, stderr: "pipe" });
   forwardStderr(transport.stderr, log); // piped stderr is readable BEFORE start(): no early output lost

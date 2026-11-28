@@ -32,9 +32,7 @@ import { discoverCoursesInRoot, needsLessonPicker, toLessonPickerChoices, type L
 import { browserPhrases, localeFromLanguage, phrase, type Locale } from "./phrases.js";
 import { inlineImageAsset } from "./asset-path.js";
 import { hostPhrase, lessonReadyMessage } from "./host-phrases.js";
-// Type-only: lesson-archive is loaded by a dynamic import() in importLesson, so the lesson schema validator it reaches
-// (Zod) is not evaluated when the extension starts.
-import type { InstallOutcome } from "@studium/lesson-panel/lesson-archive";
+import { inspectLessonArchive, installLessonArchive, type InstallOutcome } from "@studium/lesson-panel/lesson-archive";
 import { alreadyPresentMessage, conflictPrompt, importConfirmation, importDialogOptions, importErrorMessage, refreshedMessage } from "./lesson-import.js";
 import { defaultBundlesRoot, demoLessonRef, shippedLessonsRoot, studiumHome } from "./data-paths.js";
 import { isTrusted, runConsent, runFingerprint, withTrusted } from "./run-trust.js";
@@ -537,7 +535,6 @@ async function importLesson(context: vscode.ExtensionContext, resource?: unknown
   const library = libraryRoot;
   if (!library) return;
   try {
-    const { inspectLessonArchive, installLessonArchive } = await import("@studium/lesson-panel/lesson-archive");
     const summary = await inspectLessonArchive(archive);
     const lessonLanguage = summary.language?.trim().slice(0, 2).toLowerCase();
     if (lessonLanguage === "en" || lessonLanguage === "fr") locale = localeFromLanguage(lessonLanguage);
