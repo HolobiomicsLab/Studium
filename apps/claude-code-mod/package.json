@@ -11,7 +11,7 @@
     "typecheck": "tsc -p tsconfig.json"
   },
   "devDependencies": {
-    "typescript": "^5.5.0",
+    "typescript": "^7.0.2",
     "vitest": "^5.1.0"
   }
 }
