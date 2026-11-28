@@ -524,7 +524,9 @@ async function openThisLesson(context: vscode.ExtensionContext, resource?: unkno
  * only on a second confirmation, which says what happens to the learner's progress.
  */
 async function importLesson(context: vscode.ExtensionContext, resource?: unknown): Promise<void> {
-  const locale = extensionLocale;
+  // Before the archive is inspected the editor's language speaks (the dialog, a refusal of the file itself); after, every
+  // message is about that lesson and speaks its language, whatever language the last lesson left behind.
+  let locale = extensionLocale;
   let archive = resource instanceof vscode.Uri && resource.scheme === "file" ? resource.fsPath : undefined;
   if (!archive) {
     const { defaultPath, ...dialog } = importDialogOptions(homedir(), existsSync, locale);
@@ -537,6 +539,8 @@ async function importLesson(context: vscode.ExtensionContext, resource?: unknown
   try {
     const { inspectLessonArchive, installLessonArchive } = await import("@studium/lesson-panel/lesson-archive");
     const summary = await inspectLessonArchive(archive);
+    const lessonLanguage = summary.language?.trim().slice(0, 2).toLowerCase();
+    if (lessonLanguage === "en" || lessonLanguage === "fr") locale = localeFromLanguage(lessonLanguage);
     const confirmation = importConfirmation(summary, locale);
     const confirmed = await vscode.window.showInformationMessage(confirmation.message, { modal: true, detail: confirmation.detail }, confirmation.action);
     if (confirmed !== confirmation.action) return;
