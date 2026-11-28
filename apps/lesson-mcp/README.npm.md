@@ -71,7 +71,9 @@ What should I review today with Studium?
 ```
 
 Clients that support MCP prompts also offer `learn` and `review`. A lesson a teacher gave you (a folder
-holding `lesson.json`) is played from the folder named by `BUNDLES_ROOT`.
+holding `lesson.json`) is played from the folder named by `BUNDLES_ROOT`. A lesson file from a course page
+(`….studium.zip`) goes into your library with `npx -y studium-mcp import <file>`: the command checks the file,
+shows what it holds and who approved it, and writes nothing until you confirm.
 
 The package ships one lesson: « Discover Studium » (English) / « Découvrir Studium » (French), about ten
 minutes on how Studium works. With no lesson of your own, the study plan proposes it first; ask for your topic

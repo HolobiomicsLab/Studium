@@ -34,6 +34,13 @@ beta-testeur, without reading it. It is not saved as your course and never repla
 
 No Node, no terminal and no AI account are needed.
 
+**One file from a course page** (`….studium.zip`, on Moodle for instance): download it, then run
+**Studium: Import a lesson…** from the Command Palette and choose the file. Studium checks it, shows what it
+holds and who approved it, asks you to confirm, copies the lesson into your library and opens it. Teachers:
+see [Share a lesson through your course platform](https://github.com/HolobiomicsLab/studium/blob/main/docs/teach/share-through-your-course-platform.md).
+
+**A folder of lessons:**
+
 1. Have a folder of lessons: the one your teacher gave you, or the demo lessons, which are the `fixtures`
    folder of the [repository archive](https://github.com/HolobiomicsLab/studium/archive/refs/heads/main.zip) (about 30 MB; unzip it first).
 2. Select the **Studium** icon in the activity bar, then **Pick a course**, **Choose another course
