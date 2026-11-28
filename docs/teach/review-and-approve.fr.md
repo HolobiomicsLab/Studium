@@ -146,7 +146,8 @@ depuis son approbation, ou « Aucune approbation enregistrée pour cette leçon
 Toute modification après approbation, même d'un espace, demande une nouvelle relecture et une nouvelle
 approbation. Le texte libre de `validated_by` n'accorde jamais le statut Approuvé, et l'approbation
 n'envoie la leçon à personne : la diffusion est une étape distincte
-([guide enseignant](teacher-guide.fr.md#diffuser-une-leçon)).
+([guide enseignant](teacher-guide.fr.md#diffuser-une-leçon)). Pour mettre une leçon approuvée dans une page
+de cours, voir [Partager une leçon par votre plateforme de cours](share-through-your-course-platform.fr.md).
 
 `approve` écrit aussi un reçu de relecture, `reviews/<date>-<12 premiers caractères du SHA-256>.json`
 à côté de `lesson.json` : un élément par scène avec son empreinte, sa conséquence (`grading`,

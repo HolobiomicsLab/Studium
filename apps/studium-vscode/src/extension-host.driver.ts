@@ -8,6 +8,7 @@
 //   rateRecall messages from the pane are validated before they reach a tool; forget-my-data erases the lot.
 //   node_modules/.pnpm/node_modules/.bin/tsx apps/studium-vscode/src/extension-host.driver.ts
 import Module from "node:module";
+import { createHash } from "node:crypto";
 import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
@@ -70,6 +71,8 @@ const seen = {
   // BN-1 / BN-4 / BN-3: the file watchers the extension created (with their listeners), the buttons of each information
   // message, and the options of each quick pick.
   watchers: [] as FakeWatcher[], infoItems: [] as string[][], quickPickOptions: [] as Json[],
+  // Route A, lot 1: the options of each file dialog.
+  openDialogOptions: [] as Json[],
 };
 interface FakeWatcher { base: string; pattern: string; create: Array<(u: unknown) => void>; change: Array<(u: unknown) => void>; del: Array<(u: unknown) => void>; disposed: boolean }
 let infoAnswer: ((message: string, items: string[]) => string | undefined) = () => undefined;
@@ -200,7 +203,7 @@ const fakeVscode: Json = {
       return Promise.resolve(warningAnswer(items));
     },
     showQuickPick: async (items: Json[], options?: Json) => { seen.quickPickOptions.push(options ?? {}); return quickPickAnswer(items); },
-    showOpenDialog: async () => (openDialogAnswer ? [new FakeUri(openDialogAnswer)] : undefined),
+    showOpenDialog: async (options?: Json) => { seen.openDialogOptions.push(options ?? {}); return openDialogAnswer ? [new FakeUri(openDialogAnswer)] : undefined; },
     showNotebookDocument: async () => ({}),
     createWebviewPanel: (viewType: string) => { const p = fakePanel(viewType); seen.panels.push(p); return p; },
   },
@@ -1187,6 +1190,221 @@ async function main() {
     settings["learnerId"] = savedLearner;
     settings["bundlesRoot"] = savedRoot;
   }
+  // Route A, lot 1 (plan 2026-11-27-moodle-etagere, task 3): « Studium: Import a lesson… » on a lesson file downloaded
+  // from a course page. A cancelled confirmation writes nothing; a confirmed one installs the lesson into the library and
+  // opens it; the same file again opens it and says it was already there; a different lesson under the same identifier
+  // asks first, and Cancel writes nothing; a refused archive says why and writes nothing.
+  {
+    const importLesson = seen.commands.get("studium.importLesson");
+    expect(typeof importLesson === "function", "the studium.importLesson command is registered");
+    const libraryRoot = join(isolation.studiumHome, "library");
+    const libraryState = () => listFiles(libraryRoot).sort().map((f) => f + " " + readFileSync(f).toString("base64")).join("\n");
+    const downloads = join(scratch, "downloads");
+    mkdirSync(downloads, { recursive: true });
+    const lessonData = JSON.parse(readFileSync(safePath, "utf8"));
+    lessonData.bundle_id = "imported-lesson";
+    lessonData.metadata.title = "Imported lesson";
+    const lessonBytes = Buffer.from(JSON.stringify(lessonData));
+    const zipPath = join(downloads, "imported-lesson.studium.zip");
+    writeFileSync(zipPath, makeZip({ "lesson.json": lessonBytes, "assets/fig.txt": "figure", "reviews/r.json": "{}" }));
+    const savedInfo = infoAnswer;
+    const savedWarning = warningAnswer;
+    const confirm = (_m: string, items: unknown[]) => items.find((i) => i === "Import" || i === "Importer") as string | undefined;
+    if (importLesson) {
+      const before = libraryState();
+      infoAnswer = () => undefined;
+      const infosBefore = seen.infos.length;
+      await importLesson(FakeUri.file(zipPath));
+      const asked = seen.infos.slice(infosBefore).find((m) => m.includes("Imported lesson"));
+      const askedItems = seen.infoItems[seen.infos.lastIndexOf(asked ?? "")] ?? [];
+      expect(!!asked && askedItems.some((i: any) => i?.modal === true && /no approval is recorded|aucune approbation/i.test(String(i?.detail ?? ""))),
+        "the import asks first, in a modal that says no approval is recorded (got " + JSON.stringify(seen.infos.slice(infosBefore)) + ")");
+      expect(libraryState() === before, "a cancelled confirmation writes nothing into the library");
+
+      infoAnswer = confirm;
+      let panesBefore = seen.panels.length;
+      await importLesson(FakeUri.file(zipPath));
+      const installed = join(libraryRoot, "imported-lesson");
+      expect(existsSync(join(installed, "lesson.json")) && readFileSync(join(installed, "lesson.json")).equals(lessonBytes),
+        "a confirmed import installs the lesson's exact bytes into <library>/<bundle_id>/");
+      expect(existsSync(join(installed, "assets", "fig.txt")) && !existsSync(join(installed, "reviews")), "its assets with it, and nothing the archive should not carry");
+      await waitFor(() => seen.panels.length > panesBefore && lastPanel().posted.some((m: Json) => m.type === "render"), "the imported lesson's pane");
+      const render = lastPanel()?.posted.find((m: Json) => m.type === "render");
+      expect(render?.view?.bundle_ref === "imported-lesson/lesson.json", "the imported lesson opens from the library (got " + render?.view?.bundle_ref + ")");
+      lastPanel()?.dispose();
+
+      // No URI: a file dialog filtered on zip files picks it; the same file again is already present, opened, and said so.
+      openDialogAnswer = zipPath;
+      const dialogsBefore = seen.openDialogOptions.length;
+      panesBefore = seen.panels.length;
+      const stateBefore = libraryState();
+      await importLesson();
+      const dialog = seen.openDialogOptions[dialogsBefore];
+      expect(!!dialog && JSON.stringify(Object.values(dialog.filters ?? {})) === JSON.stringify([["zip"]]) && dialog.canSelectMany === false,
+        "without a file, a dialog asks for one zip file (got " + JSON.stringify(dialog) + ")");
+      expect(seen.infos.some((m) => hostEither("import_already_present", { title: "Imported lesson" }).includes(m)), "the same lesson again says it was already there");
+      expect(libraryState() === stateBefore, "and writes nothing");
+      await waitFor(() => seen.panels.length > panesBefore && lastPanel().posted.some((m: Json) => m.type === "render"), "the already present lesson's pane");
+      lastPanel()?.dispose();
+      openDialogAnswer = undefined;
+
+      // A different lesson.json under the same bundle_id: asked first; Cancel writes nothing, Replace puts it in place.
+      const v2 = Buffer.from(JSON.stringify({ ...lessonData, metadata: { ...lessonData.metadata, title: "Imported lesson, version 2" } }));
+      const zip2 = join(downloads, "imported-lesson-2.studium.zip");
+      writeFileSync(zip2, makeZip({ "lesson.json": v2 }));
+      warningAnswer = () => undefined;
+      const warningsBefore = seen.warnings.length;
+      const conflictBefore = libraryState();
+      await importLesson(FakeUri.file(zip2));
+      const conflict = seen.warnings.slice(warningsBefore).find((w) => w.message.includes("imported-lesson"));
+      expect(!!conflict && conflict.options?.modal === true && conflict.items.some((i) => i === "Replace" || i === "Remplacer"),
+        "a different lesson with the same identifier asks before replacing (got " + JSON.stringify(seen.warnings.slice(warningsBefore)) + ")");
+      expect(/progress|progression/.test(String(conflict?.options?.detail ?? "")), "and says what happens to the learner's progress");
+      expect(libraryState() === conflictBefore, "conflict then Cancel writes nothing");
+      warningAnswer = (items) => items.find((i) => i === "Replace" || i === "Remplacer");
+      panesBefore = seen.panels.length;
+      await importLesson(FakeUri.file(zip2));
+      expect(readFileSync(join(installed, "lesson.json")).equals(v2) && !existsSync(join(installed, "assets")), "Replace puts the new lesson in the old one's place");
+      await waitFor(() => seen.panels.length > panesBefore && lastPanel().posted.some((m: Json) => m.type === "render"), "the replaced lesson's pane");
+      lastPanel()?.dispose();
+
+      // A refused archive: one line saying why, nothing written, no pane.
+      const bad = join(downloads, "broken.studium.zip");
+      writeFileSync(bad, "not a zip");
+      const errorsBefore = seen.errors.length;
+      const refusedBefore = libraryState();
+      panesBefore = seen.panels.length;
+      await importLesson(FakeUri.file(bad));
+      expect(seen.errors.length === errorsBefore + 1 && /^Studium/.test(seen.errors.at(-1) ?? "") && !(seen.errors.at(-1) ?? "").includes("\n"),
+        "a file that is not a lesson archive is refused in one line (got " + seen.errors.slice(errorsBefore).join(" | ") + ")");
+      expect(libraryState() === refusedBefore && seen.panels.length === panesBefore, "and nothing is written or opened");
+      expect(readdirSync(libraryRoot).every((name) => !name.startsWith(".studium-import-")), "no temporary folder is left in the library");
+    }
+    infoAnswer = savedInfo;
+    warningAnswer = savedWarning;
+  }
+
+  // The import speaks the language of the lesson it is about once the archive is inspected, not the editor's (here en):
+  // a French lesson is confirmed in French, an English one in English, whatever language the last lesson left behind.
+  {
+    const importLesson = seen.commands.get("studium.importLesson");
+    if (importLesson) {
+      const downloads = join(scratch, "downloads-language");
+      mkdirSync(downloads, { recursive: true });
+      const archiveOf = (id: string, title: string, language: string) => {
+        const data = JSON.parse(readFileSync(safePath, "utf8"));
+        data.bundle_id = id; data.metadata.title = title; data.metadata.language = language;
+        const zipFile = join(downloads, id + ".studium.zip");
+        writeFileSync(zipFile, makeZip({ "lesson.json": Buffer.from(JSON.stringify(data)) }));
+        return zipFile;
+      };
+      const savedInfo = infoAnswer;
+      const confirmationOf = async (zipFile: string, title: string) => {
+        const before = seen.infos.length;
+        await importLesson(FakeUri.file(zipFile));
+        return seen.infos.slice(before).find((m) => m.includes(title));
+      };
+      const confirm = (_m: string, items: unknown[]) => items.find((i) => i === "Import" || i === "Importer") as string | undefined;
+      // An English lesson, confirmed: it opens, and the extension then speaks English.
+      infoAnswer = confirm;
+      const panesBefore = seen.panels.length;
+      await importLesson(FakeUri.file(archiveOf("lang-en", "English language lesson", "en")));
+      await waitFor(() => seen.panels.length > panesBefore && lastPanel().posted.some((m: Json) => m.type === "render"), "the English lesson's pane");
+      lastPanel()?.dispose();
+      // A French lesson, cancelled: the confirmation is French although the extension is speaking English.
+      infoAnswer = () => undefined;
+      const french = await confirmationOf(archiveOf("lang-fr", "Leçon en français", "fr"), "Leçon en français");
+      expect(french === hostPhrase("import_confirm_message", { title: "Leçon en français" }, "fr"),
+        "with the editor in English, a French lesson is confirmed in French (got " + french + ")");
+      // A French lesson, confirmed: the extension now speaks French; an English lesson is still confirmed in English.
+      infoAnswer = confirm;
+      const frenchPanes = seen.panels.length;
+      await importLesson(FakeUri.file(archiveOf("lang-fr", "Leçon en français", "fr")));
+      await waitFor(() => seen.panels.length > frenchPanes && lastPanel().posted.some((m: Json) => m.type === "render"), "the French lesson's pane");
+      lastPanel()?.dispose();
+      infoAnswer = () => undefined;
+      const english = await confirmationOf(archiveOf("lang-en-2", "Second English lesson", "en"), "Second English lesson");
+      expect(english === hostPhrase("import_confirm_message", { title: "Second English lesson" }, "en"),
+        "an English lesson is confirmed in English whatever the last lesson left behind (got " + english + ")");
+      infoAnswer = savedInfo;
+    }
+  }
+
+  // Review 2026-11-27: the import is the lesson the student confirmed (items 1, 2), and a link can only open the dialog
+  // (item 11).
+  {
+    const importLesson = seen.commands.get("studium.importLesson");
+    const libraryRoot = join(isolation.studiumHome, "library");
+    const libraryState = () => listFiles(libraryRoot).sort().map((f) => f + " " + readFileSync(f).toString("base64")).join("\n");
+    const downloads = join(scratch, "downloads-review");
+    mkdirSync(downloads, { recursive: true });
+    const base = JSON.parse(readFileSync(safePath, "utf8"));
+    const lessonOf = (id: string, title: string) => Buffer.from(JSON.stringify({ ...base, bundle_id: id, metadata: { ...base.metadata, title } }));
+    const approvalOf = (bytes: Buffer) => JSON.stringify({ schema: "studium-approval/1", bundle_sha256: createHash("sha256").update(bytes).digest("hex"), reviewer: "Élise Dumont", reviewed_at: "2026-11-27T09:00:00Z" });
+    const savedInfo = infoAnswer;
+    const savedWarning = warningAnswer;
+    const confirm = (_m: string, items: unknown[]) => items.find((i) => i === "Import" || i === "Importer") as string | undefined;
+    if (importLesson) {
+      // Item 1: the file swapped while the confirmation is open: refused, nothing written.
+      const good = lessonOf("good-lesson", "Good lesson");
+      const swapped = join(downloads, "good-lesson.studium.zip");
+      writeFileSync(swapped, makeZip({ "lesson.json": good }));
+      const before = libraryState();
+      const errorsBefore = seen.errors.length;
+      infoAnswer = (m, items) => { writeFileSync(swapped, makeZip({ "lesson.json": lessonOf("other-lesson", "Other lesson") })); return confirm(m, items); };
+      await importLesson(FakeUri.file(swapped));
+      expect(libraryState() === before && !existsSync(join(libraryRoot, "other-lesson")), "a file swapped after the confirmation installs nothing");
+      expect(seen.errors.length === errorsBefore + 1 && hostEither("import_error_changed_since_check").includes(seen.errors.at(-1) ?? ""),
+        "and says the file changed after it was confirmed (got " + seen.errors.slice(errorsBefore).join(" | ") + ")");
+
+      // Item 1, replace: the library changes while the conflict prompt is open: asked again, Cancel writes nothing.
+      infoAnswer = confirm;
+      const v1 = join(downloads, "review-lesson-1.studium.zip");
+      writeFileSync(v1, makeZip({ "lesson.json": lessonOf("review-lesson", "Review lesson") }));
+      await importLesson(FakeUri.file(v1));
+      lastPanel()?.dispose();
+      const v2 = join(downloads, "review-lesson-2.studium.zip");
+      writeFileSync(v2, makeZip({ "lesson.json": lessonOf("review-lesson", "Review lesson, version 2") }));
+      const meanwhile = lessonOf("review-lesson", "Review lesson, written meanwhile");
+      let asked = 0;
+      warningAnswer = (items) => {
+        asked++;
+        if (asked === 1) { writeFileSync(join(libraryRoot, "review-lesson", "lesson.json"), meanwhile); return items.find((i) => i === "Replace" || i === "Remplacer"); }
+        return undefined;
+      };
+      await importLesson(FakeUri.file(v2));
+      expect(asked === 2, "a lesson changed in the library while the prompt was open is asked about again (asked " + asked + " times)");
+      expect(readFileSync(join(libraryRoot, "review-lesson", "lesson.json")).equals(meanwhile), "and Cancel leaves it as it is");
+
+      // Item 2: the same lesson.json, the library without its approval: refreshed, said in one line, the lesson opens.
+      const same = lessonOf("refresh-lesson", "Refresh lesson");
+      const bare = join(downloads, "refresh-bare.studium.zip");
+      writeFileSync(bare, makeZip({ "lesson.json": same }));
+      await importLesson(FakeUri.file(bare));
+      lastPanel()?.dispose();
+      const approved = join(downloads, "refresh-approved.studium.zip");
+      writeFileSync(approved, makeZip({ "lesson.json": same, "approval.json": approvalOf(same) }));
+      const panesBefore = seen.panels.length;
+      await importLesson(FakeUri.file(approved));
+      expect(existsSync(join(libraryRoot, "refresh-lesson", "approval.json")), "the approval the library lacked is written");
+      expect(seen.infos.some((m) => hostEither("import_refreshed", { title: "Refresh lesson" }).includes(m)), "and the student is told the approval record or figures were updated");
+      await waitFor(() => seen.panels.length > panesBefore && lastPanel().posted.some((m: Json) => m.type === "render"), "the refreshed lesson's pane");
+      lastPanel()?.dispose();
+
+      // Item 11: vscode://holobiomicslab.studium-vscode/import opens the file dialog; a query never names the file.
+      openDialogAnswer = undefined;
+      for (const query of ["", "file=" + encodeURIComponent(approved), "bundle=" + encodeURIComponent(v2)]) {
+        const dialogsBefore = seen.openDialogOptions.length;
+        const state = libraryState();
+        await seen.uriHandler.handleUri({ path: "/import", query, toString: () => "vscode://holobiomicslab.studium-vscode/import" + (query ? "?" + query : "") });
+        expect(seen.openDialogOptions.length === dialogsBefore + 1, "a /import link opens the file dialog (query " + JSON.stringify(query) + ")");
+        expect(libraryState() === state, "and installs nothing by itself (query " + JSON.stringify(query) + ")");
+      }
+    }
+    infoAnswer = savedInfo;
+    warningAnswer = savedWarning;
+  }
+
 }
 
 main().then(() => {

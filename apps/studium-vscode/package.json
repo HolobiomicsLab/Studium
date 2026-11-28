@@ -2,7 +2,7 @@
   "name": "studium-vscode",
   "displayName": "Studium",
   "description": "%extension.description%",
-  "version": "0.6.10",
+  "version": "0.7.0",
   "license": "Apache-2.0",
   "private": true,
   "publisher": "holobiomicslab",
@@ -41,7 +41,8 @@
     "onCommand:studium.connectVibe",
     "onCommand:studium.disconnectVibe",
     "onCommand:studium.connectAssistant",
-    "onCommand:studium.disconnectAssistant"
+    "onCommand:studium.disconnectAssistant",
+    "onCommand:studium.importLesson"
   ],
   "main": "./dist/extension.js",
   "contributes": {
@@ -102,6 +103,10 @@
       {
         "command": "studium.disconnectAssistant",
         "title": "%command.disconnectAssistant.title%"
+      },
+      {
+        "command": "studium.importLesson",
+        "title": "%command.importLesson.title%"
       }
     ],
     "viewsContainers": {
@@ -139,6 +144,11 @@
         {
           "command": "studium.openThisLesson",
           "when": "resourceFilename == lesson.json",
+          "group": "navigation@100"
+        },
+        {
+          "command": "studium.importLesson",
+          "when": "resourceFilename =~ /\\.studium.*\\.zip$/i",
           "group": "navigation@100"
         }
       ],
@@ -405,7 +415,7 @@
     "build": "pnpm vendor && esbuild src/extension.ts --loader:.css=text --loader:.html=text --bundle --platform=node --format=cjs --external:vscode --alias:jsonc-parser=jsonc-parser/lib/esm/main.js --outfile=dist/extension.js && esbuild src/vibe-uninstall.ts --bundle --platform=node --format=cjs --alias:jsonc-parser=jsonc-parser/lib/esm/main.js --outfile=dist/vibe-uninstall.cjs && esbuild src/lesson-mcp-entry.ts --loader:.html=text --bundle --platform=node --format=cjs --outfile=dist/lesson-mcp.cjs --define:__STUDIUM_BUILD__='{\"origin\":\"bundled\",\"built_at\":\"'\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"'\",\"git_sha\":\"'\"$(git describe --always --dirty --abbrev=7)\"'\"}'",
     "watch": "pnpm build --watch",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "pnpm typecheck && for d in context-help scene-io asset-path webview-pane community modality review-fsrs run-task run-trust host-phrases data-paths lesson-uri pane-messages study-status vibe-config assistant-config dist-load library-watch lesson-tree lesson-picker completion chat-format mcp-connect panel-lifecycle contributes lesson-walk extension-host; do echo \"--- $d ---\" && tsx \"src/$d.driver.ts\" || exit 1; done",
+    "test": "pnpm typecheck && for d in context-help scene-io asset-path webview-pane community modality review-fsrs run-task run-trust host-phrases data-paths lesson-uri pane-messages study-status vibe-config assistant-config dist-load library-watch lesson-tree lesson-picker lesson-import completion chat-format mcp-connect panel-lifecycle contributes lesson-walk extension-host; do echo \"--- $d ---\" && tsx \"src/$d.driver.ts\" || exit 1; done",
     "package": "pnpm vendor && pnpm build && vsce package --no-dependencies --readme-path MARKETPLACE.md -o studium.vsix",
     "vendor": "pnpm --filter @studium/lesson-panel-ui build && mkdir -p dist/panel && cp -R ../lesson-panel-ui/dist/vscode/. dist/panel/ && rm -rf dist/shipped-lessons && cp -R ../lesson-mcp/shipped-lessons dist/shipped-lessons",
     "vscode:uninstall": "node ./dist/vibe-uninstall.cjs"

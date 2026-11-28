@@ -292,6 +292,34 @@ const hasCmd = (id: string) => commandIds.includes(id);
   }
 }
 
+// 15) Route A, lot 1 (plan 2026-11-27-moodle-etagere, task 3): a student imports a lesson file downloaded from a course
+//     page. A declared command titled in both languages, with its activation event; a link in the empty Lessons view;
+//     « Import » on a *.studium.zip in the explorer.
+{
+  const id = "studium.importLesson";
+  expect(hasCmd(id), `command ${id} is declared`);
+  expect((pkg.activationEvents ?? []).includes(`onCommand:${id}`), `command ${id} has an activation event`);
+  const command = (c.commands ?? []).find((x: any) => x.command === id);
+  expect(command?.title === "%command.importLesson.title%", `its title is localized (got ${command?.title})`);
+  const titles = { "package.nls.json": "Studium: Import a lesson…", "package.nls.fr.json": "Studium : Importer une leçon…" } as const;
+  for (const [file, title] of Object.entries(titles)) {
+    const nls = JSON.parse(readFileSync(resolve(root, file), "utf8"));
+    expect(nls["command.importLesson.title"] === title, `${file} titles it « ${title} » (got ${nls["command.importLesson.title"]})`);
+    expect(String(nls["viewsWelcome.empty"]).includes(`(command:${id})`), `${file}: the empty Lessons view offers to import a lesson file`);
+  }
+  const explorer = c.menus?.["explorer/context"] ?? [];
+  const importEntry = explorer.find((m: any) => m.command === id);
+  const fileRule = /resourceFilename =~ \/(.+)\/([a-z]*)$/.exec(String(importEntry?.when ?? ""));
+  expect(fileRule !== null, `the explorer context menu offers the import on a regular expression of the file name (got ${JSON.stringify(importEntry)})`);
+  if (fileRule) {
+    const nameRule = new RegExp(fileRule[1]!, fileRule[2]);
+    for (const name of ["a.studium.zip", "a.studium (1).zip", "a.studium(1).zip", "a.studium-1.zip", "a-1.studium.zip", "A.STUDIUM.ZIP"])
+      expect(nameRule.test(name), `the import is offered on a renamed download: ${name}`);
+    for (const name of ["a.zip", "a.studium.zip.txt", "studium.zip.md"])
+      expect(!nameRule.test(name), `the import is not offered on ${name}`);
+  }
+}
+
 if (failures.length) {
   console.error(`FAIL — ${failures.length}/${checks} contributes assertions failed:`);
   for (const f of failures) console.error("  - " + f);

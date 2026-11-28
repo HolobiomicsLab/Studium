@@ -8,6 +8,7 @@ import { buildMcpServer } from "./server.js";
 import { SERVER_VERSION } from "./build-info.js";
 import { REPOSITORY_URL } from "./feedback.js";
 import { runPlay } from "./play.js";
+import { runImport } from "./import.js";
 import { browserPlayerWanted, servedPlayer } from "./served-player.js";
 
 export const MCP_SERVER_NAME = "studium-lesson";
@@ -121,6 +122,9 @@ Add it to an assistant
 Play lessons in a web browser, without an assistant (experimental)
   npx -y studium-mcp play [folder]     opens the browser on 127.0.0.1; studium-mcp play --help
 
+Put a lesson file from a course page into your library, without VS Code
+  npx -y studium-mcp import <file>     asks before it writes; studium-mcp import --help
+
 Options
   -v, --version   print the version and exit
   -h, --help      print this help and exit
@@ -161,6 +165,7 @@ export function cliAnswer(argv: readonly string[]): string | null {
 
 export async function main(argv: readonly string[] = process.argv.slice(2)): Promise<void> {
   if (argv[0] === "play") { await runPlay(argv.slice(1)); return; }
+  if (argv[0] === "import") { await runImport(argv.slice(1)); return; }
   const answer = cliAnswer(argv);
   if (answer !== null) { process.stdout.write(answer); return; }
   const shipped = shippedLessonsRoot({ scriptPath: process.argv[1], env: process.env });
