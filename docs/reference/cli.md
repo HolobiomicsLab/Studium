@@ -14,6 +14,7 @@ without any assistant or editor. Run them from the repository root, after the in
 | [`class_report.py`](#class_reportpy) | Aggregated class report from consented telemetry. |
 | [`interaction_report.py`](#interaction_reportpy) | Aggregated usage report of the two-lane interface from consented telemetry. |
 | [`pytest_all.py`](#pytest_allpy) | Every Python test suite, one process each. |
+| [`studium-mcp import`](#studium-mcp-import) | Put a lesson file from a course page into your library, without VS Code. |
 
 ## experience_packet.py
 
@@ -167,3 +168,29 @@ one pytest process per suite, and fails when a test file is reached by no suite.
 It ends with `N suites, M failing` and exits `1` when a suite fails or a test file is uncovered.
 `--root DIR` points it at another checkout. The other test commands are in
 [Testing](../develop/testing.md).
+
+## studium-mcp import
+
+The only command on this page that is not run from the repository: `studium-mcp` comes from npm and needs only Node.js 20 or later. `import` puts a lesson file a teacher packed (`<bundle_id>.studium.zip`, see [Share a lesson through your course platform](../teach/share-through-your-course-platform.md)) into your library, and `play` then plays it ([Play a lesson in your browser](../start/browser.md#play-a-lesson-from-a-course-page)).
+
+```bash
+npx -y studium-mcp import <file> [--yes] [--replace]
+npx -y studium-mcp import --help
+```
+
+| Option | Effect |
+|---|---|
+| `file` | the lesson file you downloaded |
+| `--yes` | do not ask: import after showing what the file holds; needed when standard input is not a terminal |
+| `--replace` | replace a different lesson that has the same identifier (`bundle_id`) in your library |
+
+What to expect:
+
+- The file is checked first and nothing is written. The command prints the title, the number of steps, the approval the file records (a record, not a signature; or that none is recorded; or that the lesson changed since its approval), the first 12 characters of the lesson fingerprint, the number of files of the archive it ignores when there are some, and the library folder it will write into. It then asks `[y/N]`.
+- Without a terminal on standard input and without `--yes`, it writes nothing and says so.
+- The outcome is one line: installed, already in your library (nothing changed), or refreshed (the approval record or figures were updated), then `To play it: studium-mcp play`.
+- On a conflict it says what replacing does: the old version's files are removed, your progress is kept because it is saved under the lesson's identifier, and the class contributions in `community/` are kept when the folder has them. It writes nothing unless you give `--replace`, then asks again unless you give `--yes`.
+- Each refusal of the file is one line that says what to do. The command prints English only, as `play` does. The file is read on your computer; no network call is made.
+- The library is `<STUDIUM_HOME>/library` (`~/.studium/library` by default), the folder `play` reads: see [Configuration](configuration.md).
+
+Exit status: `0` imported or already there, `1` nothing was imported (refused, declined, or no one to ask), `2` a usage error.

@@ -8,7 +8,7 @@ Vous pouvez donner à vos étudiants une leçon approuvée depuis la page de vot
 
 - Une leçon que vous avez approuvée, avec `approval.json` à côté de `lesson.json` : voir [Relire et approuver](review-and-approve.fr.md#approuver-le-fichier-exact).
 - L'environnement Python du dépôt, où tourne `tools/experience_packet.py` (voir [Installation](../start/installation.fr.md)).
-- Ce dont chaque étudiant a besoin : VS Code et l'extension Studium. Pas de compte d'IA et pas de terminal : le panneau joue la leçon sans modèle ([VS Code](../start/vscode.fr.md)).
+- Ce dont chaque étudiant a besoin : VS Code et l'extension Studium. Pas de compte d'IA et pas de terminal : le panneau joue la leçon sans modèle ([VS Code](../start/vscode.fr.md)). Un étudiant sans VS Code a besoin de Node.js 20 ou plus récent et de deux commandes dans un terminal : voir [Sans VS Code](#sans-vs-code).
 
 ## 1. Empaqueter la leçon
 
@@ -54,12 +54,23 @@ L'étudiant télécharge le fichier, puis lance **Studium : Importer une leçon�
 
 À la confirmation, la leçon est copiée dans la bibliothèque de l'étudiant et s'ouvre. Le fichier est lu sur l'ordinateur ; Studium ne fait aucun appel réseau pour cela.
 
+## Sans VS Code
+
+Un étudiant qui n'utilise pas VS Code a besoin de [Node.js](https://nodejs.org) 20 ou plus récent et d'un terminal. Une fois le fichier téléchargé depuis la page du cours, deux commandes :
+
+```bash
+npx -y studium-mcp import ~/Downloads/my-course.studium.zip
+npx -y studium-mcp play
+```
+
+`import` vérifie le fichier, n'écrit encore rien, et montre les mêmes informations que la boîte de dialogue de VS Code : le titre de la leçon et son nombre d'étapes, l'approbation que le fichier enregistre (un enregistrement, pas une signature, ou qu'aucune n'est enregistrée, ou que la leçon a changé depuis son approbation), les 12 premiers caractères de l'empreinte de la leçon, le nombre de fichiers de l'archive qu'il ne copiera pas, et le dossier de la bibliothèque où il écrira. Il demande ensuite oui ou non. Sans terminal, il n'écrit rien à moins que vous n'ajoutiez `--yes`, et le dit. Une leçon différente sous le même identifiant n'est remplacée qu'avec `--replace` et une seconde confirmation, qui dit ce que remplacer fait. `play` ouvre la leçon dans le navigateur ([Jouer une leçon dans votre navigateur](../start/browser.fr.md#jouer-une-leçon-venue-dune-page-de-cours)). Les options sont dans [Outils en ligne de commande](../reference/cli.fr.md#studium-mcp-import).
+
 ## Mettre à jour une leçon
 
 Approuvez de nouveau, empaquetez de nouveau, et remplacez le fichier dans le cours. Quand un étudiant importe le nouveau fichier :
 
 - la même leçon déjà présente dans la bibliothèque est ouverte ; si le fichier porte une approbation qui correspond à la leçon, son enregistrement d'approbation et ses figures sont mis à jour s'ils diffèrent, et sinon rien n'est écrit ;
-- une leçon différente sous le même identifiant (`bundle_id`) n'est remplacée qu'après une seconde confirmation. La progression est conservée, car elle est enregistrée sous l'identifiant de la leçon, de même que les contributions de la classe du dossier `community/` de la leçon.
+- une leçon différente sous le même identifiant (`bundle_id`) n'est remplacée qu'après une seconde confirmation (dans un terminal, avec `--replace`). La progression est conservée, car elle est enregistrée sous l'identifiant de la leçon, de même que les contributions de la classe du dossier `community/` de la leçon.
 
 ## En salle
 
@@ -83,5 +94,5 @@ Moodle journalise qu'un étudiant a consulté la ressource. Studium ne lui envoi
 
 ## Limites
 
-- Essayé : des tests automatiques de l'empaqueteur et de l'importeur ; un aller-retour scripté de `pack` à l'installation, avec une empreinte identique ; sur un Moodle 5.3.1 local jetable aux réglages par défaut, avec un zip fait à la main (pas produit par `pack`) : dépôt comme ressource Fichier par un enseignant éditeur, téléchargement par un étudiant avec des octets identiques, refus sans session, un lien `vscode://` conservé dans une Étiquette et une Page.
-- Non essayé : une vraie fenêtre VS Code (la commande a été exercée par des pilotes avec un faux VS Code), un clic sur un lien `vscode://` dans un vrai navigateur, le Moodle d'une université ou une autre version de Moodle ou un site qui restreint les types de fichiers, un ENT ou Teams, Windows, une classe.
+- Essayé : des tests automatiques de l'empaqueteur, de l'importeur et de `studium-mcp import` ; `studium-mcp import` lancé dans un terminal sous macOS, avec un `STUDIUM_HOME` temporaire, sur un fichier fait par `pack`, jusqu'à ce que `studium-mcp play` liste la leçon ; un aller-retour scripté de `pack` à l'installation, avec une empreinte identique ; sur un Moodle 5.3.1 local jetable aux réglages par défaut, avec un zip fait à la main (pas produit par `pack`) : dépôt comme ressource Fichier par un enseignant éditeur, téléchargement par un étudiant avec des octets identiques, refus sans session, un lien `vscode://` conservé dans une Étiquette et une Page.
+- Non essayé : une vraie fenêtre VS Code (la commande a été exercée par des pilotes avec un faux VS Code), un clic sur un lien `vscode://` dans un vrai navigateur, le Moodle d'une université ou une autre version de Moodle ou un site qui restreint les types de fichiers, un ENT ou Teams, `studium-mcp import` sous Windows ou Linux et sur un fichier téléchargé depuis un Moodle, Windows, une classe.

@@ -1284,6 +1284,52 @@ async function main() {
     warningAnswer = savedWarning;
   }
 
+  // The import speaks the language of the lesson it is about once the archive is inspected, not the editor's (here en):
+  // a French lesson is confirmed in French, an English one in English, whatever language the last lesson left behind.
+  {
+    const importLesson = seen.commands.get("studium.importLesson");
+    if (importLesson) {
+      const downloads = join(scratch, "downloads-language");
+      mkdirSync(downloads, { recursive: true });
+      const archiveOf = (id: string, title: string, language: string) => {
+        const data = JSON.parse(readFileSync(safePath, "utf8"));
+        data.bundle_id = id; data.metadata.title = title; data.metadata.language = language;
+        const zipFile = join(downloads, id + ".studium.zip");
+        writeFileSync(zipFile, makeZip({ "lesson.json": Buffer.from(JSON.stringify(data)) }));
+        return zipFile;
+      };
+      const savedInfo = infoAnswer;
+      const confirmationOf = async (zipFile: string, title: string) => {
+        const before = seen.infos.length;
+        await importLesson(FakeUri.file(zipFile));
+        return seen.infos.slice(before).find((m) => m.includes(title));
+      };
+      const confirm = (_m: string, items: unknown[]) => items.find((i) => i === "Import" || i === "Importer") as string | undefined;
+      // An English lesson, confirmed: it opens, and the extension then speaks English.
+      infoAnswer = confirm;
+      const panesBefore = seen.panels.length;
+      await importLesson(FakeUri.file(archiveOf("lang-en", "English language lesson", "en")));
+      await waitFor(() => seen.panels.length > panesBefore && lastPanel().posted.some((m: Json) => m.type === "render"), "the English lesson's pane");
+      lastPanel()?.dispose();
+      // A French lesson, cancelled: the confirmation is French although the extension is speaking English.
+      infoAnswer = () => undefined;
+      const french = await confirmationOf(archiveOf("lang-fr", "Leçon en français", "fr"), "Leçon en français");
+      expect(french === hostPhrase("import_confirm_message", { title: "Leçon en français" }, "fr"),
+        "with the editor in English, a French lesson is confirmed in French (got " + french + ")");
+      // A French lesson, confirmed: the extension now speaks French; an English lesson is still confirmed in English.
+      infoAnswer = confirm;
+      const frenchPanes = seen.panels.length;
+      await importLesson(FakeUri.file(archiveOf("lang-fr", "Leçon en français", "fr")));
+      await waitFor(() => seen.panels.length > frenchPanes && lastPanel().posted.some((m: Json) => m.type === "render"), "the French lesson's pane");
+      lastPanel()?.dispose();
+      infoAnswer = () => undefined;
+      const english = await confirmationOf(archiveOf("lang-en-2", "Second English lesson", "en"), "Second English lesson");
+      expect(english === hostPhrase("import_confirm_message", { title: "Second English lesson" }, "en"),
+        "an English lesson is confirmed in English whatever the last lesson left behind (got " + english + ")");
+      infoAnswer = savedInfo;
+    }
+  }
+
   // Review 2026-11-27: the import is the lesson the student confirmed (items 1, 2), and a link can only open the dialog
   // (item 11).
   {
