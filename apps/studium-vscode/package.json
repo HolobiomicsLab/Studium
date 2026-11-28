@@ -148,7 +148,7 @@
         },
         {
           "command": "studium.importLesson",
-          "when": "resourceFilename =~ /\\.studium\\.zip$/",
+          "when": "resourceFilename =~ /\\.studium.*\\.zip$/i",
           "group": "navigation@100"
         }
       ],

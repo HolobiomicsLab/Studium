@@ -308,8 +308,16 @@ const hasCmd = (id: string) => commandIds.includes(id);
     expect(String(nls["viewsWelcome.empty"]).includes(`(command:${id})`), `${file}: the empty Lessons view offers to import a lesson file`);
   }
   const explorer = c.menus?.["explorer/context"] ?? [];
-  expect(explorer.some((m: any) => m.command === id && String(m.when ?? "").includes("resourceFilename =~ /\\.studium\\.zip$/")),
-    `the explorer context menu offers the import on a *.studium.zip (got ${JSON.stringify(explorer.filter((m: any) => m.command === id))})`);
+  const importEntry = explorer.find((m: any) => m.command === id);
+  const fileRule = /resourceFilename =~ \/(.+)\/([a-z]*)$/.exec(String(importEntry?.when ?? ""));
+  expect(fileRule !== null, `the explorer context menu offers the import on a regular expression of the file name (got ${JSON.stringify(importEntry)})`);
+  if (fileRule) {
+    const nameRule = new RegExp(fileRule[1]!, fileRule[2]);
+    for (const name of ["a.studium.zip", "a.studium (1).zip", "a.studium(1).zip", "a.studium-1.zip", "a-1.studium.zip", "A.STUDIUM.ZIP"])
+      expect(nameRule.test(name), `the import is offered on a renamed download: ${name}`);
+    for (const name of ["a.zip", "a.studium.zip.txt", "studium.zip.md"])
+      expect(!nameRule.test(name), `the import is not offered on ${name}`);
+  }
 }
 
 if (failures.length) {

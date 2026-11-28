@@ -65,6 +65,11 @@ npx -y studium-mcp play
 
 `import` checks the file, writes nothing yet, and shows the same facts as the VS Code dialog: the lesson's title and its number of steps, the approval the file records (a record, not a signature, or that none is recorded, or that the lesson changed since its approval), the first 12 characters of the lesson fingerprint, how many files of the archive it will not copy, and the library folder it will write into. It then asks for a yes or no. Without a terminal it writes nothing unless you add `--yes`, and says so. A different lesson under the same identifier is replaced only with `--replace` and a second confirmation, which says what replacing does. `play` opens the lesson in the browser ([Play a lesson in your browser](../start/browser.md#play-a-lesson-from-a-course-page)). The options are in [Command-line tools](../reference/cli.md#studium-mcp-import).
 
+## If the download will not import
+
+- **The browser renamed the file** (`my-course.studium (1).zip`, after a second download): it imports the same. Studium offers the import on any `.zip` whose name contains `.studium`, and `studium-mcp import` takes the name you give it.
+- **There is no file, only a folder**: the browser unpacked the zip. Safari does this with its default setting **Open "safe" files after downloading** (General settings). Untick it and download again, or use another browser. Studium imports a file, not a folder.
+
 ## Update a lesson
 
 Approve again, pack again, and replace the file in the course. When a student imports the new file:
